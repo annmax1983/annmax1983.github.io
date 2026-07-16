@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://annmax1983.github.io/annmax1983/sitemap.xml

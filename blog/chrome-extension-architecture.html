@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Chrome Extension Architecture: A Deep Dive into Manifest V3 — AnnMax</title>
+  <meta name="description" content="A comprehensive guide to Chrome extension architecture with Manifest V3.">
+  <link rel="canonical" href="https://annmax1983.github.io/annmax1983/blog/chrome-extension-architecture.html">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .article { max-width: 760px; margin: 0 auto; padding: 100px 24px 60px; }
+    .article h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--text-primary); }
+    .article .meta { color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 2rem; }
+    .article h2 { font-size: 1.3rem; margin: 2rem 0 0.8rem; color: var(--accent-2); }
+    .article p { color: var(--text-secondary); line-height: 1.8; margin-bottom: 1rem; }
+    .article pre { background: var(--bg-secondary); border: 1px solid var(--border-glass); border-radius: 8px; padding: 1rem; overflow-x: auto; margin-bottom: 1rem; }
+    .article code { font-family: 'SF Mono', monospace; font-size: 0.85rem; color: var(--accent-3); }
+    .article ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+    .article li { color: var(--text-secondary); line-height: 1.8; margin-bottom: 0.3rem; }
+    .article a { color: var(--accent-2); }
+    .article blockquote { border-left: 3px solid var(--accent-2); padding-left: 1rem; color: var(--text-secondary); margin: 1rem 0; }
+    .back { display: inline-block; margin-bottom: 2rem; color: var(--accent-2); text-decoration: none; }
+    .back:hover { color: var(--accent-1); }
+    .lang-bar { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .lang-bar button { padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border-glass); background: var(--bg-secondary); color: var(--text-secondary); cursor: pointer; font-size: 0.8rem; }
+    .lang-bar button.active { background: var(--accent-2); color: #fff; border-color: var(--accent-2); }
+  </style>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <div class="lang-bar" id="langBar">
+      <button data-lang="en">EN</button>
+      <button data-lang="zh">中文</button>
+      <button data-lang="ja">日本語</button>
+      <button data-lang="de">DE</button>
+      <button data-lang="es">ES</button>
+      <button data-lang="fr">FR</button>
+    </div>
+    <h1 id="articleTitle">Chrome Extension Architecture: A Deep Dive into Manifest V3</h1>
+    <div class="meta" id="articleMeta">July 2026</div>
+    <div id="articleContent">
+<h2>Introduction</h2>
+<p>Chrome extensions have evolved significantly with Manifest V3 (MV3). Understanding MV3 architecture is essential — it's a fundamental shift in how extensions operate.</p>
+<p>This guide covers the core architectural components, based on the <a href="https://developer.chrome.google.cn/docs/extensions" target="_blank">official Chrome Extensions documentation</a>.</p>
+
+<h2>The Four Pillars of MV3</h2>
+
+<h3>1. Service Worker (Background Script)</h3>
+<p>MV3 replaces the persistent background page with a <strong>service worker</strong>:</p>
+<ul>
+<li><strong>Ephemeral lifecycle</strong> — Starts when needed, terminates after ~30 seconds of inactivity</li>
+<li><strong>No DOM access</strong> — Cannot use <code>document</code>, <code>window</code>, or DOM-dependent Web APIs</li>
+<li><strong>Event-driven</strong> — Register listeners at the top level; they survive termination</li>
+</ul>
+<pre><code>// background.js
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: 'my-action',
+    title: 'My Action',
+    contexts: ['page']
+  });
+});
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  // Handle — survives worker termination
+});</code></pre>
+<p><strong>Key rule:</strong> Use <code>chrome.alarms</code> instead of <code>setTimeout</code> — timers are cleared when the worker terminates.</p>
+
+<h3>2. Content Scripts</h3>
+<p>Content scripts run in web page contexts, in an <strong>isolated world</strong>:</p>
+<ul>
+<li>Share the DOM with the page but have separate JavaScript contexts</li>
+<li>Can use a subset of Chrome APIs (<code>chrome.storage</code>, <code>chrome.runtime</code>)</li>
+<li>Static (manifest) or dynamic (<code>chrome.scripting.executeScript</code>) injection</li>
+</ul>
+<pre><code>await chrome.scripting.executeScript({
+  target: {{ tabId: tab.id }},
+  func: () => {{ document.body.style.backgroundColor = '#f0f0f0'; }}
+});</code></pre>
+
+<h3>3. Offscreen Documents</h3>
+<p>For DOM-dependent operations (clipboard, canvas, parsing) in MV3:</p>
+<ul>
+<li><strong>Clipboard</strong> — Copy images/text (requires DOM)</li>
+<li><strong>Canvas</strong> — Image processing, stitching, cropping</li>
+<li><strong>Parsing</strong> — DOMParser operations</li>
+</ul>
+<pre><code>await chrome.offscreen.createDocument({{
+  url: 'offscreen.html',
+  reasons: ['CLIPBOARD'],
+  justification: 'Copy image to clipboard'
+}});</code></pre>
+
+<h3>4. Message Passing</h3>
+<p>Communication between components:</p>
+<ul>
+<li><strong>One-time</strong> — <code>chrome.runtime.sendMessage()</code></li>
+<li><strong>Long-lived</strong> — <code>chrome.runtime.connect()</code></li>
+<li><strong>Tab messaging</strong> — <code>chrome.tabs.sendMessage()</code></li>
+</ul>
+
+<h2>References</h2>
+<ul>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/develop" target="_blank">Chrome Extensions Developer Guide</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/develop/concepts/service-workers/basics" target="_blank">Service Worker Basics</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/develop/concepts/offscreen-documents" target="_blank">Offscreen Documents</a></li>
+</ul></div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: { title: 'Chrome Extension Architecture: A Deep Dive into Manifest V3', content: '\n<h2>Introduction</h2>\n<p>Chrome extensions have evolved significantly with Manifest V3 (MV3). Understanding MV3 architecture is essential — it\'s a fundamental shift in how extensions operate.</p>\n<p>This guide covers the core architectural components, based on the <a href="https://developer.chrome.google.cn/docs/extensions" target="_blank">official Chrome Extensions documentation</a>.</p>\n\n<h2>The Four Pillars of MV3</h2>\n\n<h3>1. Service Worker (Background Script)</h3>\n<p>MV3 replaces the persistent background page with a <strong>service worker</strong>:</p>\n<ul>\n<li><strong>Ephemeral lifecycle</strong> — Starts when needed, terminates after ~30 seconds of inactivity</li>\n<li><strong>No DOM access</strong> — Cannot use <code>document</code>, <code>window</code>, or DOM-dependent Web APIs</li>\n<li><strong>Event-driven</strong> — Register listeners at the top level; they survive termination</li>\n</ul>\n<pre><code>// background.js\nchrome.runtime.onInstalled.addListener(() => {\n  chrome.contextMenus.create({\n    id: \'my-action\',\n    title: \'My Action\',\n    contexts: [\'page\']\n  });\n});\nchrome.contextMenus.onClicked.addListener((info, tab) => {\n  // Handle — survives worker termination\n});</code></pre>\n<p><strong>Key rule:</strong> Use <code>chrome.alarms</code> instead of <code>setTimeout</code> — timers are cleared when the worker terminates.</p>\n\n<h3>2. Content Scripts</h3>\n<p>Content scripts run in web page contexts, in an <strong>isolated world</strong>:</p>\n<ul>\n<li>Share the DOM with the page but have separate JavaScript contexts</li>\n<li>Can use a subset of Chrome APIs (<code>chrome.storage</code>, <code>chrome.runtime</code>)</li>\n<li>Static (manifest) or dynamic (<code>chrome.scripting.executeScript</code>) injection</li>\n</ul>\n<pre><code>await chrome.scripting.executeScript({\n  target: {{ tabId: tab.id }},\n  func: () => {{ document.body.style.backgroundColor = \'#f0f0f0\'; }}\n});</code></pre>\n\n<h3>3. Offscreen Documents</h3>\n<p>For DOM-dependent operations (clipboard, canvas, parsing) in MV3:</p>\n<ul>\n<li><strong>Clipboard</strong> — Copy images/text (requires DOM)</li>\n<li><strong>Canvas</strong> — Image processing, stitching, cropping</li>\n<li><strong>Parsing</strong> — DOMParser operations</li>\n</ul>\n<pre><code>await chrome.offscreen.createDocument({{\n  url: \'offscreen.html\',\n  reasons: [\'CLIPBOARD\'],\n  justification: \'Copy image to clipboard\'\n}});</code></pre>\n\n<h3>4. Message Passing</h3>\n<p>Communication between components:</p>\n<ul>\n<li><strong>One-time</strong> — <code>chrome.runtime.sendMessage()</code></li>\n<li><strong>Long-lived</strong> — <code>chrome.runtime.connect()</code></li>\n<li><strong>Tab messaging</strong> — <code>chrome.tabs.sendMessage()</code></li>\n</ul>\n\n<h2>References</h2>\n<ul>\n<li><a href="https://developer.chrome.google.cn/docs/extensions/develop" target="_blank">Chrome Extensions Developer Guide</a></li>\n<li><a href="https://developer.chrome.google.cn/docs/extensions/develop/concepts/service-workers/basics" target="_blank">Service Worker Basics</a></li>\n<li><a href="https://developer.chrome.google.cn/docs/extensions/develop/concepts/offscreen-documents" target="_blank">Offscreen Documents</a></li>\n</ul>' },
+      zh: { title: 'Chrome 扩展架构深度解析：Manifest V3 核心原理', content: '\n<h2>前言</h2>\n<p>Chrome 扩展随着 Manifest V3（MV3）发生了根本性变化。理解 MV3 架构是必修课——这是扩展运行方式的彻底重构。</p>\n<p>本文基于 <a href="https://developer.chrome.google.cn/docs/extensions" target="_blank">Chrome 官方扩展文档</a>，系统梳理核心架构。</p>\n\n<h2>MV3 四大支柱</h2>\n\n<h3>1. Service Worker（后台脚本）</h3>\n<p>MV3 用 <strong>Service Worker</strong> 取代持久化的 Background Page：</p>\n<ul>\n<li><strong>临时生命周期</strong> — 按需启动，空闲约 30 秒后自动终止</li>\n<li><strong>无 DOM 访问</strong> — 不能使用 <code>document</code>、<code>window</code> 或依赖 DOM 的 Web API</li>\n<li><strong>事件驱动</strong> — 在顶层注册事件监听器，终止后仍然存活</li>\n</ul>\n<pre><code>// background.js\nchrome.runtime.onInstalled.addListener(() => {{\n  chrome.contextMenus.create({{\n    id: \'my-action\',\n    title: \'My Action\',\n    contexts: [\'page\']\n  }});\n}});\nchrome.contextMenus.onClicked.addListener((info, tab) => {{\n  // 处理——Worker 终止后仍然存活\n}});</code></pre>\n<p><strong>关键规则：</strong>用 <code>chrome.alarms</code> 替代 <code>setTimeout</code>——定时器在 Worker 终止时会被清除。</p>\n\n<h3>2. Content Script（内容脚本）</h3>\n<p>Content Script 运行在网页上下文中的<strong>隔离世界</strong>：</p>\n<ul>\n<li>与页面共享 DOM，但 JavaScript 上下文独立</li>\n<li>只能使用部分 Chrome API（<code>chrome.storage</code>、<code>chrome.runtime</code>）</li>\n<li>静态（manifest 声明）或动态（<code>chrome.scripting.executeScript</code>）注入</li>\n</ul>\n<pre><code>await chrome.scripting.executeScript({{\n  target: {{ tabId: tab.id }},\n  func: () => {{ document.body.style.backgroundColor = \'#f0f0f0\'; }}\n}});</code></pre>\n\n<h3>3. Offscreen Document（离屏文档）</h3>\n<p>MV3 中处理依赖 DOM 的操作（剪贴板、Canvas、解析）：</p>\n<ul>\n<li><strong>剪贴板</strong> — 复制图片/文本（需要 DOM）</li>\n<li><strong>Canvas</strong> — 图片处理、拼接、裁剪</li>\n<li><strong>解析</strong> — DOMParser 操作</li>\n</ul>\n<pre><code>await chrome.offscreen.createDocument({{\n  url: \'offscreen.html\',\n  reasons: [\'CLIPBOARD\'],\n  justification: \'Copy image to clipboard\'\n}});</code></pre>\n\n<h3>4. 消息传递</h3>\n<p>组件间通信：</p>\n<ul>\n<li><strong>一次性</strong> — <code>chrome.runtime.sendMessage()</code></li>\n<li><strong>长连接</strong> — <code>chrome.runtime.connect()</code></li>\n<li><strong>标签页消息</strong> — <code>chrome.tabs.sendMessage()</code></li>\n</ul>\n\n<h2>参考文档</h2>\n<ul>\n<li><a href="https://developer.chrome.google.cn/docs/extensions/develop" target="_blank">Chrome 扩展开发者指南</a></li>\n<li><a href="https://developer.chrome.google.cn/docs/extensions/develop/concepts/service-workers/basics" target="_blank">Service Worker 基础</a></li>\n<li><a href="https://developer.chrome.google.cn/docs/extensions/develop/concepts/offscreen-documents" target="_blank">离屏文档</a></li>\n</ul>' },
+    };
+    
+    function detectLang() {
+      const saved = localStorage.getItem('blog-lang');
+      if (saved && ARTICLES[saved]) return saved;
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      return 'en';
+    }
+    
+    let currentLang = detectLang();
+    
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      localStorage.setItem('blog-lang', lang);
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('articleContent').innerHTML = a.content;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = lang === 'zh' ? '返回博客' : 'Back to Blog';
+      document.querySelectorAll('.lang-bar button').forEach(b => {
+        b.classList.toggle('active', b.dataset.lang === lang);
+      });
+    }
+    
+    document.querySelectorAll('.lang-bar button').forEach(btn => {
+      btn.addEventListener('click', () => applyLang(btn.dataset.lang));
+    });
+    
+    applyLang(currentLang);
+  </script>
+</body>
+</html>

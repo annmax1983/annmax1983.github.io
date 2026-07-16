@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Building Production-Grade Chrome Extensions — AnnMax</title>
+  <meta name="description" content="Production patterns for shipping extensions that pass review.">
+  <link rel="canonical" href="https://annmax1983.github.io/annmax1983/blog/production-grade-extensions.html">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .article { max-width: 760px; margin: 0 auto; padding: 100px 24px 60px; }
+    .article h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--text-primary); }
+    .article .meta { color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 2rem; }
+    .article h2 { font-size: 1.3rem; margin: 2rem 0 0.8rem; color: var(--accent-2); }
+    .article p { color: var(--text-secondary); line-height: 1.8; margin-bottom: 1rem; }
+    .article pre { background: var(--bg-secondary); border: 1px solid var(--border-glass); border-radius: 8px; padding: 1rem; overflow-x: auto; margin-bottom: 1rem; }
+    .article code { font-family: 'SF Mono', monospace; font-size: 0.85rem; color: var(--accent-3); }
+    .article ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+    .article li { color: var(--text-secondary); line-height: 1.8; margin-bottom: 0.3rem; }
+    .article a { color: var(--accent-2); }
+    .article blockquote { border-left: 3px solid var(--accent-2); padding-left: 1rem; color: var(--text-secondary); margin: 1rem 0; }
+    .back { display: inline-block; margin-bottom: 2rem; color: var(--accent-2); text-decoration: none; }
+    .back:hover { color: var(--accent-1); }
+    .lang-bar { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .lang-bar button { padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border-glass); background: var(--bg-secondary); color: var(--text-secondary); cursor: pointer; font-size: 0.8rem; }
+    .lang-bar button.active { background: var(--accent-2); color: #fff; border-color: var(--accent-2); }
+  </style>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <div class="lang-bar" id="langBar">
+      <button data-lang="en">EN</button>
+      <button data-lang="zh">中文</button>
+      <button data-lang="ja">日本語</button>
+      <button data-lang="de">DE</button>
+      <button data-lang="es">ES</button>
+      <button data-lang="fr">FR</button>
+    </div>
+    <h1 id="articleTitle">Building Production-Grade Chrome Extensions</h1>
+    <div class="meta" id="articleMeta">July 2026</div>
+    <div id="articleContent"><h2>Why Most Extensions Never Pass Review</h2>
+<p>Every year, thousands of extensions are rejected from Chrome Web Store. Top reasons: excessive permissions, poor privacy practices, missing documentation.</p>
+
+<h2>1. Permission Minimization</h2>
+<ul>
+<li><strong>Use activeTab instead of tabs</strong> — Temporary access only when user clicks</li>
+<li><strong>Use scripting + activeTab instead of &lt;all_urls&gt;</strong> — Inject on-demand</li>
+<li><strong>Document every permission</strong> — Explain in store listing</li>
+</ul>
+<pre><code>{{ "permissions": ["activeTab", "scripting", "storage"] }}</code></pre>
+
+<h2>2. Service Worker Resilience</h2>
+<pre><code>// WRONG — cleared on termination
+setTimeout(() => doSomething(), 60000);
+
+// CORRECT — survives termination
+chrome.alarms.create('myAlarm', {{ periodInMinutes: 1 }});
+chrome.alarms.onAlarm.addListener((alarm) => {{
+  if (alarm.name === 'myAlarm') doSomething();
+}});</code></pre>
+
+<h2>3. Offscreen for DOM Operations</h2>
+<pre><code>async function copyImageToClipboard(dataUrl) {{
+  await chrome.offscreen.createDocument({{
+    url: 'offscreen.html',
+    reasons: ['CLIPBOARD'],
+    justification: 'Copy image to clipboard'
+  }});
+  await chrome.runtime.sendMessage({{ type: 'OFFSCREEN_COPY', dataUrl }});
+}}</code></pre>
+
+<h2>4. Dynamic Content Script Injection</h2>
+<pre><code>chrome.action.onClicked.addListener(async (tab) => {{
+  await chrome.scripting.executeScript({{
+    target: {{ tabId: tab.id }},
+    files: ['content.js']
+  }});
+}});</code></pre>
+
+<h2>5. i18n for Global Reach</h2>
+<pre><code>// manifest.json
+{{ "default_locale": "en", "name": "__MSG_extName__" }}
+
+// _locales/en/messages.json
+{{ "extName": {{ "message": "My Extension" }} }}
+
+// _locales/zh_CN/messages.json
+{{ "extName": {{ "message": "我的扩展" }} }}</code></pre>
+
+<h2>6. Store Listing Best Practices</h2>
+<ul>
+<li><strong>Screenshots:</strong> 1280×800px, show extension in action</li>
+<li><strong>Description:</strong> First 2 lines are critical for search</li>
+<li><strong>Privacy policy:</strong> Required for any data-handling extension</li>
+</ul>
+
+<h2>References</h2>
+<ul>
+<li><a href="https://developer.chrome.google.cn/docs/webstore" target="_blank">Chrome Web Store Guide</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/develop/concepts/best-practices" target="_blank">Best Practices</a></li>
+</ul></div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: { title: 'Building Production-Grade Chrome Extensions', content: '<h2>Why Most Extensions Never Pass Review</h2>\n<p>Every year, thousands of extensions are rejected from Chrome Web Store. Top reasons: excessive permissions, poor privacy practices, missing documentation.</p>\n\n<h2>1. Permission Minimization</h2>\n<ul>\n<li><strong>Use activeTab instead of tabs</strong> — Temporary access only when user clicks</li>\n<li><strong>Use scripting + activeTab instead of &lt;all_urls&gt;</strong> — Inject on-demand</li>\n<li><strong>Document every permission</strong> — Explain in store listing</li>\n</ul>\n<pre><code>{{ "permissions": ["activeTab", "scripting", "storage"] }}</code></pre>\n\n<h2>2. Service Worker Resilience</h2>\n<pre><code>// WRONG — cleared on termination\nsetTimeout(() => doSomething(), 60000);\n\n// CORRECT — survives termination\nchrome.alarms.create(\'myAlarm\', {{ periodInMinutes: 1 }});\nchrome.alarms.onAlarm.addListener((alarm) => {{\n  if (alarm.name === \'myAlarm\') doSomething();\n}});</code></pre>\n\n<h2>3. Offscreen for DOM Operations</h2>\n<pre><code>async function copyImageToClipboard(dataUrl) {{\n  await chrome.offscreen.createDocument({{\n    url: \'offscreen.html\',\n    reasons: [\'CLIPBOARD\'],\n    justification: \'Copy image to clipboard\'\n  }});\n  await chrome.runtime.sendMessage({{ type: \'OFFSCREEN_COPY\', dataUrl }});\n}}</code></pre>\n\n<h2>4. Dynamic Content Script Injection</h2>\n<pre><code>chrome.action.onClicked.addListener(async (tab) => {{\n  await chrome.scripting.executeScript({{\n    target: {{ tabId: tab.id }},\n    files: [\'content.js\']\n  }});\n}});</code></pre>\n\n<h2>5. i18n for Global Reach</h2>\n<pre><code>// manifest.json\n{{ "default_locale": "en", "name": "__MSG_extName__" }}\n\n// _locales/en/messages.json\n{{ "extName": {{ "message": "My Extension" }} }}\n\n// _locales/zh_CN/messages.json\n{{ "extName": {{ "message": "我的扩展" }} }}</code></pre>\n\n<h2>6. Store Listing Best Practices</h2>\n<ul>\n<li><strong>Screenshots:</strong> 1280×800px, show extension in action</li>\n<li><strong>Description:</strong> First 2 lines are critical for search</li>\n<li><strong>Privacy policy:</strong> Required for any data-handling extension</li>\n</ul>\n\n<h2>References</h2>\n<ul>\n<li><a href="https://developer.chrome.google.cn/docs/webstore" target="_blank">Chrome Web Store Guide</a></li>\n<li><a href="https://developer.chrome.google.cn/docs/extensions/develop/concepts/best-practices" target="_blank">Best Practices</a></li>\n</ul>' },
+      zh: { title: '生产级 Chrome 扩展开发指南', content: '<h2>为什么大多数扩展无法通过审核</h2>\n<p>每年大量扩展被 Chrome Web Store 拒绝。最常见原因：过度申请权限、隐私实践不规范、缺少文档。</p>\n\n<h2>1. 权限最小化</h2>\n<ul>\n<li><strong>用 activeTab 代替 tabs</strong> — 仅在用户点击时临时授权</li>\n<li><strong>用 scripting + activeTab 代替 &lt;all_urls&gt;</strong> — 按需注入</li>\n<li><strong>为每个权限写说明</strong> — 在商店描述中解释</li>\n</ul>\n<pre><code>{{ "permissions": ["activeTab", "scripting", "storage"] }}</code></pre>\n\n<h2>2. Service Worker 容错</h2>\n<pre><code>// 错误——终止后定时器被清除\nsetTimeout(() => doSomething(), 60000);\n\n// 正确——终止后仍然存活\nchrome.alarms.create(\'myAlarm\', {{ periodInMinutes: 1 }});\nchrome.alarms.onAlarm.addListener((alarm) => {{\n  if (alarm.name === \'myAlarm\') doSomething();\n}});</code></pre>\n\n<h2>3. Offscreen 处理 DOM 操作</h2>\n<pre><code>async function copyImageToClipboard(dataUrl) {{\n  await chrome.offscreen.createDocument({{\n    url: \'offscreen.html\',\n    reasons: [\'CLIPBOARD\'],\n    justification: \'Copy image to clipboard\'\n  }});\n  await chrome.runtime.sendMessage({{ type: \'OFFSCREEN_COPY\', dataUrl }});\n}}</code></pre>\n\n<h2>4. 动态注入 Content Script</h2>\n<pre><code>chrome.action.onClicked.addListener(async (tab) => {{\n  await chrome.scripting.executeScript({{\n    target: {{ tabId: tab.id }},\n    files: [\'content.js\']\n  }});\n}});</code></pre>\n\n<h2>5. i18n 触达全球用户</h2>\n<pre><code>// manifest.json\n{{ "default_locale": "en", "name": "__MSG_extName__" }}\n\n// _locales/en/messages.json\n{{ "extName": {{ "message": "My Extension" }} }}\n\n// _locales/zh_CN/messages.json\n{{ "extName": {{ "message": "我的扩展" }} }}</code></pre>\n\n<h2>6. 商店描述最佳实践</h2>\n<ul>\n<li><strong>截图：</strong>1280×800px，展示扩展实际效果</li>\n<li><strong>描述：</strong>前 2 行最关键——决定搜索点击率</li>\n<li><strong>隐私政策：</strong>处理用户数据的扩展必须提供</li>\n</ul>\n\n<h2>参考文档</h2>\n<ul>\n<li><a href="https://developer.chrome.google.cn/docs/webstore" target="_blank">Chrome Web Store 指南</a></li>\n<li><a href="https://developer.chrome.google.cn/docs/extensions/develop/concepts/best-practices" target="_blank">最佳实践</a></li>\n</ul>' },
+    };
+    
+    function detectLang() {
+      const saved = localStorage.getItem('blog-lang');
+      if (saved && ARTICLES[saved]) return saved;
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      return 'en';
+    }
+    
+    let currentLang = detectLang();
+    
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      localStorage.setItem('blog-lang', lang);
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('articleContent').innerHTML = a.content;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = lang === 'zh' ? '返回博客' : 'Back to Blog';
+      document.querySelectorAll('.lang-bar button').forEach(b => {
+        b.classList.toggle('active', b.dataset.lang === lang);
+      });
+    }
+    
+    document.querySelectorAll('.lang-bar button').forEach(btn => {
+      btn.addEventListener('click', () => applyLang(btn.dataset.lang));
+    });
+    
+    applyLang(currentLang);
+  </script>
+</body>
+</html>
