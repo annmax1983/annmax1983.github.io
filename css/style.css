@@ -673,13 +673,13 @@ footer p { margin-bottom: 0.5rem; }
    ============================================================ */
 .ext-screenshot {
   width: 100%;
-  height: 160px;
-  object-fit: cover;
+  max-height: 200px;
+  object-fit: contain;
   border-radius: 12px 12px 0 0;
-  border-bottom: 1px solid var(--border-1);
   border: 1px solid var(--border-1);
   border-bottom: none;
   background: var(--bg-1);
+  padding: 8px;
 }
 .ext-screenshot-placeholder {
   opacity: 0.6;
@@ -782,6 +782,73 @@ footer p { margin-bottom: 0.5rem; }
 }
 .github-profile-link:hover {
   color: var(--accent-1);
+}
+
+/* ============================================================
+   Promo Cards Section
+   ============================================================ */
+.promo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+.promo-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1.5rem;
+  border-radius: var(--radius);
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  min-height: 200px;
+}
+.promo-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+}
+.promo-icon {
+  font-size: 2.8rem;
+  margin-bottom: 1rem;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.2));
+}
+.promo-name {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.4rem;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+.promo-tag {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.8);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+/* Gradient backgrounds */
+.promo-1  { background: linear-gradient(135deg, #1e3a5f, #2563eb); }
+.promo-2  { background: linear-gradient(135deg, #4c1d95, #7c3aed); }
+.promo-3  { background: linear-gradient(135deg, #92400e, #f59e0b); }
+.promo-4  { background: linear-gradient(135deg, #065f46, #10b981); }
+.promo-5  { background: linear-gradient(135deg, #831843, #ec4899); }
+.promo-6  { background: linear-gradient(135deg, #134e4a, #14b8a6); }
+.promo-7  { background: linear-gradient(135deg, #312e81, #6366f1); }
+.promo-8  { background: linear-gradient(135deg, #1e3a5f, #64748b); }
+.promo-9  { background: linear-gradient(135deg, #1e3a5f, #3b82f6); }
+.promo-10 { background: linear-gradient(135deg, #365314, #84cc16); }
+@media (max-width: 768px) {
+  .promo-grid { grid-template-columns: 1fr 1fr; }
+  .promo-card { min-height: 160px; padding: 1.5rem 1rem; }
+  .promo-name { font-size: 1.2rem; }
+}
+@media (max-width: 480px) {
+  .promo-grid { grid-template-columns: 1fr; }
 }
 
 /* ============================================================
