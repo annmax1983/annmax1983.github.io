@@ -84,24 +84,8 @@ body {
   color: var(--text-primary);
   background: var(--bg-glass);
 }
-.lang-switcher {
-  display: flex; gap: 0.25rem;
-  background: var(--bg-glass);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-sm);
-  padding: 0.25rem;
-}
-.lang-btn {
-  background: none; border: none; color: var(--text-muted);
-  padding: 0.3rem 0.6rem; border-radius: 6px;
-  font-size: 0.75rem; font-weight: 600; cursor: pointer;
-  transition: var(--transition);
-}
-.lang-btn:hover { color: var(--text-secondary); }
-.lang-btn.active {
-  background: var(--accent-1); color: #fff;
-}
-.nav-toggle { display: none; background: none; border: none; color: var(--text-primary); font-size: 1.5rem; cursor: pointer; }
+.nav-toggle { display: none; background: none; border: none; color: var(--text-primary); font-size: 1.5rem; cursor: pointer; padding: 0.5rem; border-radius: 8px; transition: var(--transition); }
+.nav-toggle:hover { background: var(--bg-glass); }
 
 /* ============================================================
    Hero Section
@@ -394,7 +378,7 @@ section {
   gap: 1.5rem;
 }
 .ext-card {
-  padding: 2rem 1.5rem;
+  padding: 0;
   background: var(--bg-glass);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius);
@@ -453,8 +437,8 @@ section {
   color: var(--accent-2);
   text-decoration: none;
   font-weight: 600;
-  margin-top: 0.3rem;
-  transition: color 0.2s;
+  margin-top: 0.5rem;
+  transition: var(--transition);
 }
 .ext-link:hover { color: var(--accent-1); }
 
@@ -652,7 +636,6 @@ footer p { margin-bottom: 0.5rem; }
   .contact-grid { grid-template-columns: 1fr; }
   .hero-name { font-size: 2.5rem; }
   section { padding: 4rem 1.5rem; }
-  .lang-switcher { flex-wrap: wrap; }
 }
 
 /* ============================================================
@@ -673,19 +656,23 @@ footer p { margin-bottom: 0.5rem; }
    ============================================================ */
 .ext-screenshot {
   width: 100%;
-  max-height: 200px;
+  height: 180px;
   object-fit: contain;
-  border-radius: 12px 12px 0 0;
+  border-radius: 16px 16px 0 0;
   border: 1px solid var(--border-1);
-  border-bottom: none;
+  border-bottom: 1px solid var(--border-1);
   background: var(--bg-1);
   padding: 8px;
+  transition: var(--transition);
+}
+.ext-card:hover .ext-screenshot {
+  background: rgba(99,102,241,0.06);
 }
 .ext-screenshot-placeholder {
   opacity: 0.6;
 }
 .ext-card-body {
-  padding: 1.2rem;
+  padding: 1.2rem 1.5rem 1.5rem;
 }
 .ext-header {
   display: flex;
@@ -714,7 +701,6 @@ footer p { margin-bottom: 0.5rem; }
   gap: 1.5rem;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 2rem;
 }
 .blog-card {
   background: var(--bg-2);
@@ -755,100 +741,6 @@ footer p { margin-bottom: 0.5rem; }
   background: rgba(99,102,241,0.1);
   color: var(--accent-3);
   font-weight: 600;
-}
-
-/* ============================================================
-   GitHub Contributions
-   ============================================================ */
-.github-graph {
-  text-align: center;
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 0 2rem;
-}
-.contrib-chart {
-  width: 100%;
-  max-width: 800px;
-  border-radius: 12px;
-  margin-bottom: 1rem;
-}
-.github-profile-link {
-  display: inline-block;
-  color: var(--accent-2);
-  font-weight: 600;
-  font-size: 0.9rem;
-  text-decoration: none;
-  transition: color 0.2s;
-}
-.github-profile-link:hover {
-  color: var(--accent-1);
-}
-
-/* ============================================================
-   Promo Cards Section
-   ============================================================ */
-.promo-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.25rem;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 2rem;
-}
-.promo-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2.5rem 1.5rem;
-  border-radius: var(--radius);
-  text-decoration: none;
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  min-height: 200px;
-}
-.promo-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.3);
-}
-.promo-icon {
-  font-size: 2.8rem;
-  margin-bottom: 1rem;
-  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.2));
-}
-.promo-name {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: #fff;
-  letter-spacing: 0.5px;
-  margin-bottom: 0.4rem;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.15);
-}
-.promo-tag {
-  font-size: 0.85rem;
-  color: rgba(255,255,255,0.8);
-  font-weight: 500;
-  letter-spacing: 0.3px;
-}
-/* Gradient backgrounds */
-.promo-1  { background: linear-gradient(135deg, #1e3a5f, #2563eb); }
-.promo-2  { background: linear-gradient(135deg, #4c1d95, #7c3aed); }
-.promo-3  { background: linear-gradient(135deg, #92400e, #f59e0b); }
-.promo-4  { background: linear-gradient(135deg, #065f46, #10b981); }
-.promo-5  { background: linear-gradient(135deg, #831843, #ec4899); }
-.promo-6  { background: linear-gradient(135deg, #134e4a, #14b8a6); }
-.promo-7  { background: linear-gradient(135deg, #312e81, #6366f1); }
-.promo-8  { background: linear-gradient(135deg, #1e3a5f, #64748b); }
-.promo-9  { background: linear-gradient(135deg, #1e3a5f, #3b82f6); }
-.promo-10 { background: linear-gradient(135deg, #365314, #84cc16); }
-@media (max-width: 768px) {
-  .promo-grid { grid-template-columns: 1fr 1fr; }
-  .promo-card { min-height: 160px; padding: 1.5rem 1rem; }
-  .promo-name { font-size: 1.2rem; }
-}
-@media (max-width: 480px) {
-  .promo-grid { grid-template-columns: 1fr; }
 }
 
 /* ============================================================

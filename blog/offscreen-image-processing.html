@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Local-Only Image Processing Architecture via Offscreen Documents — AnnMax</title>
+  <meta name="description" content="How to build zero-network image processing pipelines in Manifest V3 using Offscreen Documents, Canvas API, and pure local computation.">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/offscreen-image-processing.html">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .article { max-width: 760px; margin: 0 auto; padding: 100px 24px 60px; position: relative; }
+    .article h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--text-primary); }
+    .article .meta { color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 2rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+    .article .meta .reading-time { color: var(--accent-3); }
+    .article h2 { font-size: 1.3rem; margin: 2.5rem 0 0.8rem; color: var(--accent-2); padding-top: 1rem; }
+    .article h3 { font-size: 1.05rem; margin: 1.5rem 0 0.6rem; color: var(--text-primary); }
+    .article p { color: var(--text-secondary); line-height: 1.8; margin-bottom: 1rem; }
+    .article pre { background: var(--bg-secondary); border: 1px solid var(--border-glass); border-radius: 8px; padding: 1rem; overflow-x: auto; margin-bottom: 1rem; position: relative; }
+    .article pre .copy-btn { position: absolute; top: 8px; right: 8px; background: var(--bg-glass); border: 1px solid var(--border-glass); color: var(--text-secondary); padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; cursor: pointer; transition: all 0.2s; }
+    .article pre .copy-btn:hover { background: var(--accent-1); color: #fff; border-color: var(--accent-1); }
+    .article code { font-family: 'SF Mono', monospace; font-size: 0.85rem; color: var(--accent-3); }
+    .article ul, .article ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+    .article li { color: var(--text-secondary); line-height: 1.8; margin-bottom: 0.3rem; }
+    .article a { color: var(--accent-2); }
+    .article blockquote { border-left: 3px solid var(--accent-2); padding-left: 1rem; color: var(--text-secondary); margin: 1rem 0; }
+    .article strong { color: var(--text-primary); }
+    .back { display: inline-block; margin-bottom: 2rem; color: var(--accent-2); text-decoration: none; }
+    .back:hover { color: var(--accent-1); }
+    .lang-bar { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .lang-bar button { padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border-glass); background: var(--bg-secondary); color: var(--text-secondary); cursor: pointer; font-size: 0.8rem; }
+    .lang-bar button.active { background: var(--accent-2); color: #fff; border-color: var(--accent-2); }
+    .toc { position: fixed; top: 120px; right: max(calc((100vw - 760px) / 2 - 220px), 10px); width: 180px; font-size: 0.75rem; }
+    .toc-title { color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 0.8rem; font-size: 0.65rem; }
+    .toc a { display: block; color: var(--text-muted); text-decoration: none; padding: 0.2rem 0; border-left: 2px solid transparent; padding-left: 0.8rem; transition: all 0.2s; line-height: 1.5; }
+    .toc a:hover, .toc a.active { color: var(--accent-2); border-left-color: var(--accent-2); }
+    @media (max-width: 1100px) { .toc { display: none; } }
+  </style>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <div class="lang-bar" id="langBar">
+      <button data-lang="en">EN</button>
+      <button data-lang="zh">中文</button>
+      <button data-lang="ja">日本語</button>
+      <button data-lang="de">DE</button>
+      <button data-lang="es">ES</button>
+      <button data-lang="fr">FR</button>
+    </div>
+    <h1 id="articleTitle">Local-Only Image Processing Architecture via Offscreen Documents</h1>
+    <div class="meta" id="articleMeta"><span>July 2026</span><span class="reading-time">~13 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="why-offscreen">Why Offscreen Documents Exist</h2>
+<p>In Manifest V3, Chrome made a critical architectural decision: Service Workers have no DOM access. This means no <code>document</code>, no <code>window</code>, no <code>Canvas</code>, no <code>Audio</code>, no clipboard API. For any extension that needs to manipulate media, this is a showstopper.</p>
+<p>The Offscreen Document was introduced as the bridge between the headless Service Worker and DOM-dependent APIs. It's a hidden page that runs in a special context—visible to the extension, invisible to the user.</p>
+
+<h3>The Problem</h3>
+<pre><code>// Service Worker — this will throw
+const canvas = document.createElement('canvas'); // ❌ ReferenceError: document is not defined
+
+// Even indirect DOM access fails
+const img = new Image(); // ❌ Image is not defined in SW context</code></pre>
+
+<h3>What Offscreen Enables</h3>
+<ul>
+<li><strong>Canvas operations</strong> — image conversion, resizing, watermarking</li>
+<li><strong>Clipboard access</strong> — copying images to system clipboard</li>
+<li><strong>Audio playback</strong> — notification sounds</li>
+<li><strong>Parsing HTML/XML</strong> — using DOMParser in a real DOM context</li>
+</ul>
+
+<pre><code>// background.js (Service Worker)
+async function processImage(blob) {
+  // Can't use Canvas here — delegate to offscreen
+  await ensureOffscreenDocument();
+  const result = await chrome.runtime.sendMessage({
+    type: 'PROCESS_IMAGE',
+    blob: blob
+  });
+  return result;
+}
+
+// offscreen.js (Offscreen Document)
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'PROCESS_IMAGE') {
+    convertImage(msg.blob).then(sendResponse);
+    return true; // async response
+  }
+});</code></pre>
+
+<h2 id="lifecycle">Offscreen Document Lifecycle</h2>
+<p>Chrome enforces a hard limit: <strong>only one Offscreen Document per extension at any time</strong>. Violating this throws <code>"Only a single offscreen document may be created."</code> You must manage the lifecycle explicitly.</p>
+
+<h3>Singleton Pattern</h3>
+<pre><code>// background.js — singleton offscreen manager
+class OffscreenManager {
+  static #exists = false;
+
+  static async ensure() {
+    if (this.#exists) return;
+
+    try {
+      // Check if document already exists (e.g., after SW restart)
+      const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: ['OFFSCREEN_DOCUMENT']
+      });
+
+      if (existingContexts.length > 0) {
+        this.#exists = true;
+        return;
+      }
+
+      await chrome.offscreen.createDocument({
+        url: 'offscreen.html',
+        reasons: ['DOM_PARSER', 'BLOBS', 'CLIPBOARD'],
+        justification: 'Image processing and clipboard operations'
+      });
+      this.#exists = true;
+    } catch (err) {
+      if (!err.message.includes('already exists')) throw err;
+      this.#exists = true;
+    }
+  }
+
+  static async destroy() {
+    if (!this.#exists) return;
+    try {
+      await chrome.offscreen.closeDocument();
+    } catch (e) {
+      // Document may already be closed
+    }
+    this.#exists = false;
+  }
+}</code></pre>
+
+<h3>Auto-Destroy on Idle</h3>
+<p>Don't leave the Offscreen Document running indefinitely—it consumes memory. Destroy it after a period of inactivity:</p>
+
+<pre><code>// Auto-destroy after 5 seconds of no activity
+let idleTimer = null;
+
+async function withOffscreen(fn) {
+  await OffscreenManager.ensure();
+  clearTimeout(idleTimer);
+
+  try {
+    return await fn();
+  } finally {
+    idleTimer = setTimeout(() => OffscreenManager.destroy(), 5000);
+  }
+}
+
+// Usage
+const result = await withOffscreen(() =>
+  chrome.runtime.sendMessage({ type: 'CONVERT_IMAGE', data })
+);</code></pre>
+
+<h3>Handling SW Restart Edge Cases</h3>
+<p>The Service Worker can die while the Offscreen Document is still alive. On restart, the <code>#exists</code> flag resets to <code>false</code>. The <code>getContexts</code> check handles this—always query Chrome rather than trusting your in-memory state.</p>
+
+<pre><code>// Robust check that survives SW restart
+async function isOffscreenAlive() {
+  try {
+    const contexts = await chrome.runtime.getContexts({
+      contextTypes: ['OFFSCREEN_DOCUMENT']
+    });
+    return contexts.length > 0;
+  } catch {
+    // getContexts not available in older Chrome versions
+    // Fallback: try sending a ping
+    try {
+      await chrome.runtime.sendMessage({ type: 'PING_OFFSCREEN' });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}</code></pre>
+
+<h2 id="canvas-conversion">Canvas-Based Image Conversion (No Upload)</h2>
+<p>Here's the complete pipeline for converting images entirely locally. No server calls, no cloud APIs—just Canvas and Blob.</p>
+
+<h3>Core Conversion Pipeline</h3>
+<pre><code>// offscreen.js — full conversion engine
+class ImageConverter {
+  static async convert(inputBlob, targetFormat, quality = 0.92) {
+    const bitmap = await createImageBitmap(inputBlob);
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const ctx = canvas.getContext('2d');
+
+    // Draw with white background for JPG (no alpha)
+    if (targetFormat === 'image/jpeg') {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close(); // Free GPU memory immediately
+
+    const mimeMap = {
+      'png': 'image/png',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'webp': 'image/webp',
+      'avif': 'image/avif'
+    };
+
+    const mime = mimeMap[targetFormat] || 'image/png';
+    const blob = await canvas.convertToBlob({
+      type: mime,
+      quality: mime === 'image/png' ? undefined : quality
+    });
+
+    return blob;
+  }
+
+  static async resize(inputBlob, maxWidth, maxHeight) {
+    const bitmap = await createImageBitmap(inputBlob);
+    let { width, height } = bitmap;
+
+    // Maintain aspect ratio
+    if (width > maxWidth || height > maxHeight) {
+      const ratio = Math.min(maxWidth / width, maxHeight / height);
+      width = Math.round(width * ratio);
+      height = Math.round(height * ratio);
+    }
+
+    const canvas = new OffscreenCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+
+    // High-quality downscaling
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
+
+    return canvas.convertToBlob({ type: 'image/png' });
+  }
+}</code></pre>
+
+<h3>Handling Large Images (>4000px)</h3>
+<p>Browsers impose canvas size limits (typically 16384x16384, but practical limits are lower due to memory). For very large images, process in tiles:</p>
+
+<pre><code>static async convertLarge(inputBlob, targetFormat, quality = 0.92) {
+  const bitmap = await createImageBitmap(inputBlob);
+  const { width, height } = bitmap;
+
+  // Check if we need tiled processing
+  const MAX_DIM = 4096;
+  if (width <= MAX_DIM && height <= MAX_DIM) {
+    return this.convert(inputBlob, targetFormat, quality);
+  }
+
+  // Tile-based processing
+  const tilesX = Math.ceil(width / MAX_DIM);
+  const tilesY = Math.ceil(height / MAX_DIM);
+  const canvas = new OffscreenCanvas(width, height);
+  const ctx = canvas.getContext('2d');
+
+  for (let ty = 0; ty < tilesY; ty++) {
+    for (let tx = 0; tx < tilesX; tx++) {
+      const sx = tx * MAX_DIM;
+      const sy = ty * MAX_DIM;
+      const sw = Math.min(MAX_DIM, width - sx);
+      const sh = Math.min(MAX_DIM, height - sy);
+
+      // Draw tile from source bitmap
+      ctx.drawImage(bitmap, sx, sy, sw, sh, sx, sy, sw, sh);
+    }
+  }
+
+  bitmap.close();
+
+  const mime = targetFormat === 'png' ? 'image/png' :
+               targetFormat === 'webp' ? 'image/webp' :
+               targetFormat === 'avif' ? 'image/avif' : 'image/jpeg';
+
+  return canvas.convertToBlob({ type: mime, quality });
+}</code></pre>
+
+<h3>Format-Specific Quality Control</h3>
+<pre><code>// Quality presets for different use cases
+const QUALITY_PRESETS = {
+  'web-optimized': { format: 'webp', quality: 0.82 },
+  'high-quality':  { format: 'png',  quality: 1.0 },
+  'thumbnail':     { format: 'webp', quality: 0.60 },
+  'print-ready':   { format: 'png',  quality: 1.0 },
+  'archive':       { format: 'avif', quality: 0.75 }
+};
+
+// Apply preset
+async function convertWithPreset(blob, presetName) {
+  const preset = QUALITY_PRESETS[presetName];
+  if (!preset) throw new Error(`Unknown preset: ${presetName}`);
+
+  // Ensure PNG stays lossless
+  const q = preset.format === 'png' ? undefined : preset.quality;
+  return ImageConverter.convert(blob, preset.format, q);
+}</code></pre>
+
+<h2 id="cdp-screenshots">CDP Full-Page Screenshots (No Third-Party Services)</h2>
+<p>Chrome's <code>chrome.debugger</code> API exposes the Chrome DevTools Protocol (CDP), which can capture full-page screenshots beyond the visible viewport—entirely locally.</p>
+
+<h3>Basic Full-Page Capture</h3>
+<pre><code>// background.js — CDP screenshot via chrome.debugger
+class FullPageScreenshot {
+  static async capture(tabId) {
+    // Attach debugger
+    await chrome.debugger.attach({ tabId }, '1.3');
+
+    try {
+      // Get full page dimensions
+      const { result: layoutMetrics } = await chrome.debugger.sendCommand(
+        { tabId }, 'Page.getLayoutMetrics'
+      );
+
+      const { contentSize } = layoutMetrics;
+      const width = Math.ceil(contentSize.width);
+      const height = Math.ceil(contentSize.height);
+
+      // Capture beyond viewport
+      const { data } = await chrome.debugger.sendCommand(
+        { tabId }, 'Page.captureScreenshot',
+        {
+          format: 'png',
+          captureBeyondViewport: true,
+          clip: {
+            x: 0,
+            y: 0,
+            width,
+            height,
+            scale: 1
+          }
+        }
+      );
+
+      // Convert base64 to Blob
+      const binary = atob(data);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+
+      return new Blob([bytes], { type: 'image/png' });
+    } finally {
+      await chrome.debugger.detach({ tabId });
+    }
+  }
+}</code></pre>
+
+<h3>Handling Fixed/Sticky Elements</h3>
+<p>Full-page captures duplicate fixed/sticky headers and footers. Use CDP to temporarily remove them:</p>
+
+<pre><code>static async captureClean(tabId) {
+  await chrome.debugger.attach({ tabId }, '1.3');
+
+  try {
+    // Hide fixed/sticky elements via CDP
+    await chrome.debugger.sendCommand(
+      { tabId }, 'Runtime.evaluate',
+      {
+        expression: `
+          (function() {
+            const els = document.querySelectorAll('*');
+            const hidden = [];
+            for (const el of els) {
+              const style = getComputedStyle(el);
+              if (style.position === 'fixed' || style.position === 'sticky') {
+                el.dataset._origVisibility = style.visibility;
+                el.style.visibility = 'hidden';
+                hidden.push(el);
+              }
+            }
+            window.__hiddenFixed = hidden;
+            return hidden.length;
+          })()
+        `
+      }
+    );
+
+    // Capture
+    const blob = await this.capture(tabId);
+
+    // Restore fixed elements
+    await chrome.debugger.sendCommand(
+      { tabId }, 'Runtime.evaluate',
+      {
+        expression: `
+          (function() {
+            if (window.__hiddenFixed) {
+              for (const el of window.__hiddenFixed) {
+                el.style.visibility = el.dataset._origVisibility || '';
+                delete el.dataset._origVisibility;
+              }
+              delete window.__hiddenFixed;
+            }
+          })()
+        `
+      }
+    );
+
+    return blob;
+  } finally {
+    await chrome.debugger.detach({ tabId });
+  }
+}</code></pre>
+
+<h3>Stitched Viewport Capture (Fallback)</h3>
+<p>Some pages block <code>captureBeyondViewport</code>. In that case, stitch multiple viewport-height captures:</p>
+
+<pre><code>static async captureStitched(tabId) {
+  await chrome.debugger.attach({ tabId }, '1.3');
+
+  try {
+    const { result: metrics } = await chrome.debugger.sendCommand(
+      { tabId }, 'Page.getLayoutMetrics'
+    );
+
+    const fullWidth = Math.ceil(metrics.contentSize.width);
+    const fullHeight = Math.ceil(metrics.contentSize.height);
+    const viewportHeight = Math.ceil(metrics.visualViewport.height);
+
+    // Get current scroll position to restore later
+    const { result: scrollResult } = await chrome.debugger.sendCommand(
+      { tabId }, 'Runtime.evaluate',
+      { expression: '({ x: window.scrollX, y: window.scrollY })' }
+    );
+    const originalScroll = JSON.parse(scrollResult.value);
+
+    const canvas = new OffscreenCanvas(fullWidth, fullHeight);
+    const ctx = canvas.getContext('2d');
+
+    for (let y = 0; y < fullHeight; y += viewportHeight) {
+      // Scroll to position
+      await chrome.debugger.sendCommand(
+        { tabId }, 'Runtime.evaluate',
+        { expression: `window.scrollTo(0, ${y})` }
+      );
+      // Wait for render
+      await new Promise(r => setTimeout(r, 150));
+
+      const { data } = await chrome.debugger.sendCommand(
+        { tabId }, 'Page.captureScreenshot',
+        { format: 'png' }
+      );
+
+      const chunkBlob = base64ToBlob(data, 'image/png');
+      const chunkBitmap = await createImageBitmap(chunkBlob);
+      const drawHeight = Math.min(viewportHeight, fullHeight - y);
+      ctx.drawImage(chunkBitmap, 0, 0, fullWidth, drawHeight, 0, y, fullWidth, drawHeight);
+      chunkBitmap.close();
+
+      // Report progress
+      chrome.runtime.sendMessage({
+        type: 'SCREENSHOT_PROGRESS',
+        current: Math.min(y + viewportHeight, fullHeight),
+        total: fullHeight
+      });
+    }
+
+    // Restore scroll
+    await chrome.debugger.sendCommand(
+      { tabId }, 'Runtime.evaluate',
+      { expression: `window.scrollTo(${originalScroll.x}, ${originalScroll.y})` }
+    );
+
+    return canvas.convertToBlob({ type: 'image/png' });
+  } finally {
+    await chrome.debugger.detach({ tabId });
+  }
+}</code></pre>
+
+<h2 id="clipboard">Clipboard Operations Without Network</h2>
+<p>Copying images to the system clipboard requires DOM access—another job for Offscreen Documents.</p>
+
+<h3>Copy Image to Clipboard</h3>
+<pre><code>// offscreen.js
+async function copyImageToClipboard(blob) {
+  // Ensure we have a PNG for clipboard (most compatible)
+  let pngBlob = blob;
+  if (blob.type !== 'image/png') {
+    pngBlob = await ImageConverter.convert(blob, 'png');
+  }
+
+  try {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        'image/png': pngBlob
+      })
+    ]);
+    return { success: true };
+  } catch (err) {
+    // Permission denied — need user gesture in the offscreen context
+    return { success: false, error: err.message };
+  }
+}
+
+// Listen for requests from SW
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'COPY_TO_CLIPBOARD') {
+    // Reconstruct blob from transferred data
+    const blob = new Blob([msg.buffer], { type: msg.mimeType });
+    copyImageToClipboard(blob).then(sendResponse);
+    return true;
+  }
+});</code></pre>
+
+<h3>Handling Permission Prompts</h3>
+<pre><code>// Check clipboard permission state before attempting write
+async function checkClipboardPermission() {
+  try {
+    const result = await navigator.permissions.query({ name: 'clipboard-write' });
+    return result.state; // 'granted', 'denied', or 'prompt'
+  } catch {
+    return 'prompt'; // Assume prompt if API unavailable
+  }
+}
+
+// Enhanced copy with permission handling
+async function copyImageWithFallback(blob) {
+  const permission = await checkClipboardPermission();
+
+  if (permission === 'denied') {
+    return {
+      success: false,
+      error: 'Clipboard permission denied. Check browser settings.',
+      fallback: 'download' // Signal to SW: offer download instead
+    };
+  }
+
+  return copyImageToClipboard(blob);
+}</code></pre>
+
+<h2 id="batch-memory">Batch Processing Memory Management</h2>
+<p>Processing dozens of images in parallel will crash the browser. Use chunked processing with explicit memory management.</p>
+
+<h3>Chunked Batch Processor</h3>
+<pre><code>// background.js — orchestrates batch processing via offscreen
+class BatchProcessor {
+  static CHUNK_SIZE = 5; // Process 5 images at a time
+
+  static async processBatch(items, transform) {
+    const results = [];
+    const total = items.length;
+
+    for (let i = 0; i < total; i += this.CHUNK_SIZE) {
+      const chunk = items.slice(i, i + this.CHUNK_SIZE);
+
+      // Ensure offscreen exists for this chunk
+      await OffscreenManager.ensure();
+
+      const chunkResults = await Promise.all(
+        chunk.map(item => this.processOne(item, transform))
+      );
+
+      results.push(...chunkResults);
+
+      // Report progress
+      chrome.runtime.sendMessage({
+        type: 'BATCH_PROGRESS',
+        completed: Math.min(i + this.CHUNK_SIZE, total),
+        total,
+        results: chunkResults
+      }).catch(() => {
+        // Popup may be closed — progress stored in session
+        chrome.storage.session.set({
+          batchProgress: {
+            completed: Math.min(i + this.CHUNK_SIZE, total),
+            total
+          }
+        });
+      });
+
+      // Release memory between chunks
+      if (i + this.CHUNK_SIZE < total) {
+        await OffscreenManager.destroy();
+        // Brief pause for GC
+        await new Promise(r => setTimeout(r, 100));
+      }
+    }
+
+    return results;
+  }
+
+  static async processOne(item, transform) {
+    return chrome.runtime.sendMessage({
+      type: 'PROCESS_SINGLE',
+      data: item,
+      transform
+    });
+  }
+}</code></pre>
+
+<h3>Offscreen-Side Memory Management</h3>
+<pre><code>// offscreen.js — memory-conscious image processing
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'PROCESS_SINGLE') {
+    processSafely(msg.data, msg.transform).then(sendResponse);
+    return true;
+  }
+});
+
+async function processSafely(data, transform) {
+  let bitmap = null;
+  let canvas = null;
+
+  try {
+    const blob = new Blob([data.buffer], { type: data.mimeType });
+    bitmap = await createImageBitmap(blob);
+
+    canvas = new OffscreenCanvas(
+      transform.width || bitmap.width,
+      transform.height || bitmap.height
+    );
+    const ctx = canvas.getContext('2d');
+
+    // Apply transformations
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    // Convert and return
+    const resultBlob = await canvas.convertToBlob({
+      type: transform.format || 'image/webp',
+      quality: transform.quality || 0.85
+    });
+
+    const buffer = await resultBlob.arrayBuffer();
+    return {
+      success: true,
+      buffer,
+      mimeType: resultBlob.type,
+      width: canvas.width,
+      height: canvas.height
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    // Explicit cleanup
+    if (bitmap) bitmap.close();
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+}</code></pre>
+
+<h3>Progress Reporting to Popup</h3>
+<pre><code>// popup.js — display batch progress
+function listenForProgress() {
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.type === 'BATCH_PROGRESS') {
+      const pct = Math.round((msg.completed / msg.total) * 100);
+      document.getElementById('progress-bar').style.width = `${pct}%`;
+      document.getElementById('progress-text').textContent =
+        `${msg.completed} / ${msg.total} images`;
+    }
+  });
+
+  // Also check stored progress (in case popup opened mid-batch)
+  chrome.storage.session.get('batchProgress').then(({ batchProgress }) => {
+    if (batchProgress) {
+      const pct = Math.round((batchProgress.completed / batchProgress.total) * 100);
+      document.getElementById('progress-bar').style.width = `${pct}%`;
+      document.getElementById('progress-text').textContent =
+        `${batchProgress.completed} / ${batchProgress.total} images`;
+    }
+  });
+}</code></pre>
+
+<h2 id="architecture">Complete Architecture Diagram</h2>
+<p>Here's the full data flow for a zero-network image processing pipeline:</p>
+
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                        ZERO-NETWORK PIPELINE                        │
+│                                                                     │
+│  ┌──────────┐    ┌──────────────────┐    ┌───────────────────────┐ │
+│  │  Popup   │───▶│ Service Worker   │───▶│ Offscreen Document   │ │
+│  │  (UI)    │◀───│ (Orchestrator)   │◀───│ (DOM + Canvas)       │ │
+│  └──────────┘    └──────────────────┘    └───────────────────────┘ │
+│       │                  │                         │                │
+│       │                  │                         │                │
+│       ▼                  ▼                         ▼                │
+│  ┌──────────┐    ┌──────────────────┐    ┌───────────────────────┐ │
+│  │  chrome  │    │  chrome.storage  │    │  Canvas API           │ │
+│  │  .downloads│  │  .session        │    │  OffscreenCanvas      │ │
+│  │  (save)  │    │  (progress)      │    │  createImageBitmap    │ │
+│  └──────────┘    └──────────────────┘    └───────────────────────┘ │
+│                                                                     │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │              chrome.debugger (CDP)                           │  │
+│  │  Page.captureScreenshot → base64 → Blob → Canvas → download │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│  ══════════════════════════════════════════════════════════════════ │
+│  NETWORK REQUESTS: 0    CLOUD APIs: 0    THIRD-PARTY SERVICES: 0  │
+└─────────────────────────────────────────────────────────────────────┘</code></pre>
+
+<h3>Message Flow Example</h3>
+<pre><code>// 1. User clicks "Convert" in popup
+popup.js → chrome.runtime.sendMessage({ type: 'CONVERT', files, format: 'webp' })
+
+// 2. Service Worker orchestrates
+background.js:
+  receive message → load files from chrome.downloads →
+  BatchProcessor.processBatch(files, { format: 'webp', quality: 0.85 })
+
+// 3. Each chunk goes to offscreen
+background.js → chrome.runtime.sendMessage({ type: 'PROCESS_SINGLE', ... })
+
+// 4. Offscreen does the actual work
+offscreen.js:
+  createImageBitmap → OffscreenCanvas → drawImage → convertToBlob
+
+// 5. Results flow back
+offscreen.js → sendResponse({ buffer, mimeType })
+background.js → chrome.downloads.download({ url: URL.createObjectURL(blob) })
+
+// 6. Popup shows completion
+background.js → chrome.runtime.sendMessage({ type: 'BATCH_COMPLETE' })</code></pre>
+
+<h2 id="checklist">Production Checklist</h2>
+<ol>
+<li><strong>Singleton offscreen</strong> — always use <code>getContexts()</code> before creating; never assume in-memory state survives SW restart</li>
+<li><strong>Auto-destroy</strong> — close Offscreen Document after idle period; don't leak memory</li>
+<li><strong>Chunked batch processing</strong> — max 5 images per chunk; destroy offscreen between chunks</li>
+<li><strong>Explicit cleanup</strong> — call <code>bitmap.close()</code> and clear canvas contexts in <code>finally</code> blocks</li>
+<li><strong>Large image tiling</strong> — tile-based processing for images exceeding 4096px</li>
+<li><strong>Clipboard fallback</strong> — check permission state before writing; offer download as fallback</li>
+<li><strong>Progress reporting</strong> — store progress in <code>storage.session</code> so popup can read it even if reopened</li>
+<li><strong>CDP cleanup</strong> — always <code>chrome.debugger.detach()</code> in <code>finally</code> blocks; lingering debugger sessions show warning bars</li>
+<li><strong>Format compatibility</strong> — clipboard only accepts PNG; convert before writing</li>
+<li><strong>Error boundaries</strong> — wrap each image in try/catch; one failure shouldn't abort the entire batch</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://developer.chrome.com/docs/extensions/reference/api/offscreen" target="_blank">Offscreen Documents API — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.com/docs/extensions/reference/api/debugger" target="_blank">chrome.debugger API — Chrome Docs</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas" target="_blank">OffscreenCanvas — MDN</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/ClipboardItem" target="_blank">ClipboardItem — MDN</a></li>
+<li><a href="https://developer.chrome.com/docs/extensions/reference/api/permissions" target="_blank">Permissions API — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.com/docs/extensions/reference/api/runtime#method-getContexts" target="_blank">runtime.getContexts() — Chrome Docs</a></li>
+<li><a href="https://chromedevtools.github.io/devtools-protocol/tot/Page/#method-captureScreenshot" target="_blank">CDP Page.captureScreenshot</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Local-Only Image Processing Architecture via Offscreen Documents',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '基于 Offscreen 文档的纯本地无上传图像处理架构设计',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'Offscreenドキュメントによるローカルオンリー画像オンリー画像処理アーキテクチャ',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Lokale Bildverarbeitungsarchitektur via Offscreen Documents',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Arquitectura de Procesamiento de Imágenes Local mediante Documentos Offscreen',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Architecture de Traitement d\'Images Local via les Documents Offscreen',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    // Language detection
+    function detectLang() {
+      const saved = localStorage.getItem('blog-lang');
+      if (saved && ARTICLES[saved]) return saved;
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      localStorage.setItem('blog-lang', lang);
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      document.querySelectorAll('.lang-bar button').forEach(b => {
+        b.classList.toggle('active', b.dataset.lang === lang);
+      });
+      // Update TOC title
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    // Build TOC from h2 elements
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      // Scroll spy
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    // Copy button for code blocks
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    document.querySelectorAll('.lang-bar button').forEach(btn => {
+      btn.addEventListener('click', () => { applyLang(btn.dataset.lang); buildTOC(); });
+    });
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+</body>
+</html>
