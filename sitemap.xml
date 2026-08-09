@@ -1,25 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://annmax1983.github.io/</loc>
+    <loc>https://www.annmax1983.com/</loc>
     <lastmod>2026-07-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://annmax1983.github.io/blog/chrome-extension-architecture.html</loc>
+    <loc>https://www.annmax1983.com/blog/chrome-extension-architecture.html</loc>
     <lastmod>2026-07-16</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://annmax1983.github.io/blog/production-grade-extensions.html</loc>
+    <loc>https://www.annmax1983.com/blog/production-grade-extensions.html</loc>
     <lastmod>2026-07-16</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://annmax1983.github.io/blog/privacy-first-extensions.html</loc>
+    <loc>https://www.annmax1983.com/blog/privacy-first-extensions.html</loc>
     <lastmod>2026-07-16</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
