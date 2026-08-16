@@ -786,3 +786,68 @@ footer p { margin-bottom: 0.5rem; }
   margin-top: 0.3rem;
   opacity: 0.7;
 }
+
+/* ===================== Feedback Section ===================== */
+#feedback {
+  background: linear-gradient(135deg, rgba(59,130,246,0.03), rgba(168,85,247,0.03));
+  border-radius: 24px;
+  padding: 4rem 2rem;
+  margin: 4rem 0;
+}
+.feedback-content {
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: center;
+}
+.feedback-main {
+  font-size: 1.1rem;
+  line-height: 1.8;
+  color: var(--text-1);
+  margin-bottom: 1rem;
+}
+.feedback-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.2rem;
+  margin: 2.5rem 0;
+}
+.feedback-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.8rem 1.2rem;
+  text-align: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.feedback-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+.feedback-card-icon {
+  font-size: 2rem;
+  margin-bottom: 0.8rem;
+}
+.feedback-card h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-0);
+}
+.feedback-card p {
+  font-size: 0.85rem;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+.feedback-cta {
+  margin-top: 2rem;
+}
+.feedback-note {
+  font-size: 0.85rem;
+  color: var(--text-2);
+  margin-top: 1rem;
+  opacity: 0.7;
+}
+@media (max-width: 768px) {
+  .feedback-cards { grid-template-columns: 1fr; }
+  #feedback { padding: 2.5rem 1rem; margin: 2rem 0; }
+}
