@@ -10,7 +10,7 @@ I started with .NET desktop apps and enterprise Java systems. Moved through Pyth
 
 ## What I Build
 
-I maintain **10 Chrome extensions** — all 100% local processing, zero data collection:
+I maintain **16 Chrome extensions** — all 100% local processing, zero data collection:
 
 - 📸 **PageShot** — Full-page screenshots with annotation
 - 🖼️ **ImageConv** — Image format conversion (PNG/JPG/WEBP/AVIF)
@@ -22,6 +22,12 @@ I maintain **10 Chrome extensions** — all 100% local processing, zero data col
 - 🔤 **FontFixer** — Web font optimizer
 - 🎯 **JustFocus** — Site blocker with timer
 - 🔄 **RefreshMate** — Auto page refresher
+- 🔗 **LinkHarvest** — Link extractor & scanner
+- ⏱️ **RetroTime** — Floating timer widget (stopwatch / countdown / Pomodoro)
+- 🌐 **VKT WebHeader** — Tab-isolated HTTP header modifier
+- 📝 **VKT Note** — Markdown note-taking with text selection
+- 📝 **VKT Form** — Form snapshot & auto-fill
+- ⌨️ **VKT Shortcut** — Keyboard shortcut manager
 
 ## Philosophy
 

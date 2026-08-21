@@ -29,6 +29,14 @@ window.LANG_en = {
   extRefresh: 'Auto Page Refresh', extLinkHarvest: 'Link Extractor', extLinkHarvestDesc: 'Scan and extract all links from any webpage. Filter, search, copy, and export to CSV.', extRefreshDesc: 'Customizable auto page refresh with random intervals and keyword change alerts.',
     extRetroTimeDesc: 'Minimalist glassmorphism floating timer with stopwatch, countdown, and Pomodoro modes. Customizable colors.',
     extRetroTime: 'Floating Timer',
+    extWebHeader: 'HTTP Header Modifier',
+    extWebHeaderDesc: 'Tab-isolated HTTP header modifier. Save header snapshot templates, apply per-tab. Session rules auto-clear on close.',
+    extNote: 'Markdown Note-Taking',
+    extNoteDesc: 'Markdown note-taking with text selection. Select text on any webpage, right-click to create notes. Source editor with live preview. Free 3/day, Premium unlimited.',
+    extShortcut: 'Keyboard Shortcut Manager',
+    extShortcutDesc: 'Block and remap keyboard shortcuts per-site. One-click key recording, per-domain rules, global/site toggle. Free 3 rules, Premium unlimited.'  
+    extForm: 'Form Snapshot & Auto-Fill',
+    extFormDesc: 'Save web form snapshots and auto-fill them later. One-click collection, smart matching, framework compatible. Free 5 snapshots / 20 fills per day, Premium unlimited.
   extInstall: 'Installs', extFree: 'Core Free', extFreemium: 'Free + Pro', extPrivacy: 'Privacy First', extLocal: '100% Local Processing', extRepo: 'GitHub →', extDetails: 'Details →',
   customTitle: 'Custom Development', customSubtitle: 'You bring the idea, I build it',
   customDesc: "Have a browser extension idea but don't know how to build it? Or need a custom productivity tool?",

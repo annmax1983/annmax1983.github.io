@@ -29,6 +29,14 @@ window.LANG_zh = {
   extRefresh: '页面自动刷新', extLinkHarvest: '链接提取器', extLinkHarvestDesc: '扫描提取网页所有链接，支持筛选、搜索、复制和 CSV 导出。', extRefreshDesc: '自定义间隔自动刷新页面，支持随机间隔和关键词变化提醒。',
     extRetroTimeDesc: '极简毛玻璃悬浮计时器，支持秒表、倒计时、番茄钟。可自定义颜色。',
     extRetroTime: '悬浮计时器',
+    extWebHeader: 'HTTP 请求头修改器',
+    extWebHeaderDesc: '按标签页隔离的 HTTP 请求头修改器。保存请求头快照模板，按标签页应用。关闭浏览器自动清除规则。',
+    extNote: 'Markdown划词笔记',
+    extNoteDesc: '网页划词Markdown笔记工具。选中文本右键创建笔记，源码编辑+实时预览。免费每日3条，高级版无限制。',
+    extShortcut: '快捷键管控工具',
+    extShortcutDesc: '按网站屏蔽和重映射键盘快捷键。一键按键录制、按域名规则、全局/单站点开关。免费3条规则，高级版无限制。'  
+    extForm: '表单快照与自动填充',
+    extFormDesc: '保存网页表单快照，稍后自动填充。一键采集、智能匹配、兼容主流框架。免费版5个快照/每天20次填充，高级版无限制。
   extInstall: '安装量', extFree: '核心免费', extFreemium: '免费 + Pro', extPrivacy: '隐私优先', extLocal: '100%本地处理', extRepo: 'GitHub →', extDetails: '查看详情 →',
   customTitle: '定制开发', customSubtitle: '你有想法，我来实现',
   customDesc: '你是否有一个浏览器插件的创意，却不知道如何实现？或者你需要一个专属的效率工具？',
