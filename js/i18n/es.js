@@ -36,7 +36,7 @@ window.LANG_es = {
     extShortcut: 'Gestor de Atajos',
     extShortcutDesc: 'Bloquea y remapea atajos de teclado por sitio. Grabación con un clic, reglas por dominio. 3 reglas gratis, Premium ilimitado.',
     extForm: 'Captura de Formularios y Auto-relleno',
-    extFormDesc: 'Guarda capturas de formularios web y rellénalos automáticamente después. Recopilación con un clic, coincidencia inteligente, compatible con frameworks. Gratis 5 capturas / 20 rellenos por día, Premium ilimitado.
+    extFormDesc: 'Guarda capturas de formularios web y rellénalos automáticamente después. Recopilación con un clic, coincidencia inteligente, compatible con frameworks. Gratis 5 capturas / 20 rellenos por día, Premium ilimitado.',
   extInstall: 'Instalaciones', extFree: 'Núcleo Gratis', extFreemium: 'Gratis + Pro', extPrivacy: 'Privacidad Primero', extLocal: '100% Procesamiento Local', extRepo: 'GitHub →', extDetails: 'Detalles →',
   customTitle: 'Desarrollo a Medida', customSubtitle: 'Tú traes la idea, yo la construyo',
   customDesc: '¿Tienes una idea de extensión pero no sabes cómo construirla? ¿Necesitas una herramienta personalizada?',

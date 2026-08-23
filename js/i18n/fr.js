@@ -26,7 +26,7 @@ window.LANG_fr = {
   extTable: 'Tableau vers CSV', extTableDesc: "Détection tableaux HTML, cellules fusionnées, export CSV. Gratuit : exporter les 5 premiers tableaux par page. Premium : illimité.",
   extFont: 'Optimiseur de Polices', extFontDesc: "Personnalisez polices, tailles et couleurs de texte. Configuration par site.",
   extFocus: 'Focus & Bloqueur', extFocusDesc: 'Bloquez les sites distrayants et restez concentré. Bloqueur léger avec minuterie.',
-  extRefresh: 'Rafraîchissement Auto', extLinkHarvest: 'Extracteur de Liens', extLinkHarvestDesc: 'Scannez et extrayez tous les liens de n'importe quelle page. Filtrez, recherchez, copiez et exportez en CSV.', extRefreshDesc: 'Rafraîchissement automatique avec intervalles personnalisés et alertes de mots-clés.',
+  extRefresh: 'Rafraîchissement Auto', extLinkHarvest: 'Extracteur de Liens', extLinkHarvestDesc: 'Scannez et extrayez tous les liens de n\'importe quelle page. Filtrez, recherchez, copiez et exportez en CSV.', extRefreshDesc: 'Rafraîchissement automatique avec intervalles personnalisés et alertes de mots-clés.',
     extRetroTimeDesc: 'Minuteur minimaliste avec chronomètre, compte à rebours et Pomodoro. Couleurs personnalisées.',
     extRetroTime: 'Minuteur Flottant',
     extWebHeader: 'Modificateur d\'En-têtes HTTP',
@@ -36,7 +36,7 @@ window.LANG_fr = {
     extShortcut: 'Gestionnaire Raccourcis',
     extShortcutDesc: 'Bloquez et remappez les raccourcis clavier par site. Enregistrement en un clic, règles par domaine. 3 règles gratuites, Premium illimité.',
     extForm: 'Capture de Formulaire & Auto-Remplissage',
-    extFormDesc: 'Sauvegardez des instantanés de formulaires web et remplissez-les automatiquement. Collecte en un clic, correspondance intelligente, compatible frameworks. Gratuit 5 instantanés / 20 remplissages par jour, Premium illimité.
+    extFormDesc: 'Sauvegardez des instantanés de formulaires web et remplissez-les automatiquement. Collecte en un clic, correspondance intelligente, compatible frameworks. Gratuit 5 instantanés / 20 remplissages par jour, Premium illimité.',
   extInstall: 'Installations', extFree: 'Noyau Gratuit', extFreemium: 'Gratuit + Pro', extPrivacy: "Vie Privée D'Abord", extLocal: '100% Traitement Local', extRepo: 'GitHub →', extDetails: 'Détails →',
   customTitle: 'Développement Sur Mesure', customSubtitle: "Vous apportez l'idée, je la construis",
   customDesc: "Vous avez une idée d'extension mais ne savez pas comment la construire ? Besoin d'un outil personnalisé ?",

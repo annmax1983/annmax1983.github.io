@@ -34,9 +34,9 @@ window.LANG_en = {
     extNote: 'Markdown Note-Taking',
     extNoteDesc: 'Markdown note-taking with unified right-click save, formatting toolbar, auto-save, and full-screen preview. HTML→Markdown via Turndown. Free 3/day, Premium unlimited.',
     extShortcut: 'Keyboard Shortcut Manager',
-    extShortcutDesc: 'Block and remap keyboard shortcuts per-site. One-click key recording, per-domain rules, global/site toggle. Free 3 rules, Premium unlimited.'  
+    extShortcutDesc: 'Block and remap keyboard shortcuts per-site. One-click key recording, per-domain rules, global/site toggle. Free 3 rules, Premium unlimited.',
     extForm: 'Form Snapshot & Auto-Fill',
-    extFormDesc: 'Save web form snapshots and auto-fill them later. One-click collection, smart matching, framework compatible. Free 5 snapshots / 20 fills per day, Premium unlimited.
+    extFormDesc: 'Save web form snapshots and auto-fill them later. One-click collection, smart matching, framework compatible. Free 5 snapshots / 20 fills per day, Premium unlimited.',
   extInstall: 'Installs', extFree: 'Core Free', extFreemium: 'Free + Pro', extPrivacy: 'Privacy First', extLocal: '100% Local Processing', extRepo: 'GitHub →', extDetails: 'Details →',
   customTitle: 'Custom Development', customSubtitle: 'You bring the idea, I build it',
   customDesc: "Have a browser extension idea but don't know how to build it? Or need a custom productivity tool?",

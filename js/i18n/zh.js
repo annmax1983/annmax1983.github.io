@@ -34,9 +34,9 @@ window.LANG_zh = {
     extNote: 'Markdown划词笔记',
     extNoteDesc: '统一右键菜单、格式工具栏、自动保存、全屏预览的Markdown笔记工具。Turndown库转换HTML。免费每日3条，高级版无限制。',
     extShortcut: '快捷键管控工具',
-    extShortcutDesc: '按网站屏蔽和重映射键盘快捷键。一键按键录制、按域名规则、全局/单站点开关。免费3条规则，高级版无限制。'  
+    extShortcutDesc: '按网站屏蔽和重映射键盘快捷键。一键按键录制、按域名规则、全局/单站点开关。免费3条规则，高级版无限制。',
     extForm: '表单快照与自动填充',
-    extFormDesc: '保存网页表单快照，稍后自动填充。一键采集、智能匹配、兼容主流框架。免费版5个快照/每天20次填充，高级版无限制。
+    extFormDesc: '保存网页表单快照，稍后自动填充。一键采集、智能匹配、兼容主流框架。免费版5个快照/每天20次填充，高级版无限制。',
   extInstall: '安装量', extFree: '核心免费', extFreemium: '免费 + Pro', extPrivacy: '隐私优先', extLocal: '100%本地处理', extRepo: 'GitHub →', extDetails: '查看详情 →',
   customTitle: '定制开发', customSubtitle: '你有想法，我来实现',
   customDesc: '你是否有一个浏览器插件的创意，却不知道如何实现？或者你需要一个专属的效率工具？',

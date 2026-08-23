@@ -36,7 +36,7 @@ window.LANG_de = {
     extShortcut: 'Tastenkürzel-Manager',
     extShortcutDesc: 'Tastenkürzel pro Website blockieren und umbinden. Ein-Klick-Aufnahme, Regeln pro Domain. 3 kostenlose Regeln, Premium unbegrenzt.',
     extForm: 'Formular-Snapshot & Auto-Fill',
-    extFormDesc: 'Webformular-Snapshots speichern und später automatisch ausfüllen. Ein-Klick-Erfassung, intelligente Zuordnung, kompatibel mit Frameworks. Kostenlos 5 Snapshots / 20 Füllungen pro Tag, Premium unbegrenzt.
+    extFormDesc: 'Webformular-Snapshots speichern und später automatisch ausfüllen. Ein-Klick-Erfassung, intelligente Zuordnung, kompatibel mit Frameworks. Kostenlos 5 Snapshots / 20 Füllungen pro Tag, Premium unbegrenzt.',
   extInstall: 'Installationen', extFree: 'Kern Kostenlos', extFreemium: 'Kostenlos + Pro', extPrivacy: 'Datenschutz Zuerst', extLocal: '100% Lokale Verarbeitung', extRepo: 'GitHub →', extDetails: 'Details →',
   customTitle: 'Individuelle Entwicklung', customSubtitle: 'Du bringst die Idee, ich baue sie',
   customDesc: 'Hast du eine Browser-Erweiterungsidee aber weißt nicht wie du sie umsetzt? Brauchst du ein individuelles Tool?',
