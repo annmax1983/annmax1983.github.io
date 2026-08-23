@@ -1,5 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://annmax1983.github.io/sitemap.xml
-Sitemap: https://annmax1983.github.io/annmax1983/sitemap.xml
+Sitemap: https://www.annmax1983.com/sitemap.xml

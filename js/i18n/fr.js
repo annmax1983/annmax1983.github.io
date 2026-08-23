@@ -16,7 +16,7 @@ window.LANG_fr = {
   skillUiux: 'UI/UX & Internationalisation', skillUiuxDetail: 'Design Responsive · i18n · Accessibilité · Systèmes de Design',
   skillSecurity: 'Sécurité & Vie Privée', skillSecurityDetail: 'CSP · Zéro-Confiance · Local-First · Minimisation des Permissions',
   skillTooling: 'DevOps & Outils', skillToolingDetail: 'Git · CI/CD · Docker · Publication Store · ASO',
-  extTitle: 'Mes Extensions', extSubtitle: "15 extensions légères — fonctions principales gratuites, vie privée d'abord",
+  extTitle: 'Mes Extensions', extSubtitle: "16 extensions légères — fonctions principales gratuites, vie privée d'abord",
   extConv: "Convertisseur d'Images", extConvDesc: "Convertissez des images entre PNG/JPG/WEBP/AVIF dans votre navigateur. 100% local, zéro upload.",
   extShot: 'Capture de Page', extShotDesc: "Page complète, zone visible et sélection avec annotations. Aucun upload.",
   extStyle: 'Personnaliseur de Style', extStyleDesc: "Changez le fond, la couleur du texte et la taille de police en un clic. Paramètres par site.",

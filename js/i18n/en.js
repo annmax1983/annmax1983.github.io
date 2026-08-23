@@ -16,7 +16,7 @@ window.LANG_en = {
   skillUiux: 'UI/UX & Internationalization', skillUiuxDetail: 'Responsive Design · i18n · a11y · Design Systems',
   skillSecurity: 'Security & Privacy Engineering', skillSecurityDetail: 'CSP · Zero-Trust · Local-First · Permission Minimization',
   skillTooling: 'DevOps & Tooling', skillToolingDetail: 'Git · CI/CD · Docker · Web Store Publishing · ASO',
-  extTitle: 'My Extensions', extSubtitle: '15 lightweight browser extensions — core features free forever, privacy-first, 100% local',
+  extTitle: 'My Extensions', extSubtitle: '16 lightweight browser extensions — core features free forever, privacy-first, 100% local',
   extConv: 'Image Format Converter', extConvDesc: 'Convert images between PNG/JPG/WEBP/AVIF right in your browser. 100% local processing, zero upload.',
   extShot: 'Page Screenshot', extShotDesc: 'Full-page, visible area, and selection screenshots with annotation and mosaic tools. No upload needed.',
   extStyle: 'Style Customizer', extStyleDesc: 'One-click to change webpage background, text color, and font size. Per-site settings, real-time preview.',

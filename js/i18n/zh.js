@@ -16,7 +16,7 @@ window.LANG_zh = {
   skillUiux: 'UI/UX & 国际化', skillUiuxDetail: '响应式设计 · i18n · 无障碍 · 设计系统',
   skillSecurity: '安全与隐私工程', skillSecurityDetail: 'CSP · 零信任 · 本地优先 · 权限最小化',
   skillTooling: 'DevOps & 工具链', skillToolingDetail: 'Git · CI/CD · Docker · 商店发布 · ASO',
-  extTitle: '我的插件作品', extSubtitle: '15款轻量级浏览器插件 · 核心功能永久免费 · 隐私优先，100%本地处理',
+  extTitle: '我的插件作品', extSubtitle: '16款轻量级浏览器插件 · 核心功能永久免费 · 隐私优先，100%本地处理',
   extConv: '图片格式转换', extConvDesc: '在浏览器内完成 PNG/JPG/WEBP/AVIF 格式互转，100%本地处理，零上传。',
   extShot: '网页截图', extShotDesc: '全页长截图、可见区域截图、选区截图，支持标注和马赛克，无需上传。',
   extStyle: '网页样式修改', extStyleDesc: '一键修改网页背景色、文字色、字体大小，支持按站点保存，实时预览。',

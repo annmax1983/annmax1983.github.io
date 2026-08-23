@@ -16,7 +16,7 @@ window.LANG_ja = {
   skillUiux: 'UI/UX & 国際化', skillUiuxDetail: 'レスポンシブデザイン · i18n · アクセシビリティ · デザインシステム',
   skillSecurity: 'セキュリティ＆プライバシー', skillSecurityDetail: 'CSP · ゼロトラスト · ローカルファースト · 権限最小化',
   skillTooling: 'DevOps & ツール', skillToolingDetail: 'Git · CI/CD · Docker · ストア公開 · ASO',
-  extTitle: '私の拡張機能', extSubtitle: '15の軽量ブラウザ拡張機能 — コア機能永久無料、プライバシー優先、100%ローカル処理',
+  extTitle: '私の拡張機能', extSubtitle: '16の軽量ブラウザ拡張機能 — コア機能永久無料、プライバシー優先、100%ローカル処理',
   extConv: '画像フォーマット変換', extConvDesc: 'PNG/JPG/WEBP/AVIFをブラウザ内で変換。100%ローカル処理、アップロードなし。',
   extShot: 'ページスクリーンショット', extShotDesc: 'フルページ、表示領域、選択範囲のスクリーンショットに注釈付き。アップロード不要。',
   extStyle: 'スタイルカスタマイザー', extStyleDesc: 'ワンクリックで背景色、文字色、フォントサイズを変更。サイトごとに保存。',

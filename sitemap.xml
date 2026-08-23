@@ -2,26 +2,22 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://www.annmax1983.com/</loc>
-    <lastmod>2026-07-16</lastmod>
-    <changefreq>weekly</changefreq>
+    <lastmod>2026-08-23</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://www.annmax1983.com/blog/chrome-extension-architecture.html</loc>
-    <lastmod>2026-07-16</lastmod>
-    <changefreq>monthly</changefreq>
+    <loc>https://www.annmax1983.com/blog/service-worker-resilience.html</loc>
+    <lastmod>2026-05-01</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://www.annmax1983.com/blog/production-grade-extensions.html</loc>
-    <lastmod>2026-07-16</lastmod>
-    <changefreq>monthly</changefreq>
+    <loc>https://www.annmax1983.com/blog/least-privilege-review.html</loc>
+    <lastmod>2026-06-01</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://www.annmax1983.com/blog/privacy-first-extensions.html</loc>
-    <lastmod>2026-07-16</lastmod>
-    <changefreq>monthly</changefreq>
+    <loc>https://www.annmax1983.com/blog/offscreen-image-processing.html</loc>
+    <lastmod>2026-07-01</lastmod>
     <priority>0.7</priority>
   </url>
 </urlset>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="500" viewBox="0 0 680 500">
+  <rect width="680" height="500" fill="#f0f4f8" rx="12"/>
+  <rect x="140" y="150" width="400" height="200" fill="white" rx="16" stroke="#e2e8f0" stroke-width="2"/>
+  <text x="340" y="230" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="48" fill="#6366f1">🔗</text>
+  <text x="340" y="280" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="18" font-weight="700" fill="#1a202c">VKT LinkHarvest</text>
+  <text x="340" y="310" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" fill="#a0aec0">Placeholder — replace with actual screenshot</text>
+</svg>

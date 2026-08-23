@@ -16,7 +16,7 @@ window.LANG_de = {
   skillUiux: 'UI/UX & Internationalisierung', skillUiuxDetail: 'Responsives Design · i18n · Barrierefreiheit · Design-Systeme',
   skillSecurity: 'Sicherheit & Datenschutz', skillSecurityDetail: 'CSP · Zero-Trust · Lokal-Zuerst · Minimale Berechtigungen',
   skillTooling: 'DevOps & Werkzeuge', skillToolingDetail: 'Git · CI/CD · Docker · Store-Veröffentlichung · ASO',
-  extTitle: 'Meine Erweiterungen', extSubtitle: '15 leichtgewichtige Browser-Erweiterungen — Kernfunktionen dauerhaft kostenlos, Datenschutz zuerst',
+  extTitle: 'Meine Erweiterungen', extSubtitle: '16 leichtgewichtige Browser-Erweiterungen — Kernfunktionen dauerhaft kostenlos, Datenschutz zuerst',
   extConv: 'Bildformat-Konverter', extConvDesc: 'Konvertiere Bilder zwischen PNG/JPG/WEBP/AVIF direkt im Browser. 100% lokal, kein Upload.',
   extShot: 'Seiten-Screenshot', extShotDesc: 'Vollständige Seite, sichtbarer Bereich und Auswahl mit Annotationen. Kein Upload.',
   extStyle: 'Stil-Anpasser', extStyleDesc: 'Hintergrund, Textfarbe und Schriftgröße mit einem Klick ändern. Pro Website gespeichert.',

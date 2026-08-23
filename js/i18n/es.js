@@ -16,7 +16,7 @@ window.LANG_es = {
   skillUiux: 'UI/UX e Internacionalización', skillUiuxDetail: 'Diseño Responsivo · i18n · Accesibilidad · Sistemas de Diseño',
   skillSecurity: 'Seguridad y Privacidad', skillSecurityDetail: 'CSP · Confianza Cero · Local-First · Minimización de Permisos',
   skillTooling: 'DevOps y Herramientas', skillToolingDetail: 'Git · CI/CD · Docker · Publicación en Tienda · ASO',
-  extTitle: 'Mis Extensiones', extSubtitle: '15 extensiones ligeras — funciones principales gratis, privacidad primero, 100% local',
+  extTitle: 'Mis Extensiones', extSubtitle: '16 extensiones ligeras — funciones principales gratis, privacidad primero, 100% local',
   extConv: 'Convertidor de Imágenes', extConvDesc: 'Convierte imágenes entre PNG/JPG/WEBP/AVIF en tu navegador. 100% local, sin subidas.',
   extShot: 'Captura de Página', extShotDesc: 'Captura completa, área visible y selección con anotaciones. Sin subidas.',
   extStyle: 'Personalizador de Estilos', extStyleDesc: 'Cambia fondo, color de texto y tamaño de fuente con un clic. Configuración por sitio.',
