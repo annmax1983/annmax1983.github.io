@@ -442,6 +442,36 @@ section {
 }
 .ext-link:hover { color: var(--accent-1); }
 
+/* Store install buttons */
+.ext-stores {
+  display: flex; gap: 0.5rem; flex-wrap: wrap;
+  margin-top: 0.9rem;
+}
+.store-btn {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  font-size: 0.72rem; font-weight: 600; line-height: 1;
+  text-decoration: none; white-space: nowrap;
+  padding: 0.42rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-glass);
+  background: var(--bg-glass);
+  color: var(--text-secondary);
+  transition: var(--transition);
+}
+.store-btn::before {
+  content: ''; width: 7px; height: 7px;
+  border-radius: 50%; flex: none;
+}
+.store-btn.chrome::before { background: #4285f4; }
+.store-btn.edge::before { background: #0f7dc2; }
+.store-btn.chrome:hover { color: var(--text-primary); border-color: #4285f4; background: rgba(66,133,244,0.14); }
+.store-btn.edge:hover { color: var(--text-primary); border-color: #0f7dc2; background: rgba(15,125,194,0.14); }
+.store-btn.soon {
+  color: var(--text-muted); cursor: default;
+  border-style: dashed;
+}
+.store-btn.soon::before { background: var(--text-muted); }
+
 /* ============================================================
    Custom Dev Section
    ============================================================ */
@@ -851,3 +881,19 @@ footer p { margin-bottom: 0.5rem; }
   .feedback-cards { grid-template-columns: 1fr; }
   #feedback { padding: 2.5rem 1rem; margin: 2rem 0; }
 }
+
+/* Products section */
+.products-intro { max-width: 720px; margin: 0 auto 2rem; text-align: center; }
+.products-intro p { color: var(--text-secondary); line-height: 1.8; font-size: 1rem; }
+.products-intro strong { color: var(--accent); }
+#products { padding: 2.5rem 1rem; }
+
+/* Skip-to-content link (accessibility) */
+.skip-link {
+  position: absolute; top: -100%; left: 16px; z-index: 9999;
+  background: var(--accent-1); color: #fff;
+  padding: 8px 16px; border-radius: 6px;
+  font-size: 0.85rem; text-decoration: none;
+  transition: top 0.2s;
+}
+.skip-link:focus { top: 16px; }

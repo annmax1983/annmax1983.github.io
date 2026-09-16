@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog — AnnMax · Full-Stack Developer · Browser Extension Developer</title>
+  <meta name="description" content="Technical articles for working developers: Git, modern CSS, debugging methodology, browser extensions, WebAssembly, WebGPU, privacy engineering and local-first architecture. 18 years of experience distilled.">
+  <meta name="keywords" content="git tutorial, modern css, debugging methodology, browser extension development, WebAssembly tutorial, WebGPU, privacy engineering, local-first, SQLite browser, Service Worker, Chrome extension blog">
+  <meta property="og:title" content="Blog — AnnMax · Technical Articles">
+  <meta property="og:description" content="Technical articles for working developers: Git, modern CSS, debugging methodology, browser extensions, WebAssembly, WebGPU, privacy engineering and more.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog.html">
+  <meta property="og:type" content="blog">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="canonical" href="https://annmax1983.github.io/blog.html">
+  <link rel="alternate" type="application/atom+xml" title="AnnMax Blog Feed" href="/feed.xml">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    "name": "AnnMax Technical Blog",
+    "description": "Technical articles on browser extensions, WebAssembly, WebGPU, privacy engineering, and more.",
+    "url": "https://annmax1983.github.io/blog.html",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "blogPost": [
+      {
+        "@type": "BlogPosting",
+        "headline": "Git Beyond Commit and Push: Reflog, Bisect, Worktree and Interactive Rebase",
+        "url": "https://annmax1983.github.io/blog/git-beyond-commit-and-push.html",
+        "datePublished": "2026-09-16",
+        "description": "Recover deleted work with reflog, find the commit that broke production with bisect, and work two branches at once with worktree."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "Modern CSS You Probably Missed: :has(), Container Queries, @layer and Native Nesting",
+        "url": "https://annmax1983.github.io/blog/modern-css-you-probably-missed.html",
+        "datePublished": "2026-09-16",
+        "description": "Seven CSS features that replace JavaScript and preprocessor workarounds, with real examples."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "Debugging Like a Senior Engineer: A Systematic Method That Actually Works",
+        "url": "https://annmax1983.github.io/blog/debugging-like-a-senior-engineer.html",
+        "datePublished": "2026-09-16",
+        "description": "Reproduce deterministically, read the whole error, cut the search space in half, and lock the fix in with a test."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "SQLite in the Browser: Building a Local-First Database with OPFS",
+        "url": "https://annmax1983.github.io/blog/sqlite-opfs-local-first-database.html",
+        "datePublished": "2026-09-15",
+        "description": "Run a full SQLite database in the browser using WebAssembly and OPFS. Persistent, fast, and completely offline."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "WebGPU in 2026: Running AI Inference and Parallel Computing in Your Browser",
+        "url": "https://annmax1983.github.io/blog/webgpu-browser-ai-inference.html",
+        "datePublished": "2026-09-10",
+        "description": "WebGPU brings GPU-accelerated computing to the browser. Run AI models, process images, and perform parallel computation entirely client-side."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "WebAssembly Image Processing in the Browser: From Pixels to Formats",
+        "url": "https://annmax1983.github.io/blog/webassembly-image-processing.html",
+        "datePublished": "2026-08-20",
+        "description": "Build high-performance, zero-network image processing pipelines with Canvas API and WebAssembly."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "Browser Fingerprinting Explained: 30 Ways You're Being Tracked Online",
+        "url": "https://annmax1983.github.io/blog/browser-fingerprinting-privacy.html",
+        "datePublished": "2026-08-15",
+        "description": "Canvas, WebGL, AudioContext, font enumeration, and 26 more fingerprinting vectors."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "Local-Only Image Processing Architecture via Offscreen Documents",
+        "url": "https://annmax1983.github.io/blog/offscreen-image-processing.html",
+        "datePublished": "2026-07-01",
+        "description": "Zero-network image conversion, batch processing with memory management, CDP screenshots."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "Least Privilege Implementation & Chrome Web Store Review Checklist",
+        "url": "https://annmax1983.github.io/blog/least-privilege-review.html",
+        "datePublished": "2026-06-01",
+        "description": "activeTab dynamic injection, permission minimization, top 12 rejection reasons with fixes."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "Service Worker Resilience & State Persistence for MV3",
+        "url": "https://annmax1983.github.io/blog/service-worker-resilience.html",
+        "datePublished": "2026-05-01",
+        "description": "Production patterns for handling SW termination, persistent task queues, alarm-based timers."
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">⚡ AnnMax</a>
+    <ul class="nav-links">
+      <li><a href="/#about">About</a></li>
+      <li><a href="/#skills">Skills</a></li>
+      <li><a href="/#extensions">Extensions</a></li>
+      <li><a href="/blog.html" style="color:var(--accent);">Blog</a></li>
+      <li><a href="/#products">Products</a></li>
+      <li><a href="/#custom">Custom Dev</a></li>
+      <li><a href="/#contact">Contact</a></li>
+      <li><a href="https://annmax1983.com" target="_blank" rel="noopener" style="color:var(--accent);">Official Website</a></li>
+    </ul>
+    <button class="nav-toggle" aria-label="Menu">☰</button>
+  </div>
+</nav>
+
+<section style="padding-top:100px;">
+  <div class="section-header reveal">
+    <div class="section-tag">Blog</div>
+    <h2 class="section-title">Technical Articles</h2>
+    <p class="section-subtitle">18 years of development experience — browser extensions, WebAssembly, WebGPU, privacy engineering, and more</p>
+  </div>
+
+  <div class="blog-grid">
+
+    <a href="blog/git-beyond-commit-and-push.html" class="blog-card reveal">
+      <div class="blog-date">2026-09</div>
+      <h3>Git Beyond Commit and Push: Reflog, Bisect, Worktree and Interactive Rebase</h3>
+      <p>Practical Git that saves hours: recover deleted work with reflog, find the commit that broke production with bisect, and work two branches at once with worktree.</p>
+      <span class="blog-tag">Git</span>
+      <span class="blog-tag">Tooling</span>
+    </a>
+
+    <a href="blog/modern-css-you-probably-missed.html" class="blog-card reveal">
+      <div class="blog-date">2026-09</div>
+      <h3>Modern CSS You Probably Missed: :has(), Container Queries, @layer and Native Nesting</h3>
+      <p>Seven CSS features that replace JavaScript and preprocessor workarounds — with real examples you can ship today.</p>
+      <span class="blog-tag">CSS</span>
+      <span class="blog-tag">Frontend</span>
+    </a>
+
+    <a href="blog/debugging-like-a-senior-engineer.html" class="blog-card reveal">
+      <div class="blog-date">2026-09</div>
+      <h3>Debugging Like a Senior Engineer: A Systematic Method That Actually Works</h3>
+      <p>Reproduce deterministically, read the whole error, cut the search space in half, work outside in, change one thing at a time, lock it in with a test.</p>
+      <span class="blog-tag">Debugging</span>
+      <span class="blog-tag">Methodology</span>
+    </a>
+
+    <a href="blog/sqlite-opfs-local-first-database.html" class="blog-card reveal">
+      <div class="blog-date">2026-09</div>
+      <h3>SQLite in the Browser: Building a Local-First Database with OPFS</h3>
+      <p>Run a full SQLite database in the browser using WebAssembly and OPFS. Persistent, fast, and completely offline. No server required.</p>
+      <span class="blog-tag">SQLite</span>
+      <span class="blog-tag">OPFS</span>
+      <span class="blog-tag">WebAssembly</span>
+    </a>
+
+    <a href="blog/webgpu-browser-ai-inference.html" class="blog-card reveal">
+      <div class="blog-date">2026-09</div>
+      <h3>WebGPU in 2026: Running AI Inference and Parallel Computing in Your Browser</h3>
+      <p>WebGPU brings GPU-accelerated computing to the browser. Run AI models, process images, and perform parallel computation entirely client-side.</p>
+      <span class="blog-tag">WebGPU</span>
+      <span class="blog-tag">AI</span>
+    </a>
+
+    <a href="blog/webassembly-image-processing.html" class="blog-card reveal">
+      <div class="blog-date">2026-08</div>
+      <h3>WebAssembly Image Processing in the Browser: From Pixels to Formats</h3>
+      <p>Build high-performance, zero-network image processing pipelines with Canvas API and WebAssembly. PNG, JPEG, WebP, AVIF conversion with real code examples.</p>
+      <span class="blog-tag">WebAssembly</span>
+      <span class="blog-tag">Image Processing</span>
+    </a>
+
+    <a href="blog/browser-fingerprinting-privacy.html" class="blog-card reveal">
+      <div class="blog-date">2026-08</div>
+      <h3>Browser Fingerprinting Explained: 30 Ways You're Being Tracked Online</h3>
+      <p>Canvas, WebGL, AudioContext, font enumeration, and 26 more fingerprinting vectors. How websites identify you without cookies and how to defend your privacy.</p>
+      <span class="blog-tag">Privacy</span>
+      <span class="blog-tag">Security</span>
+    </a>
+
+    <a href="blog/offscreen-image-processing.html" class="blog-card reveal">
+      <div class="blog-date">2026-07</div>
+      <h3>Local-Only Image Processing Architecture via Offscreen Documents</h3>
+      <p>Zero-network image conversion, batch processing with memory management, CDP screenshots, and clipboard operations — all without a single fetch() call.</p>
+      <span class="blog-tag">Offscreen</span>
+      <span class="blog-tag">Chrome Extensions</span>
+    </a>
+
+    <a href="blog/least-privilege-review.html" class="blog-card reveal">
+      <div class="blog-date">2026-06</div>
+      <h3>Least Privilege Implementation & Chrome Web Store Review Checklist</h3>
+      <p>activeTab dynamic injection, permission minimization, top 12 rejection reasons with fixes, and multi-browser compatibility strategies.</p>
+      <span class="blog-tag">Permissions</span>
+      <span class="blog-tag">Chrome Web Store</span>
+    </a>
+
+    <a href="blog/service-worker-resilience.html" class="blog-card reveal">
+      <div class="blog-date">2026-05</div>
+      <h3>Service Worker Resilience & State Persistence for MV3</h3>
+      <p>Production patterns for handling SW termination, persistent task queues, alarm-based timers, and ACK-based messaging in Manifest V3 extensions.</p>
+      <span class="blog-tag">ServiceWorker</span>
+      <span class="blog-tag">MV3</span>
+    </a>
+
+  </div>
+
+  <div style="text-align:center;margin-top:3rem;">
+    <a href="/feed.xml" style="color:var(--accent);font-size:0.85rem;">📡 Subscribe via RSS</a>
+  </div>
+</section>
+
+<footer>
+  <p>© 2026 AnnMax · Full-Stack Developer · Changing the world with code</p>
+  <p><a href="https://annmax1983.com/" target="_blank" rel="noopener" style="color:var(--accent);">Official Website</a> · <a href="https://github.com/annmax1983" target="_blank" rel="noopener" style="color:var(--accent);">GitHub</a> · <a href="/feed.xml" style="color:var(--accent);">RSS Feed</a></p>
+  <p>Built with ❤️ and pure HTML/CSS/JS</p>
+</footer>
+
+<script src="js/i18n.js"></script>
+<script src="js/main.js"></script>
+
+<button id="backToTop" class="back-to-top" title="Back to top">↑</button>
+
+</body>
+</html>

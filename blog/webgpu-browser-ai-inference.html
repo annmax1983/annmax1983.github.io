@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">WebGPU in 2026: Running AI Inference and Parallel Computing Directly in Your Browser — AnnMax</title>
+  <meta name="description" content="WebGPU brings GPU-accelerated computing to the browser. Learn how to run AI models, process images, and perform parallel computation entirely client-side with WebGPU and WGSL shaders.">
+  <meta property="og:title" content="WebGPU in 2026: Running AI Inference and Parallel Computing in Your Browser">
+  <meta property="og:description" content="WebGPU brings GPU-accelerated computing to the browser. Run AI models entirely client-side.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/webgpu-browser-ai-inference.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="keywords" content="WebGPU, browser AI, on-device inference, WGSL shader, GPU computing browser, machine learning browser, WebGPU tutorial, parallel computing JavaScript">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/webgpu-browser-ai-inference.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">WebGPU in 2026: Running AI Inference and Parallel Computing Directly in Your Browser</h1>
+    <div class="meta" id="articleMeta"><span>September 2026</span><span class="reading-time">~16 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="webgpu-arrives">WebGPU: The GPU API the Web Deserved</h2>
+<p>After years of development, <strong>WebGPU</strong> is now the default GPU API in Chrome, Edge, and Firefox Nightly. It replaces WebGL — which was essentially a port of OpenGL ES 2.0 from 2007 — with a modern API designed for today's hardware. The difference is dramatic: WebGPU offers <strong>compute shaders</strong>, <strong>better parallelism</strong>, and <strong>direct GPU memory management</strong>.</p>
+<p>For the first time, you can run serious GPU computing workloads directly in the browser. No plugins. No native code. No server. Just JavaScript (and WGSL shaders) talking directly to your GPU.</p>
+
+<h2 id="webgl-vs-webgpu">WebGL vs WebGPU: What Changed?</h2>
+<p>WebGL was designed for drawing triangles and textures. You <em>could</em> abuse it for computing (GPGPU), but it was painful. WebGPU was built from the ground up for both graphics and compute:</p>
+<ul>
+<li><strong>Compute Shaders</strong> — WebGPU's killer feature. Run arbitrary parallel computations on the GPU, not just vertex/fragment shaders.</li>
+<li><strong>Bind Groups</strong> — batch resource binding instead of one-at-a-time WebGL calls.</li>
+<li><strong>Pipeline State Objects</strong> — pre-compiled pipeline state for zero-overhead draw calls.</li>
+<li><strong>WGSL</strong> — a new shading language designed for safety and readability (replacing GLSL).</li>
+<li><strong>Multithreaded Command Recording</strong> — record GPU commands from multiple workers simultaneously.</li>
+</ul>
+<p>Real-world performance: WebGPU delivers <strong>2-5x better throughput</strong> than WebGL for compute workloads, and up to <strong>30% better</strong> for traditional rendering.</p>
+
+<h2 id="first-compute">Your First Compute Shader</h2>
+<p>Let's start with a simple example: adding two arrays on the GPU.</p>
+<pre><code>// 1. Get the GPU adapter and device
+const adapter = await navigator.gpu.requestAdapter();
+const device = await adapter.requestDevice();
+
+// 2. Create input data
+const dataA = new Float32Array([1, 2, 3, 4, 5]);
+const dataB = new Float32Array([10, 20, 30, 40, 50]);
+
+// 3. Create GPU buffers
+const bufferA = device.createBuffer({
+  size: dataA.byteLength,
+  usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  mappedAtCreation: true
+});
+new Float32Array(bufferA.getMappedRange()).set(dataA);
+bufferA.unmap();
+
+const bufferB = device.createBuffer({ /* same as A */ });
+const bufferResult = device.createBuffer({
+  size: dataA.byteLength,
+  usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_READ
+});
+
+// 4. Write the compute shader in WGSL
+const shaderCode = `
+  @group(0) @binding(0) var&lt;storage, read&gt; a: array&lt;f32&gt;;
+  @group(0) @binding(1) var&lt;storage, read&gt; b: array&lt;f32&gt;;
+  @group(0) @binding(2) var&lt;storage, read_write&gt; result: array&lt;f32&gt;;
+
+  @compute @workgroup_size(64)
+  fn main(@builtin(global_invocation_id) id: vec3&lt;u32&gt;) {
+    result[id.x] = a[id.x] + b[id.x];
+  }
+`;
+
+// 5. Create and dispatch the compute pipeline
+const module = device.createShaderModule({ code: shaderCode });
+const pipeline = device.createComputePipeline({
+  layout: 'auto',
+  compute: { module, entryPoint: 'main' }
+});
+
+const bindGroup = device.createBindGroup({
+  layout: pipeline.getBindGroupLayout(0),
+  entries: [
+    { binding: 0, resource: { buffer: bufferA } },
+    { binding: 1, resource: { buffer: bufferB } },
+    { binding: 2, resource: { buffer: bufferResult } }
+  ]
+});
+
+const encoder = device.createCommandEncoder();
+const pass = encoder.beginComputePass();
+pass.setPipeline(pipeline);
+pass.setBindGroup(0, bindGroup);
+pass.dispatchWorkgroups(Math.ceil(dataA.length / 64));
+pass.end();
+device.queue.submit([encoder.finish()]);
+
+// 6. Read back the result
+const result = await readBuffer(device, bufferResult);
+console.log(new Float32Array(result)); // [11, 22, 33, 44, 55]</code></pre>
+<p>This is a trivial example, but the pattern scales. Replace the addition with matrix multiplication, convolution, or any parallelizable operation, and you have a GPU-accelerated computing engine in the browser.</p>
+
+<h2 id="ai-inference">Running AI Models with WebGPU</h2>
+<p>The hottest application of WebGPU is <strong>on-device AI inference</strong>. Frameworks like <strong>ONNX Runtime Web</strong>, <strong>TensorFlow.js</strong>, and <strong>Transformers.js</strong> now support WebGPU backends, allowing you to run models directly on the user's GPU:</p>
+<pre><code>// Using Transformers.js with WebGPU
+import { pipeline } from '@xenova/transformers';
+
+// This model runs entirely on the user's GPU — no server needed
+const classifier = await pipeline(
+  'text-classification',
+  'Xenova/distilbert-base-uncased-finetuned-sst-2-english',
+  { device: 'webgpu' }
+);
+
+const result = await classifier('I love building browser extensions!');
+// [{ label: 'POSITIVE', score: 0.9998 }]</code></pre>
+<p>What's happening under the hood: the model weights are downloaded once and cached. Every inference call runs on the GPU through WebGPU compute shaders. No data leaves the browser.</p>
+
+<h3>Image Classification</h3>
+<pre><code>// Image classification with WebGPU
+import { pipeline } from '@xenova/transformers';
+
+const classifier = await pipeline(
+  'image-classification',
+  'Xenova/vit-base-patch16-224',
+  { device: 'webgpu' }
+);
+
+const result = await classifier('photo.jpg');
+// [{ label: 'golden retriever', score: 0.92 }]</code></pre>
+
+<h3>Text Embeddings for Semantic Search</h3>
+<pre><code>// Generate embeddings locally
+const extractor = await pipeline(
+  'feature-extraction',
+  'Xenova/all-MiniLM-L6-v2',
+  { device: 'webgpu' }
+);
+
+const embedding = await extractor('browser extension privacy');
+// Float32Array(384) — a 384-dimensional vector</code></pre>
+<p>This enables <strong>local semantic search</strong> — build a search engine over your bookmarks, notes, or documents without sending any text to a server. The embeddings are computed on your GPU in milliseconds.</p>
+
+<h2 id="image-processing-gpu">GPU-Accelerated Image Processing</h2>
+<p>Beyond AI, WebGPU excels at image processing. A compute shader can process millions of pixels in parallel:</p>
+<pre><code>// GPU-accelerated image blur (simplified)
+const blurShader = `
+  @group(0) @binding(0) var input_texture: texture_2d&lt;f32&gt;;
+  @group(0) @binding(1) var output_texture: texture_storage_2d&lt;rgba8unorm, write&gt;;
+  @group(0) @binding(2) var&lt;uniform&gt; params: vec2&lt;f32&gt;; // width, height
+
+  @compute @workgroup_size(16, 16)
+  fn main(@builtin(global_invocation_id) id: vec3&lt;u32&gt;) {
+    let coords = vec2&lt;i32&gt;(id.xy);
+    var color = vec4&lt;f32&gt;(0.0);
+    var count = 0.0;
+
+    // 5x5 Gaussian blur kernel
+    for (var dy = -2; dy <= 2; dy++) {
+      for (var dx = -2; dx <= 2; dx++) {
+        let sample = vec2&lt;i32&gt;(coords.x + dx, coords.y + dy);
+        color += textureLoad(input_texture, sample, 0);
+        count += 1.0;
+      }
+    }
+
+    textureStore(output_texture, coords, color / count);
+  }
+`;</code></pre>
+<p>This blur runs on the GPU's massively parallel architecture. A 4K image (8.3 million pixels) is processed in under 2 milliseconds — hundreds of times faster than the equivalent JavaScript loop.</p>
+
+<h2 id="practical-extensions">Practical Uses in Browser Extensions</h2>
+<p>WebGPU opens up possibilities for browser extensions that were previously impossible without native code:</p>
+<ul>
+<li><strong>Real-time image filters</strong> — apply Instagram-style filters to any image on any webpage, processed locally on the GPU</li>
+<li><strong>Video frame analysis</strong> — process video frames for content detection, thumbnail generation, or scene changes</li>
+<li><strong>Local AI assistants</strong> — run small language models for text summarization, translation, or code completion without a server</li>
+<li><strong>Privacy scanning</strong> — detect tracking pixels, fingerprinting scripts, or data leaks by analyzing page content with AI models</li>
+</ul>
+<p>For image-focused extensions like <a href="https://annmax1983.com/extensions/imageconv.html" target="_blank" rel="noopener">ImageConv</a> and <a href="https://annmax1983.com/extensions/pageshot.html" target="_blank" rel="noopener">PageShot</a>, WebGPU means faster processing and the ability to add GPU-accelerated filters and transformations that would be too slow in pure JavaScript.</p>
+
+<h2 id="wgsl-deep-dive">WGSL: The Shading Language</h2>
+<p>WebGPU uses <strong>WGSL</strong> (WebGPU Shading Language) instead of GLSL. It's designed for safety and readability:</p>
+<pre><code>// WGSL compute shader for image brightness adjustment
+@group(0) @binding(0) var&lt;storage, read&gt; input: array&lt;u32&gt;;
+@group(0) @binding(1) var&lt;storage, read_write&gt; output: array&lt;u32&gt;;
+@group(0) @binding(2) var&lt;uniform&gt; brightness: f32;
+
+@compute @workgroup_size(256)
+fn main(@builtin(global_invocation_id) id: vec3&lt;u32&gt;) {
+  let pixel = input[id.x];
+
+  // Unpack RGBA
+  var r = f32((pixel >> 0u) & 0xFFu);
+  var g = f32((pixel >> 8u) & 0xFFu);
+  var b = f32((pixel >> 16u) & 0xFFu);
+  let a = f32((pixel >> 24u) & 0xFFu);
+
+  // Apply brightness
+  r = clamp(r + brightness, 0.0, 255.0);
+  g = clamp(g + brightness, 0.0, 255.0);
+  b = clamp(b + brightness, 0.0, 255.0);
+
+  // Pack back to u32
+  output[id.x] = u32(r) | (u32(g) << 8u) | (u32(b) << 16u) | (u32(a) << 24u);
+}</code></pre>
+<p>WGSL is more verbose than GLSL, but it's also more explicit and harder to make mistakes. The type system catches errors at shader compilation time rather than at runtime.</p>
+
+<h2 id="browser-support">Browser Support & Fallbacks</h2>
+<p>As of September 2026:</p>
+<ul>
+<li><strong>Chrome 113+</strong> — Full support (enabled by default)</li>
+<li><strong>Edge 113+</strong> — Full support (Chromium-based)</li>
+<li><strong>Firefox</strong> — Nightly only, behind a flag. Stable support expected by end of 2026.</li>
+<li><strong>Safari</strong> — Technology Preview has experimental support. Full support expected in Safari 19.</li>
+</ul>
+<p>For production use, always check for WebGPU availability and fall back to WebGL or CPU processing:</p>
+<pre><code>async function getGPUDevice() {
+  if (!navigator.gpu) {
+    console.warn('WebGPU not supported, falling back to WebGL');
+    return null;
+  }
+  const adapter = await navigator.gpu.requestAdapter();
+  if (!adapter) return null;
+  return await adapter.requestDevice();
+}</code></pre>
+
+<h2 id="conclusion">The Browser as a Computing Platform</h2>
+<p>WebGPU represents a fundamental shift in what the browser can do. It's no longer just a document renderer or an app container. With direct GPU access, the browser becomes a genuine computing platform — capable of running AI models, processing video, and performing scientific computations that previously required native applications.</p>
+<p>For privacy-conscious users, this is particularly exciting. On-device AI inference means your data stays on your machine. GPU-accelerated image processing means you don't need to upload photos to a server. Local semantic search means your browsing history never leaves your browser.</p>
+<p>The web platform is catching up to native. And in some ways — with its sandboxed security model, instant deployment, and zero installation — it's already ahead.</p>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./webassembly-image-processing.html">WebAssembly Image Processing in the Browser</a></li>
+  <li><a href="./sqlite-opfs-local-first-database.html">SQLite in the Browser with OPFS</a></li>
+  <li><a href="./debugging-like-a-senior-engineer.html">Debugging Like a Senior Engineer</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'WebGPU in 2026: Running AI Inference and Parallel Computing Directly in Your Browser',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '2026年 WebGPU：在浏览器中运行 AI 推理和并行计算',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: '2026年のWebGPU：ブラウザでAI推論と並列計算を直接実行',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'WebGPU 2026: KI-Inferenz und parallele Berechnung direkt im Browser',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'WebGPU en 2026: ejecutando inferencia IA y computación paralela directamente en tu navegador',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'WebGPU en 2026 : inférence IA et calcul parallèle directement dans votre navigateur',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+</body>
+</html>

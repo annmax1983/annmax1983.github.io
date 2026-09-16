@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Modern CSS You Probably Missed: :has(), Container Queries, @layer and Native Nesting — AnnMax</title>
+  <meta name="description" content="Seven CSS features that replace JavaScript and preprocessor workarounds: :has(), container queries, @layer, native nesting, subgrid, color-mix(), and logical properties — with real examples.">
+  <meta property="og:title" content="Modern CSS You Probably Missed: :has(), Container Queries, @layer and Native Nesting">
+  <meta property="og:description" content="Seven CSS features that replace JavaScript and preprocessor workarounds: :has(), container queries, @layer, native nesting, subgrid, color-mix(), and logical properties — with real examples.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/modern-css-you-probably-missed.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="keywords" content="css has selector, container queries, css layers, native css nesting, subgrid, color-mix, logical properties, modern css 2026">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/modern-css-you-probably-missed.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Modern CSS You Probably Missed: :has(), Container Queries, @layer and Native Nesting</h1>
+    <div class="meta" id="articleMeta"><span>September 2026</span><span class="reading-time">~12 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="has">:has() — The Parent Selector We Waited Two Decades For</h2>
+<p>For as long as CSS has existed, selectors have only moved down the tree. You could style a child based on its parent, never the reverse. Every workaround — JavaScript class toggles, sibling hacks, restructuring markup — existed because of that one limitation.</p>
+<p><code>:has()</code> ends it. It selects an element based on what it contains:</p>
+<pre><code>/* A card that holds an image gets a different layout */
+.card:has(img) {
+  grid-template-columns: 120px 1fr;
+}
+
+/* Highlight the whole form row containing an invalid input */
+.form-row:has(input:invalid) {
+  border-left: 3px solid crimson;
+}
+
+/* Drop the header shadow only on pages with a hero banner */
+.site-header:has(~ .hero) {
+  box-shadow: none;
+}</code></pre>
+<p>The second example is the one that changes how you build. Validation styling used to require either JavaScript or an awkward placement of the error element. Now the container just knows. Same for empty states:</p>
+<pre><code>/* Show a placeholder only when the list is genuinely empty */
+.todo-list:not(:has(li))::before {
+  content: "Nothing here yet.";
+  color: #888;
+}</code></pre>
+<p>Performance used to be the objection, and it was a fair one — a naive implementation means re-evaluating large parts of the tree. Browser engines optimized the common cases heavily, and in practice <code>:has()</code> is fine unless you write something pathological like <code>body:has(*)</code>. Scope it to a component and you're good.</p>
+
+<h2 id="container">Container Queries — Components That Style Themselves</h2>
+<p>Media queries respond to the viewport, which is why the same sidebar component looks wrong when you move it from a wide page into a narrow column. The component doesn't know anything about the viewport; it only knows about the box it was given.</p>
+<p>Container queries fix the mismatch by letting an element respond to the size of its container:</p>
+<pre><code>.card-wrapper {
+  container-type: inline-size;
+  container-name: card;
+}
+
+/* Default: stacked layout for narrow containers */
+.card { display: grid; gap: 0.5rem; }
+
+/* Switch to two columns only when the container is wide */
+@container card (min-width: 420px) {
+  .card {
+    grid-template-columns: 140px 1fr;
+    gap: 1.5rem;
+  }
+}</code></pre>
+<p>The result is a genuinely portable component. Drop it in a 300px sidebar and it stacks; drop it in a 900px main area and it goes side-by-side. No page-level overrides, no modifier classes, no JavaScript measuring anything.</p>
+<p>Style queries take it further — you can respond to a container's custom property value, not just its size:</p>
+<pre><code>@container style(--theme: dark) {
+  .card { background: #1a1a24; color: #eee; }
+}</code></pre>
+
+<h2 id="layer">@layer — Cascade Control That Actually Works</h2>
+<p>Specificity wars are a symptom of a missing feature, not a discipline problem. <code>@layer</code> lets you declare the priority order up front, so a single class can beat a long descendant selector without <code>!important</code>.</p>
+<pre><code>/* Declare the order once, lowest to highest priority */
+@layer reset, base, components, utilities;
+
+@layer reset {
+  * { box-sizing: border-box; margin: 0; }
+}
+
+@layer components {
+  /* Specificity 0,1,0 */
+  .button { padding: 0.5rem 1rem; }
+}
+
+@layer utilities {
+  /* Also 0,1,0 — but wins anyway, because the layer is later */
+  .p-0 { padding: 0; }
+}</code></pre>
+<p>Third-party CSS becomes far less scary too. Wrap a vendor stylesheet in a low layer and your own rules stop needing specificity hacks to override it:</p>
+<pre><code>@import url("some-ui-library.css") layer(vendor);</code></pre>
+<p>This is the single change that most improved the maintainability of stylesheets I work on. When everything is in a declared layer, "why is this rule winning" has an answer you can read off one line at the top of the file.</p>
+
+<h2 id="nesting">Native Nesting — No Preprocessor Required</h2>
+<p>CSS now nests natively, with the same mental model you already have from Sass:</p>
+<pre><code>.card {
+  padding: 1rem;
+  border-radius: 12px;
+
+  &amp; .title { font-weight: 600; }
+
+  &amp;:hover { background: #f6f6f9; }
+
+  @media (min-width: 640px) {
+    padding: 1.5rem;
+  }
+}</code></pre>
+<p>One genuine gotcha: in native nesting, a bare selector like <code>.title { }</code> inside a rule is <em>not</em> treated as a descendant — you need the explicit <code>&amp;</code>. Browsers used to guess, and the guess turned out to be a compatibility problem, so the <code>&amp;</code> is now required for anything other than pseudo-classes and pseudo-elements.</p>
+<p>Keep nesting shallow anyway. Three levels is readable; six levels is how you end up with specificity you can't override without a layer.</p>
+
+<h2 id="subgrid">Subgrid — Alignment Across Nested Layouts</h2>
+<p>Grid solved page layout, but nested components each started their own grid, so their internal rows never lined up with their siblings. Cards with different text lengths looked ragged, and the only fix was fixed heights.</p>
+<p><code>subgrid</code> lets a child inherit the parent's track definitions:</p>
+<pre><code>.card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.card {
+  display: grid;
+  /* Inherit the parent's row tracks instead of making new ones */
+  grid-template-rows: subgrid;
+  grid-row: span 3;
+}</code></pre>
+<p>Every card's title, body, and footer now align with the neighbouring cards' — regardless of how much text each contains. No JavaScript height equalization, no <code>min-height</code> guesswork.</p>
+
+<h2 id="colors">color-mix() and Relative Color Syntax</h2>
+<p>Generating tints and shades used to mean either a preprocessor function or twenty hardcoded hex values in custom properties. Now CSS can compute them:</p>
+<pre><code>:root {
+  --brand: #6366f1;
+}
+
+.button {
+  background: var(--brand);
+  /* 12% brand, 88% transparent — for hover states, borders, scrims */
+  border-color: color-mix(in oklab, var(--brand) 25%, transparent);
+}
+
+.button:hover {
+  background: color-mix(in oklab, var(--brand) 85%, white);
+}</code></pre>
+<p>Use <code>oklab</code> as the interpolation space rather than <code>srgb</code> — the midtones come out noticeably less muddy, especially mixing toward black or across hues.</p>
+<p>Relative color syntax goes further, deriving new colors from an existing one:</p>
+<pre><code>/* Same hue, guaranteed 95% lightness */
+.badge {
+  background: hsl(from var(--brand) h s 95%);
+}
+
+/* Fully transparent version of whatever --brand is */
+.scrim {
+  background: rgb(from var(--brand) r g b / 20%);
+}</code></pre>
+<p>Change <code>--brand</code> in one place and every derived shade follows. That is what we were trying to achieve with Sass variables a decade ago.</p>
+
+<h2 id="logical">Logical Properties and Why Direction Matters</h2>
+<p>If your site might ever be translated, stop writing <code>margin-left</code>. Logical properties describe position relative to the text flow, so they flip automatically for right-to-left languages:</p>
+<pre><code>/* Physical — breaks in RTL */
+.callout { margin-left: 1rem; padding-right: 2rem; border-left: 3px solid gold; }
+
+/* Logical — works in both directions */
+.callout { margin-inline-start: 1rem; padding-inline-end: 2rem; border-inline-start: 3px solid gold; }</code></pre>
+<p>The full mapping: <code>inline</code> is the direction text flows (horizontal in English, vertical in Japanese), <code>block</code> is the direction lines stack. So <code>margin-block-end</code> replaces <code>margin-bottom</code>, <code>inline-size</code> replaces <code>width</code>, and <code>inset-inline: 0</code> replaces <code>left: 0; right: 0</code>.</p>
+<p>It reads oddly for about a day. After that, it's hard to go back — and your layout works in Arabic without a single override.</p>
+
+<h2 id="support">Adopting This Without Breaking Anything</h2>
+<p>All of the above is broadly supported now, but "broadly" still deserves a plan when you ship to real users:</p>
+<pre><code>/* Progressive enhancement: only apply when supported */
+@supports selector(:has(*)) {
+  .form-row:has(input:invalid) { border-left: 3px solid crimson; }
+}
+
+/* Or check container queries */
+@supports (container-type: inline-size) {
+  .card-wrapper { container-type: inline-size; }
+}</code></pre>
+<p>My approach: use <code>@layer</code>, logical properties, and <code>color-mix()</code> freely — the failure modes are cosmetic. For <code>:has()</code>, container queries, and <code>subgrid</code>, pair them with <code>@supports</code> if the fallback layout would genuinely break, and skip the guard if the fallback is merely less polished.</p>
+<p>The pattern behind all seven features is the same: CSS keeps absorbing the things we used to need JavaScript or a preprocessor for. Every year, the amount of styling logic that has to live outside CSS gets smaller.</p>
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./debugging-like-a-senior-engineer.html">Debugging Like a Senior Engineer</a></li>
+  <li><a href="./git-beyond-commit-and-push.html">Git Beyond Commit and Push</a></li>
+  <li><a href="./webassembly-image-processing.html">WebAssembly Image Processing in the Browser</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Modern CSS You Probably Missed: :has(), Container Queries, @layer and Native Nesting',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '你可能错过的新 CSS：:has()、容器查询、@layer 与原生嵌套',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: '見逃しているかもしれない最新 CSS：:has()、コンテナクエリ、@layer、ネイティブネスト',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Moderne CSS, das Sie wahrscheinlich verpasst haben: :has(), Container Queries, @layer und natives Nesting',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'CSS moderno que probablemente te perdiste: :has(), container queries, @layer y anidamiento nativo',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'CSS moderne que vous avez probablement manqué : :has(), container queries, @layer et imbrication native',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+</body>
+</html>

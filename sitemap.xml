@@ -1,23 +1,63 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://www.annmax1983.com/</loc>
-    <lastmod>2026-08-23</lastmod>
+    <loc>https://annmax1983.github.io/</loc>
+    <lastmod>2026-09-16</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://www.annmax1983.com/blog/service-worker-resilience.html</loc>
+    <loc>https://annmax1983.github.io/blog.html</loc>
+    <lastmod>2026-09-16</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/service-worker-resilience.html</loc>
     <lastmod>2026-05-01</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://www.annmax1983.com/blog/least-privilege-review.html</loc>
+    <loc>https://annmax1983.github.io/blog/least-privilege-review.html</loc>
     <lastmod>2026-06-01</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://www.annmax1983.com/blog/offscreen-image-processing.html</loc>
+    <loc>https://annmax1983.github.io/blog/offscreen-image-processing.html</loc>
     <lastmod>2026-07-01</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/browser-fingerprinting-privacy.html</loc>
+    <lastmod>2026-08-01</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/webassembly-image-processing.html</loc>
+    <lastmod>2026-08-01</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/webgpu-browser-ai-inference.html</loc>
+    <lastmod>2026-09-01</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/sqlite-opfs-local-first-database.html</loc>
+    <lastmod>2026-09-01</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/git-beyond-commit-and-push.html</loc>
+    <lastmod>2026-09-16</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/modern-css-you-probably-missed.html</loc>
+    <lastmod>2026-09-16</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/debugging-like-a-senior-engineer.html</loc>
+    <lastmod>2026-09-16</lastmod>
     <priority>0.7</priority>
   </url>
 </urlset>

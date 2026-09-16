@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>AnnMax — Technical Articles</title>
+  <subtitle>Full-stack developer sharing 18 years of coding experience. Browser extensions, WebAssembly, WebGPU, privacy engineering, and more.</subtitle>
+  <link href="https://annmax1983.github.io/feed.xml" rel="self" type="application/atom+xml"/>
+  <link href="https://annmax1983.github.io/" rel="alternate" type="text/html"/>
+  <id>https://annmax1983.github.io/</id>
+  <author>
+    <name>AnnMax</name>
+    <email>annmax1985@gmail.com</email>
+  </author>
+  <updated>2026-09-16T00:00:00Z</updated>
+
+  <entry>
+    <title>SQLite in the Browser: Building a Local-First Database with OPFS</title>
+    <link href="https://annmax1983.github.io/blog/sqlite-opfs-local-first-database.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/sqlite-opfs-local-first-database.html</id>
+    <updated>2026-09-15T00:00:00Z</updated>
+    <summary>Run a full SQLite database in the browser using WebAssembly and OPFS. Persistent, fast, and completely offline. No server required.</summary>
+    <category term="SQLite"/>
+    <category term="OPFS"/>
+    <category term="WebAssembly"/>
+    <category term="Local-First"/>
+  </entry>
+
+  <entry>
+    <title>WebGPU in 2026: Running AI Inference and Parallel Computing Directly in Your Browser</title>
+    <link href="https://annmax1983.github.io/blog/webgpu-browser-ai-inference.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/webgpu-browser-ai-inference.html</id>
+    <updated>2026-09-10T00:00:00Z</updated>
+    <summary>WebGPU brings GPU-accelerated computing to the browser. Run AI models, process images, and perform parallel computation entirely client-side with WebGPU and WGSL shaders.</summary>
+    <category term="WebGPU"/>
+    <category term="AI"/>
+    <category term="GPU Computing"/>
+  </entry>
+
+  <entry>
+    <title>WebAssembly Image Processing in the Browser: From Pixels to Formats</title>
+    <link href="https://annmax1983.github.io/blog/webassembly-image-processing.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/webassembly-image-processing.html</id>
+    <updated>2026-08-20T00:00:00Z</updated>
+    <summary>How to use WebAssembly and Canvas API to build high-performance, zero-network image processing pipelines entirely in the browser. Covers PNG, JPEG, WebP, AVIF conversion with real code examples.</summary>
+    <category term="WebAssembly"/>
+    <category term="Image Processing"/>
+    <category term="Canvas API"/>
+  </entry>
+
+  <entry>
+    <title>Browser Fingerprinting Explained: 30 Ways You're Being Tracked Online</title>
+    <link href="https://annmax1983.github.io/blog/browser-fingerprinting-privacy.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/browser-fingerprinting-privacy.html</id>
+    <updated>2026-08-15T00:00:00Z</updated>
+    <summary>A deep dive into browser fingerprinting techniques — Canvas, WebGL, AudioContext, font enumeration, and more. Learn how websites track you without cookies and how to defend your privacy.</summary>
+    <category term="Privacy"/>
+    <category term="Browser Fingerprinting"/>
+    <category term="Security"/>
+  </entry>
+
+  <entry>
+    <title>Local-Only Image Processing Architecture via Offscreen Documents</title>
+    <link href="https://annmax1983.github.io/blog/offscreen-image-processing.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/offscreen-image-processing.html</id>
+    <updated>2026-07-01T00:00:00Z</updated>
+    <summary>Zero-network image conversion, batch processing with memory management, CDP screenshots, and clipboard operations — all without a single fetch() call.</summary>
+    <category term="Offscreen"/>
+    <category term="Image Processing"/>
+    <category term="Chrome Extensions"/>
+  </entry>
+
+  <entry>
+    <title>Least Privilege Implementation &amp; Chrome Web Store Review Checklist</title>
+    <link href="https://annmax1983.github.io/blog/least-privilege-review.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/least-privilege-review.html</id>
+    <updated>2026-06-01T00:00:00Z</updated>
+    <summary>activeTab dynamic injection, permission minimization, top 12 rejection reasons with fixes, and multi-browser compatibility strategies.</summary>
+    <category term="Permissions"/>
+    <category term="Chrome Web Store"/>
+    <category term="Chrome Extensions"/>
+  </entry>
+
+  <entry>
+    <title>Service Worker Resilience &amp; State Persistence Patterns for MV3 Extensions</title>
+    <link href="https://annmax1983.github.io/blog/service-worker-resilience.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/service-worker-resilience.html</id>
+    <updated>2026-05-01T00:00:00Z</updated>
+    <summary>Production patterns for handling Service Worker termination, persistent task queues, alarm-based timers, and ACK-based messaging in Manifest V3 extensions.</summary>
+    <category term="ServiceWorker"/>
+    <category term="Chrome Extensions"/>
+    <category term="MV3"/>
+  </entry>
+  <entry>
+    <title>Git Beyond Commit and Push: Reflog, Bisect, Worktree and Interactive Rebase</title>
+    <link href="https://annmax1983.github.io/blog/git-beyond-commit-and-push.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/git-beyond-commit-and-push.html</id>
+    <updated>2026-09-16T00:00:00Z</updated>
+    <summary>Practical Git that saves hours: recover deleted work with reflog, find the commit that broke production with bisect, and work two branches at once with worktree.</summary>
+    <category term="Git"/>
+    <category term="Tooling"/>
+    <category term="Productivity"/>
+  </entry>
+
+  <entry>
+    <title>Modern CSS You Probably Missed: :has(), Container Queries, @layer and Native Nesting</title>
+    <link href="https://annmax1983.github.io/blog/modern-css-you-probably-missed.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/modern-css-you-probably-missed.html</id>
+    <updated>2026-09-16T00:00:00Z</updated>
+    <summary>Seven CSS features that replace JavaScript and preprocessor workarounds - with real examples you can ship today.</summary>
+    <category term="CSS"/>
+    <category term="Frontend"/>
+    <category term="Web Platform"/>
+  </entry>
+
+  <entry>
+    <title>Debugging Like a Senior Engineer: A Systematic Method That Actually Works</title>
+    <link href="https://annmax1983.github.io/blog/debugging-like-a-senior-engineer.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/debugging-like-a-senior-engineer.html</id>
+    <updated>2026-09-16T00:00:00Z</updated>
+    <summary>Reproduce deterministically, read the whole error, cut the search space in half, work outside in, change one thing at a time, lock it in with a test.</summary>
+    <category term="Debugging"/>
+    <category term="Methodology"/>
+    <category term="Productivity"/>
+  </entry>
+
+</feed>

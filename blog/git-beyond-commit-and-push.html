@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Git Beyond Commit and Push: Reflog, Bisect, Worktree and Interactive Rebase — AnnMax</title>
+  <meta name="description" content="Practical Git that saves hours: recover deleted work with reflog, find the commit that broke production with bisect, work two branches at once with worktree, and clean up history with interactive rebase.">
+  <meta property="og:title" content="Git Beyond Commit and Push: Reflog, Bisect, Worktree and Interactive Rebase">
+  <meta property="og:description" content="Practical Git that saves hours: recover deleted work with reflog, find the commit that broke production with bisect, work two branches at once with worktree, and clean up history with interactive rebase.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/git-beyond-commit-and-push.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="keywords" content="git reflog, git bisect, git worktree, interactive rebase, git cherry-pick, git log search, git recovery, advanced git, reset vs revert">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/git-beyond-commit-and-push.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Git Beyond Commit and Push: Reflog, Bisect, Worktree and Interactive Rebase</h1>
+    <div class="meta" id="articleMeta"><span>September 2026</span><span class="reading-time">~13 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="reflog">The Safety Net You Forgot You Had: Reflog</h2>
+<p>Most developers learn Git as "commit, push, pull, merge." That's enough to get by, and it's also why a single bad <code>reset --hard</code> can ruin an afternoon. The first tool worth internalizing is <strong>reflog</strong>.</p>
+<p>Git keeps a local journal of every position <code>HEAD</code> has ever occupied — every commit, checkout, rebase, reset, and merge. This journal is the reflog, and it is the reason "I deleted my work" is almost never true.</p>
+<pre><code># Show every move HEAD has made, newest first
+git reflog
+
+# You'll see entries like:
+# 4f2a1b3 HEAD@{0}: reset: moving to HEAD~3
+# 9c8d7e6 HEAD@{1}: commit: add payment retry logic
+# 9c8d7e6 HEAD@{2}: checkout: moving from main to feature/retry
+
+# Jump back to where you were before the disaster
+git reset --hard 9c8d7e6
+
+# Or resurrect it as a branch so you don't lose your footing again
+git branch rescue-payment-work 9c8d7e6</code></pre>
+<p>Two important caveats. First, the reflog is <strong>local</strong> — it is not pushed, and a fresh clone has none. Second, entries expire: reachable history is kept for 90 days, unreachable objects for 30. Within that window, though, you are effectively immune to your own mistakes.</p>
+<p>The practical habit: when something goes wrong, <strong>stop typing Git commands</strong> and run <code>git reflog</code> first. Every subsequent command you run pushes the state you want to recover one line further down.</p>
+
+<h2 id="bisect">Finding the Commit That Broke Everything</h2>
+<p>"It worked last week" is the most common bug report in software. If the codebase has a hundred commits since then, reading them one by one is a waste of a day. <code>git bisect</code> does a binary search instead — with 1000 commits, it finds the culprit in about 10 steps.</p>
+<pre><code># Start the search
+git bisect start
+
+# Mark the current state as broken
+git bisect bad HEAD
+
+# Mark a commit you know was fine (a tag, a hash, or a date)
+git bisect good v2.4.0
+
+# Git checks out a commit in the middle. Test it, then tell Git:
+git bisect good    # or: git bisect bad
+# ...repeat until Git prints "X is the first bad commit"
+
+git bisect reset    # always remember to clean up</code></pre>
+<p>The real power shows up when you automate the test itself. If you have any command that exits 0 on success and non-zero on failure — a unit test, a build, a curl against a local server — hand it to bisect and walk away:</p>
+<pre><code>git bisect start HEAD v2.4.0
+git bisect run npm test
+
+# Ten minutes later:
+# 7a3f9c1 is the first bad commit
+# commit 7a3f9c1
+# Author: someone
+# Date:   Tue Sep 8 14:22:10 2026
+#     refactor: move timeout config into client</code></pre>
+<p>I've used this to find regressions in codebases I had never seen before. It doesn't require understanding the system — only a reliable pass/fail signal. That's a remarkably low bar for the amount of time it saves.</p>
+
+<h2 id="worktree">Two Branches at Once Without Stashing</h2>
+<p>The usual way to switch context is <code>git stash</code>, switch branch, do the work, switch back, and pray the stash applies cleanly. <code>git worktree</code> removes the whole dance by checking out a branch into a separate directory, sharing the same repository.</p>
+<pre><code># Check out the hotfix branch into a sibling folder
+git worktree add ../hotfix-202 hotfix/login-500
+
+cd ../hotfix-202
+# Full working directory, own node_modules if you want, same .git
+npm install &amp;&amp; npm test
+
+# When you're done
+git worktree remove ../hotfix-202</code></pre>
+<p>Where this really earns its keep is long-running work. I keep a worktree for the production branch so I can diff behavior between versions without touching my feature branch, and another for reviewing large pull requests — the PR gets its own folder, and my in-progress work stays exactly where it was.</p>
+<p>One rule: a branch can only be checked out in one worktree at a time. If Git refuses, something already has it, which is usually valuable information.</p>
+
+<h2 id="interactive-rebase">Rewriting History Before Anyone Sees It</h2>
+<p>Interactive rebase has a reputation for being dangerous. It's dangerous in exactly one situation: rewriting commits that other people have already pulled. On your own unpushed branch, it's the difference between a history that reads like a lab notebook and one that reads like documentation.</p>
+<pre><code># Rework the last 5 commits
+git rebase -i HEAD~5
+
+# pick   4f2a1b3 add user endpoint
+# pick   9c8d7e6 fix typo
+# pick   1a2b3c4 add validation
+# pick   5d6e7f8 fix typo again
+# pick   8h9i0j1 update tests</code></pre>
+<p>The verbs worth knowing beyond the defaults:</p>
+<ul>
+<li><strong>reword</strong> — change the commit message without touching the diff</li>
+<li><strong>squash</strong> — merge into the commit above, keeping both messages</li>
+<li><strong>fixup</strong> — merge into the commit above, discarding this message (perfect for "fix typo")</li>
+<li><strong>drop</strong> — delete the commit entirely</li>
+<li><strong>edit</strong> — pause here so you can amend the content or split it apart</li>
+</ul>
+<p>You can also let Git prepare the todo list for you. Commit with <code>--fixup</code> and rebase with <code>--autosquash</code>, and the fix lands next to the commit it fixes, already marked:</p>
+<pre><code># You know the typo belongs to 4f2a1b3
+git commit --fixup 4f2a1b3
+
+git rebase -i --autosquash HEAD~6
+# Git has already arranged and labelled it for you</code></pre>
+
+<h2 id="cherry-pick">Moving a Single Commit</h2>
+<p>Merging takes everything; cherry-picking takes one commit. It's the right tool when a fix on <code>main</code> needs to reach a release branch, but the rest of <code>main</code> doesn't.</p>
+<pre><code># Apply one commit onto the current branch
+git cherry-pick 7a3f9c1
+
+# Apply several, or a range
+git cherry-pick 7a3f9c1 8b2c3d4
+git cherry-pick main~3..main~1
+
+# -x records where it came from — always use this on shared branches
+git cherry-pick -x 7a3f9c1</code></pre>
+<p>Cherry-picking creates a <em>new</em> commit with a new hash. That means the same logical fix can exist twice in history, and merging those branches later can produce confusing conflicts. Use it deliberately, prefer <code>-x</code> so the trail is visible, and reach for a proper merge when you're moving more than a commit or two.</p>
+
+<h2 id="searching">Searching History Like a Database</h2>
+<p><code>git log</code> is far more than a list of commits. These four queries cover most of what you'd ever want to ask:</p>
+<pre><code># Which commits changed the number of retries? (pickaxe: count of occurrences)
+git log -S "MAX_RETRIES" --oneline
+
+# Which commits touched a line matching this regex?
+git log -G "retry\(.*\)" --oneline
+
+# Which commits mention the ticket in the message?
+git log --grep="PAY-142" --oneline
+
+# Full history of one function, with diffs
+git log -L :calculateBackoff:src/retry.js</code></pre>
+<p>The last one is the hidden gem: <code>-L</code> traces a single function or line range across renames and shows you every change that ever touched it. When you're staring at unfamiliar code and wondering "why on earth is it written this way," that flag usually answers the question in seconds.</p>
+<p>Combine with <code>--author</code>, <code>--since</code>, and path filters to narrow further: <code>git log --since="3 weeks ago" -- src/payments/</code>.</p>
+
+<h2 id="undo">Reset, Revert, and Restore Are Not the Same</h2>
+<p>Confusing these three causes more lost work than any other Git concept. The distinction:</p>
+<ul>
+<li><strong>revert</strong> — creates a <em>new</em> commit that undoes an old one. History is preserved, so this is the safe choice on any shared or deployed branch.</li>
+<li><strong>reset</strong> — moves the branch pointer, rewriting history. <code>--soft</code> keeps your changes staged, <code>--mixed</code> (default) keeps them in the working tree, <code>--hard</code> throws them away. Use it on local work only.</li>
+<li><strong>restore</strong> — the modern, single-purpose command for discarding changes in files. It doesn't touch history at all.</li>
+</ul>
+<pre><code># Undo a commit that's already on main, safely
+git revert 7a3f9c1
+
+# Unstage a file but keep the edits
+git restore --staged config.js
+
+# Throw away local edits to one file
+git restore config.js
+
+# Undo the last local commit but keep everything staged
+git reset --soft HEAD~1</code></pre>
+<p>Rule of thumb I've stuck to for years: <strong>if it's been pushed, revert; if it's still yours, reset.</strong></p>
+
+<h2 id="aliases">Aliases That Pay for Themselves</h2>
+<p>You don't need an elaborate dotfiles repository. Four aliases cover the vast majority of daily friction:</p>
+<pre><code>git config --global alias.lg "log --graph --oneline --decorate --all"
+git config --global alias.undo "reset --soft HEAD~1"
+git config --global alias.st "status -sb"
+git config --global alias.amend "commit --amend --no-edit"
+
+# And one safety setting: never --force, only --force-with-lease
+git config --global alias.pushf "push --force-with-lease"</code></pre>
+<p><code>--force-with-lease</code> refuses to overwrite work that appeared on the remote since your last fetch. It is <code>--force</code> with a seatbelt, and there is no good reason to use the plain version.</p>
+
+<h2 id="habits">Habits That Prevent the Disaster</h2>
+<p>Tools are the fallback; habits are the actual fix. These cost seconds and have saved me hours:</p>
+<ul>
+<li><strong>Read your own diff before committing.</strong> <code>git diff --staged</code> catches stray debug logs, commented-out code, and credentials more often than any linter.</li>
+<li><strong>Commit the fix separately from the feature.</strong> Future-you running <code>bisect</code> or <code>cherry-pick</code> will be grateful.</li>
+<li><strong>Tag releases.</strong> <code>git bisect good v2.4.0</code> only works because someone typed <code>git tag</code>.</li>
+<li><strong>Branch names are documentation.</strong> <code>fix/payment-timeout-500</code> tells the next person something. <code>test123</code> does not.</li>
+<li><strong>When a merge goes sideways, stop.</strong> <code>git merge --abort</code> and <code>git rebase --abort</code> exist precisely so you can back out cleanly instead of fighting.</li>
+</ul>
+<p>Git rewards the people who understand that nothing is really deleted. Once you believe that — because you've watched reflog bring something back — the whole tool stops feeling fragile and starts feeling like the safety harness it was designed to be.</p>
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./debugging-like-a-senior-engineer.html">Debugging Like a Senior Engineer</a></li>
+  <li><a href="./modern-css-you-probably-missed.html">Modern CSS You Probably Missed</a></li>
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience & State Persistence for MV3</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Git Beyond Commit and Push: Reflog, Bisect, Worktree and Interactive Rebase',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: 'Git 不只是 commit 和 push：reflog、bisect、worktree 与交互式 rebase',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'Git の commit と push の先へ：reflog、bisect、worktree、対話型 rebase',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Git jenseits von Commit und Push: Reflog, Bisect, Worktree und interaktives Rebase',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Git más allá de commit y push: reflog, bisect, worktree y rebase interactivo',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Git au-delà de commit et push : reflog, bisect, worktree et rebase interactif',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+</body>
+</html>

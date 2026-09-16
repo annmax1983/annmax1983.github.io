@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Debugging Like a Senior Engineer: A Systematic Method That Actually Works — AnnMax</title>
+  <meta name="description" content="A repeatable debugging method: reproduce deterministically, read the whole error, cut the search space in half, work outside in, change one thing at a time, and lock the fix in with a test.">
+  <meta property="og:title" content="Debugging Like a Senior Engineer: A Systematic Method That Actually Works">
+  <meta property="og:description" content="A repeatable debugging method: reproduce deterministically, read the whole error, cut the search space in half, work outside in, change one thing at a time, and lock the fix in with a test.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/debugging-like-a-senior-engineer.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="keywords" content="debugging methodology, systematic debugging, git bisect, conditional breakpoints, performance debugging, root cause analysis, developer productivity">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/debugging-like-a-senior-engineer.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Debugging Like a Senior Engineer: A Systematic Method That Actually Works</h1>
+    <div class="meta" id="articleMeta"><span>September 2026</span><span class="reading-time">~15 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="mindset">Debugging Is a Search Problem</h2>
+<p>The difference between a developer who fixes a bug in twenty minutes and one who spends two days on it is rarely knowledge of the codebase. It's the size of the space they search, and how quickly they cut it in half.</p>
+<p>Guessing is a linear search: try a thing, check, try another. Reading the error and reasoning about causes is a binary search: form a hypothesis that eliminates half the possibilities, test it, repeat. The second approach feels slower and is dramatically faster.</p>
+<p>What follows is the method I've converged on over eighteen years, and it works the same whether the bug is in a stored procedure or a service worker.</p>
+
+<h2 id="reproduce">Reproduce It First — Really Reproduce It</h2>
+<p>You cannot fix what you cannot trigger, and you cannot verify a fix you can't trigger. Before touching code, get to a state where you can make the bug appear on demand, and write down the exact steps.</p>
+<pre><code>Bug: checkout total is wrong
+
+Steps:
+1. Add item A ($19.99) to cart
+2. Apply coupon SAVE10
+3. Change quantity to 3
+4. Total shows $49.97, expected $53.97
+
+Environment: Chrome 141, macOS, logged in as test@example.com
+Frequency: every time</code></pre>
+<p>Notice what that note does. It tells you the bug is deterministic (good — binary search applies), it isolates three variables, and it gives you a pass/fail signal for later. Half the time, writing it down reveals the cause before you've looked at a single line of code.</p>
+<p>If it only happens "sometimes," your first job is to find the hidden variable: a race condition, a cache, a user-specific flag, time of day, data volume. Intermittent bugs are just deterministic bugs with an input you haven't identified yet.</p>
+
+<h2 id="read">Read the Entire Error Message</h2>
+<p>This sounds insultingly obvious and is nevertheless the most-skipped step in debugging. Developers read the first line of a stack trace, form a theory, and start editing. The answer is usually in line four.</p>
+<pre><code>TypeError: Cannot read properties of undefined (reading 'map')
+    at renderOrders (OrderList.jsx:42:18)
+    at OrderList (OrderList.jsx:12:5)          &lt;-- you stopped here
+    at renderWithHooks (react-dom.production.js:157)
+    at mountIndeterminateComponent</code></pre>
+<p>The useful information is "<code>orders</code> is undefined at render time," which means the fetch either hasn't resolved or returned something unexpected. The fix is almost never to add <code>orders?.map()</code> — that hides the symptom and produces an empty list instead of an error. The real question is why the component rendered before data existed.</p>
+<p>Read stack traces bottom-up for framework internals and top-down for your own code. Read the <em>caused by</em> chain in Java and Python stack traces all the way to the end — the root cause is at the bottom, and the interesting exception is almost never the top one.</p>
+
+<h2 id="narrow">Cut the Search Space in Half</h2>
+<p>Every good debugging technique is a way of dividing the problem. Concretely:</p>
+<ul>
+<li><strong>Bisect the code.</strong> Comment out half the logic. Still broken? It's in the other half. This is <code>git bisect</code> for runtime, and it works on unfamiliar codebases.</li>
+<li><strong>Bisect the data.</strong> Failing on 10,000 records but not 100? Something is scale-dependent — pagination, a timeout, memory, an N+1 query.</li>
+<li><strong>Bisect the pipeline.</strong> Log the value at every hop: input, after transform, after network, after parse, before render. The bug lives between the last correct value and the first wrong one.</li>
+</ul>
+<pre><code>// Crude, temporary, and extremely effective
+console.log('1 raw response', response.status, response.headers.get('content-type'));
+const text = await response.text();
+console.log('2 body length', text.length, text.slice(0, 200));
+const data = JSON.parse(text);
+console.log('3 parsed keys', Object.keys(data));
+console.log('4 first item', data.items?.[0]);</code></pre>
+<p>Four logs tell you whether you have a network problem, an encoding problem, a parsing problem, or a data-shape problem. That's three-quarters of the search space eliminated by one function.</p>
+
+<h2 id="outside-in">Work From the Outside In</h2>
+<p>There's a strong temptation to start where the symptom appears and dig deeper. Resist it. Start at the boundary closest to the user and walk inward, checking one assumption per layer:</p>
+<ol>
+<li><strong>Is the request even leaving?</strong> Network panel, or <code>curl -v</code>. You'd be surprised how often the answer is no — a failed preflight, a service worker cache, an ad blocker.</li>
+<li><strong>Did the server get what I think it got?</strong> Server-side log of the raw request. Not the parsed object — the raw body.</li>
+<li><strong>Did the server respond with what I think?</strong> Check the actual response, not the SDK's deserialized result.</li>
+<li><strong>Did the client parse it correctly?</strong> Timezone, encoding, float precision, date formats.</li>
+<li><strong>Did the UI render what was parsed?</strong> Now finally look at the component.</li>
+</ol>
+<p>Each layer has a cheap way to inspect it, and each inspection either confirms an assumption or destroys it. The bug is behind the first destroyed assumption.</p>
+
+<h2 id="tools">Use the Right Tool at the Right Layer</h2>
+<p>Print statements are universal and underrated, but they're not always the fastest path. A few tools repay the ten minutes it takes to learn them:</p>
+<ul>
+<li><strong>Conditional breakpoints</strong> — break only when <code>order.id === 4471</code>. Essential when the bug only appears for one record out of ten thousand.</li>
+<li><strong>Logpoints</strong> — a breakpoint that logs instead of pausing. All the visibility of <code>console.log</code>, zero redeploy, and you can toggle them live.</li>
+<li><strong>XHR/fetch breakpoints</strong> — pause the moment a request matching a URL pattern is sent. Invaluable when you don't know which code fired the call.</li>
+<li><strong>DOM mutation breakpoints</strong> — break when an element's attributes or subtree change. The answer to "what is adding this class?"</li>
+<li><strong>Source maps</strong> — if you're debugging minified production code, you're working with one hand tied behind your back. Build with source maps, upload them, use them.</li>
+<li><strong><code>debugger;</code></strong> — a literal pause in code. Fastest option when you already know the file.</li>
+</ul>
+<pre><code>// Pause only for the record you care about, no code edits needed:
+// DevTools -&gt; Sources -&gt; right-click line number -&gt;
+// "Add conditional breakpoint" -&gt; order.id === 4471</code></pre>
+
+<h2 id="one-change">Change One Thing at a Time</h2>
+<p>When a fix isn't obvious, the temptation is to change three things and see if it works. If it does work, you've learned nothing and you now have three changes to untangle before you can ship confidently. Worse, if two of them were unnecessary, they're now unexplained risk in the codebase.</p>
+<p>The discipline: one change, one test, one observation recorded. If the change didn't help, <strong>revert it</strong> before trying the next — accumulated failed experiments turn into a second bug.</p>
+<p>Keep a scratch note:</p>
+<pre><code>10:15 - tried: disable cache        -&gt; still broken, reverted
+10:22 - tried: log raw response     -&gt; body is empty, 204 not 200
+10:31 - tried: check nginx config   -&gt; proxy returns 204 for POST &gt;1mb
+       ROOT CAUSE: request size limit, not application logic</code></pre>
+<p>That note also has a second use: when someone asks what you've tried, you have an answer, and when you get interrupted you can pick up where you left off.</p>
+
+<h2 id="explain">Explain It Out Loud</h2>
+<p>The "rubber duck" thing works for a specific reason: explaining forces you to fill gaps you'd been skipping over. Mid-sentence you'll hear yourself say "and then it just... waits" and realize you never verified that.</p>
+<p>You don't need a colleague. Write a message describing the problem to someone, in detail, with what you've ruled out. Half the time you'll find the answer before sending it — and if you do send it, the recipient has everything they need to help instead of guessing.</p>
+
+<h2 id="regression">Lock It In</h2>
+<p>A fix without a regression test is a fix you'll make twice. The test doesn't have to be elaborate; it has to fail before your change and pass after:</p>
+<pre><code>it('applies a percentage coupon after quantity changes', () =&gt; {
+  const cart = new Cart();
+  cart.add({ sku: 'A', price: 1999 });
+  cart.applyCoupon('SAVE10');
+  cart.setQuantity('A', 3);
+
+  // This was 4997 because the coupon was computed before quantity
+  expect(cart.total).toBe(5397);
+});</code></pre>
+<p>Write the test first if you can — reproducing the bug as a failing test is the most reliable form of "reproduce it" there is, and it doubles as your verification step.</p>
+<p>Then ask the follow-up question that separates a fix from a patch: <strong>what else has this same shape?</strong> If the coupon was applied before quantity was finalized, does the same ordering bug exist for tax? For shipping? For loyalty points? One root cause usually has siblings.</p>
+
+<h2 id="performance">When the Bug Is "It's Slow"</h2>
+<p>Performance problems are debugging problems with a measurement instead of a stack trace. The same method applies, but the first step is always to measure — intuition about what's slow is wrong often enough to be worthless.</p>
+<ul>
+<li><strong>Find the slow layer first.</strong> Network, server, database, render, or layout? A timing breakdown tells you in one pass.</li>
+<li><strong>Look for N+1.</strong> The single most common server-side performance bug: a query inside a loop. 200 items means 201 queries.</li>
+<li><strong>Check for layout thrashing.</strong> Reading <code>offsetHeight</code> in a loop forces synchronous layout every iteration. Batch reads, then writes.</li>
+<li><strong>Count the bytes.</strong> An unoptimized 4MB image is a performance bug that no amount of code optimization will fix.</li>
+</ul>
+<pre><code>// Bad: reads and writes interleave, forcing layout each pass
+items.forEach(el =&gt; {
+  el.style.height = el.offsetHeight + 10 + 'px';  // read, then write, repeat
+});
+
+// Good: all reads, then all writes
+const heights = items.map(el =&gt; el.offsetHeight);
+items.forEach((el, i) =&gt; { el.style.height = heights[i] + 10 + 'px'; });</code></pre>
+<p>Set a budget and measure against it. "Feels slow" invents work; "time to interactive is 4.2s and the budget is 2s" tells you whether you need to fix anything at all.</p>
+
+<h2 id="summary">The Whole Method</h2>
+<p>Six steps, in order:</p>
+<ol>
+<li><strong>Reproduce it</strong> deterministically and write down the steps.</li>
+<li><strong>Read the whole error</strong>, including the parts you skimmed.</li>
+<li><strong>Cut the search space in half</strong> — code, data, or pipeline.</li>
+<li><strong>Work outside in</strong>, verifying one assumption per layer.</li>
+<li><strong>Change one thing</strong>, test, revert if it didn't help.</li>
+<li><strong>Lock it in</strong> with a test, then look for siblings of the root cause.</li>
+</ol>
+<p>None of this requires seniority or deep familiarity with the code. It requires resisting the urge to start typing. The developers who seem to have an uncanny instinct for bugs are almost always just running this loop faster and more faithfully than everyone else.</p>
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./git-beyond-commit-and-push.html">Git Beyond Commit and Push</a></li>
+  <li><a href="./modern-css-you-probably-missed.html">Modern CSS You Probably Missed</a></li>
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience & State Persistence for MV3</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Debugging Like a Senior Engineer: A Systematic Method That Actually Works',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '像资深工程师一样调试：一套真正管用的系统方法',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'シニアエンジニアのようにデバッグする：実際に機能する体系的な手法',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Debuggen wie ein Senior Engineer: Eine systematische Methode, die funktioniert',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Depurar como un ingeniero senior: un método sistemático que funciona',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Déboguer comme un ingénieur senior : une méthode systématique qui fonctionne',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+</body>
+</html>

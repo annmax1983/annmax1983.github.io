@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Browser Fingerprinting Explained: 30 Ways You're Being Tracked Online — AnnMax</title>
+  <meta name="description" content="A deep dive into browser fingerprinting techniques — Canvas, WebGL, AudioContext, font enumeration, and more. Learn how websites track you without cookies and how to defend your privacy.">
+  <meta property="og:title" content="Browser Fingerprinting Explained: 30 Ways You're Being Tracked Online">
+  <meta property="og:description" content="Canvas, WebGL, AudioContext, font enumeration, and 26 more fingerprinting vectors.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/browser-fingerprinting-privacy.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="keywords" content="browser fingerprinting, online privacy, tracking prevention, canvas fingerprint, WebGL fingerprint, audio context fingerprint, privacy browser, fingerprint defense">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/browser-fingerprinting-privacy.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Browser Fingerprinting Explained: 30 Ways You're Being Tracked Online</h1>
+    <div class="meta" id="articleMeta"><span>August 2026</span><span class="reading-time">~18 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="beyond-cookies">Beyond Cookies: The Silent Tracker</h2>
+<p>Most people think deleting cookies protects their privacy. It doesn't. Modern websites have evolved far beyond cookie-based tracking. <strong>Browser fingerprinting</strong> is a collection of techniques that identify you by the unique characteristics of your browser, hardware, and configuration — without storing anything on your device.</p>
+<p>The Electronic Frontier Foundation's <a href="https://coveryourtracks.eff.org/" target="_blank" rel="noopener">Cover Your Tracks</a> project found that <strong>83.6% of browsers have a unique fingerprint</strong>. That means a website can identify you across sessions, across incognito windows, and even across different websites, all without a single cookie.</p>
+<p>This article breaks down every major fingerprinting vector, shows you how they work with code examples, and explains what you can do to defend yourself.</p>
+
+<h2 id="canvas-fingerprint">Canvas Fingerprinting</h2>
+<p>The <code>&lt;canvas&gt;</code> API lets JavaScript draw graphics. The problem: the exact same drawing code produces <strong>pixel-level different results</strong> across different GPU hardware, driver versions, operating systems, and font rendering engines.</p>
+<p>Here's how a fingerprinting script works:</p>
+<pre><code>// 1. Create an offscreen canvas
+const canvas = document.createElement('canvas');
+canvas.width = 280;
+canvas.height = 60;
+const ctx = canvas.getContext('2d');
+
+// 2. Draw specific text with a fallback font chain
+ctx.textBaseline = 'top';
+ctx.font = '14px Arial, sans-serif';
+ctx.fillStyle = '#f60';
+ctx.fillRect(125, 1, 62, 20);
+ctx.fillStyle = '#069';
+ctx.fillText('BrowserFingerprint', 2, 15);
+ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+ctx.fillText('BrowserFingerprint', 4, 17);
+
+// 3. Extract the pixel data
+const dataURL = canvas.toDataURL('image/png');
+// This dataURL is your fingerprint — unique per device</code></pre>
+<p>Why it works: <strong>font sub-pixel rendering</strong>, <strong>anti-aliasing algorithms</strong>, and <strong>GPU rasterization differences</strong> mean no two systems produce identical pixel output. Even the same browser version on the same OS can differ based on installed fonts and graphics drivers.</p>
+<p>Canvas fingerprinting is the most widely deployed technique. It's used by major ad networks and analytics platforms.</p>
+
+<h2 id="webgl-fingerprint">WebGL Fingerprinting</h2>
+<p>WebGL exposes your GPU directly. A fingerprinting script can query:</p>
+<pre><code>const gl = canvas.getContext('webgl');
+
+// GPU vendor and renderer string
+const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+// e.g., "Google Inc. (NVIDIA)" / "ANGLE (NVIDIA GeForce RTX 3080)"
+
+// Supported extensions — the list varies per GPU/driver
+const extensions = gl.getSupportedExtensions();
+
+// Maximum texture size, viewport dimensions, etc.
+const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+const maxViewport = gl.getParameter(gl.MAX_VIEWPORT_DIMS);</code></pre>
+<p>The combination of <strong>GPU vendor</strong>, <strong>renderer string</strong>, <strong>extension list</strong>, and <strong>parameter values</strong> creates an extremely high-entropy fingerprint. Unlike canvas, WebGL fingerprinting is harder to spoof without breaking actual 3D rendering.</p>
+
+<h2 id="audio-fingerprint">AudioContext Fingerprinting</h2>
+<p>The Web Audio API creates another fingerprinting surface. The same audio processing pipeline produces different floating-point output across different audio hardware and DSP implementations:</p>
+<pre><code>const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+const oscillator = audioContext.createOscillator();
+const analyser = audioContext.createAnalyser();
+const gain = audioContext.createGain();
+const scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+
+// Generate a specific waveform
+oscillator.type = 'triangle';
+oscillator.frequency.setValueAtTime(10000, audioContext.currentTime);
+
+// Process and capture the output
+const dataArray = new Float32Array(analyser.frequencyBinCount);
+// The exact float values in dataArray differ per hardware</code></pre>
+<p>AudioContext fingerprinting is particularly insidious because it works even when the user has muted their system audio. The DSP processing still runs; only the output is silenced.</p>
+
+<h2 id="font-fingerprint">Font Enumeration Fingerprinting</h2>
+<p>The fonts installed on your system are surprisingly identifying. A typical user has 200-400 fonts, and the exact combination is highly unique:</p>
+<pre><code>// Method 1: Measure text width with fallback detection
+const baseFonts = ['monospace', 'sans-serif', 'serif'];
+const testFonts = [
+  'Arial', 'Helvetica', 'Times New Roman', 'Courier New',
+  'Verdana', 'Georgia', 'Palatino', 'Garamond',
+  'Comic Sans MS', 'Impact', 'Lucida Console',
+  'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK'
+];
+
+function hasFont(font) {
+  const span = document.createElement('span');
+  span.style.fontFamily = `'${font}', monospace`;
+  span.textContent = 'mmmmmmmmmmlli';
+  document.body.appendChild(span);
+  const width = span.offsetWidth;
+  document.body.removeChild(span);
+  // Compare against baseline width
+  return width !== baselineWidth;
+}</code></pre>
+<p>Each detected font adds entropy. A user with both <strong>PingFang SC</strong> and <strong>Microsoft YaHei</strong> installed is almost certainly on a Chinese-language system. A user with <strong>Segoe UI</strong> but not <strong>San Francisco</strong> is on Windows. Font fingerprinting can identify your OS, language, and even professional software (designers have more fonts than average).</p>
+
+<h2 id="navigator-fingerprint">Navigator & Screen Properties</h2>
+<p>The <code>navigator</code> object leaks dozens of data points:</p>
+<pre><code>// Browser and OS identification
+navigator.userAgent          // "Mozilla/5.0 (Windows NT 10.0; Win64; x64)..."
+navigator.platform           // "Win32"
+navigator.language           // "en-US"
+navigator.languages          // ["en-US", "en", "zh-CN"]
+
+// Hardware capabilities
+navigator.hardwareConcurrency  // Number of CPU cores (e.g., 8)
+navigator.deviceMemory         // RAM in GB (e.g., 8)
+navigator.maxTouchPoints       // 0 for desktop, 5+ for mobile
+
+// Screen properties
+screen.width × screen.height         // e.g., 2560×1440
+screen.colorDepth                    // 24 or 30
+screen.pixelDepth                    // Usually matches colorDepth
+window.devicePixelRatio              // 1.0, 1.25, 1.5, 2.0
+
+// Timezone
+Intl.DateTimeFormat().resolvedOptions().timeZone  // "Asia/Shanghai"</code></pre>
+<p>The combination of <code>hardwareConcurrency + deviceMemory + screen resolution + timezone + languages</code> narrows you down to a very small group. Add the user agent string and you're often unique.</p>
+
+<h2 id="advanced-vectors">Advanced Fingerprinting Vectors</h2>
+
+<h3>WebRTC Local IP Leak</h3>
+<p>Even behind a VPN, WebRTC can expose your local network IP address through STUN requests. This was a major privacy scandal when it was discovered in 2015, and it's still not fully fixed in all browsers.</p>
+
+<h3>Battery Status API</h3>
+<p>On some browsers, <code>navigator.getBattery()</code> exposes your exact battery level and charging status. A battery draining from 73% to 71% over 30 seconds is a unique temporal signal.</p>
+
+<h3>Speech Synthesis Voices</h3>
+<p><code>speechSynthesis.getVoices()</code> returns the list of installed TTS voices. The exact list varies by OS, language packs, and installed software.</p>
+
+<h3>Media Devices</h3>
+<p><code>navigator.mediaDevices.enumerateDevices()</code> lists your cameras, microphones, and speakers — including device names like "HD Pro Webcam C920" or "AirPods Pro".</p>
+
+<h3>Performance Timing</h3>
+<p>The <code>performance.now()</code> API has microsecond precision. By measuring how long specific operations take (DOM manipulation, Canvas rendering, memory allocation), scripts can fingerprint your hardware's performance characteristics.</p>
+
+<h2 id="cross-browser">Cross-Browser & Cross-Device Tracking</h2>
+<p>The most sophisticated fingerprinting goes beyond a single browser. By combining:</p>
+<ul>
+<li><strong>IP address</strong> (from server-side logging)</li>
+<li><strong>Browser fingerprint</strong> (from client-side scripts)</li>
+<li><strong>Behavioral signals</strong> (typing speed, mouse movement patterns, scroll behavior)</li>
+</ul>
+<p>Tracking companies can identify the same person across Chrome, Firefox, and Safari — and even across their phone and laptop. This is called <strong>cross-device tracking</strong>, and it's a multi-billion dollar industry.</p>
+
+<h2 id="defense">How to Defend Yourself</h2>
+
+<h3>Level 1: Basic Protection</h3>
+<ul>
+<li><strong>Use Firefox with strict tracking protection</strong> — Firefox has built-in fingerprinting resistance</li>
+<li><strong>Install uBlock Origin</strong> — blocks many fingerprinting scripts at the network level</li>
+<li><strong>Use a VPN</strong> — hides your real IP address (but doesn't stop client-side fingerprinting)</li>
+</ul>
+
+<h3>Level 2: Browser Extensions</h3>
+<p>This is where browser extensions shine. Tools like <a href="https://annmax1983.com/extensions/stylepatch.html" target="_blank" rel="noopener">StylePatch</a> can help by customizing how pages render on your machine, which can subtly alter your canvas fingerprint. More importantly, extensions that block unnecessary scripts and manage HTTP headers — like <a href="https://annmax1983.com/extensions/vkt-header.html" target="_blank" rel="noopener">VKT WebHeader</a> — give you granular control over what information your browser sends to each site.</p>
+<p>The key principle: <strong>every piece of information you withhold reduces your fingerprint's entropy</strong>. You don't need to be invisible — you just need to look like everyone else.</p>
+
+<h3>Level 3: Tor Browser</h3>
+<p>The Tor Browser is the gold standard for anti-fingerprinting. It forces all users to have the same screen resolution, the same fonts, the same canvas output. The trade-off: it's slow, and many websites block Tor exit nodes.</p>
+
+<h3>Level 4: Compartmentalization</h3>
+<p>The most practical approach for most people: use different browsers for different purposes. Work browser for work. Personal browser for personal. A separate browser or profile for anything you want to keep anonymous. This way, even if each browser has a unique fingerprint, the tracking is confined to one compartment.</p>
+
+<h2 id="privacy-tools">Building Privacy-First Extensions</h2>
+<p>As a developer who builds privacy-first browser extensions, I think about fingerprinting every day. My design philosophy is simple: <strong>the extension should never increase your fingerprint surface</strong>. That means:</p>
+<ul>
+<li><strong>No external requests</strong> — all processing happens locally</li>
+<li><strong>No unique identifiers</strong> — no analytics, no telemetry, no phone-home</li>
+<li><strong>Minimal permissions</strong> — only request what's absolutely necessary</li>
+<li><strong>Standard APIs</strong> — don't use exotic browser APIs that make you more identifiable</li>
+</ul>
+<p>If you're building extensions, ask yourself: "Does this extension make my user more or less trackable?" The answer should always be "less".</p>
+
+<h2 id="conclusion">The Arms Race Continues</h2>
+<p>Browser fingerprinting is an arms race. As browsers add privacy protections, trackers develop new techniques. The canvas fingerprint was novel in 2014; now there are 30+ vectors. WebGL fingerprinting was theoretical in 2016; now it's standard practice.</p>
+<p>The good news: awareness is growing. Firefox, Brave, and Safari all ship fingerprinting protections. Chrome is slowly adding them. Regulations like GDPR and CCPA are forcing companies to be more transparent about tracking.</p>
+<p>The best defense is still knowledge. Now that you know how fingerprinting works, you can make informed decisions about your browser configuration, your extensions, and your online behavior.</p>
+<p>Stay private out there. 🔒</p>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./least-privilege-review.html">Least Privilege & Chrome Web Store Review Checklist</a></li>
+  <li><a href="./sqlite-opfs-local-first-database.html">SQLite in the Browser with OPFS</a></li>
+  <li><a href="./webgpu-browser-ai-inference.html">WebGPU: Running AI Inference in Your Browser</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Browser Fingerprinting Explained: 30 Ways You\'re Being Tracked Online',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '浏览器指纹完全解析：你被追踪的30种方式',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'ブラウザフィンガープリント完全解説：あなたが追跡されている30の方法',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Browser-Fingerprinting erklärt: 30 Wege, wie Sie online verfolgt werden',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Fingerprinting del navegador explicado: 30 formas en las que te rastrean online',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'L\'empreinte navigateur expliquée : 30 façons dont vous êtes suivi en ligne',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+</body>
+</html>

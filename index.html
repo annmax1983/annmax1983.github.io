@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AnnMax · Full-Stack Developer · Browser Extension Developer</title>
-  <meta name="description" content="80s-born programmer with 18 years of experience. Custom browser extension development.">
+  <meta name="description" content="Female full-stack developer with 18 years of experience. 16 privacy-first Chrome extensions, 100% local processing, zero data collection. Custom browser extension development.">
   <meta name="keywords" content="browser extension, chrome extension, developer, full-stack, custom development">
   <meta property="og:title" content="AnnMax — Full-Stack Developer & Browser Extension Developer">
-  <meta property="og:description" content="80s-born programmer with 18 years of experience. 16 lightweight browser extensions. Privacy-first, 100% local processing.">
+  <meta property="og:description" content="Female full-stack developer with 18 years of experience. 16 privacy-first Chrome extensions, 100% local processing, zero data collection.">
   <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -16,9 +16,29 @@
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
   <link rel="canonical" href="https://annmax1983.github.io/">
+  <link rel="alternate" type="application/atom+xml" title="AnnMax Blog Feed" href="/feed.xml">
   <link rel="stylesheet" href="css/style.css">
+  <meta name="theme-color" content="#0a0a1a">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    "mainEntity": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "jobTitle": "Full-Stack Developer & Browser Extension Developer",
+      "description": "Female full-stack developer with 18 years of experience building privacy-first Chrome extensions.",
+      "url": "https://annmax1983.github.io/",
+      "sameAs": ["https://github.com/annmax1983", "https://annmax1983.com"],
+      "knowsAbout": ["Chrome Extensions", "JavaScript", "TypeScript", "React", "Vue", "Python", "Java", "Service Worker", "WebAssembly", "Privacy Engineering"],
+      "email": "annmax1985@gmail.com"
+    }
+  }
+  </script>
 </head>
 <body>
+
+<a href="#main-content" class="skip-link">Skip to content</a>
 
 <!-- ============================================================
      Navigation
@@ -31,6 +51,7 @@
       <li><a href="#skills" data-i18n="navSkills">Skills</a></li>
       <li><a href="#extensions" data-i18n="navExtensions">Extensions</a></li>
       <li><a href="#blog" data-i18n="navBlog">Blog</a></li>
+      <li><a href="#products" data-i18n="navProducts">Products</a></li>
       <li><a href="#custom" data-i18n="navCustom">Custom Dev</a></li>
       <li><a href="#feedback" data-i18n="navFeedback">Feedback</a></li>
       <li><a href="#contact" data-i18n="navContact">Contact</a></li>
@@ -39,6 +60,8 @@
     <button class="nav-toggle" aria-label="Menu">☰</button>
   </div>
 </nav>
+
+<main id="main-content">
 
 <!-- ============================================================
      Hero
@@ -181,17 +204,20 @@
   <div class="ext-grid">
 
     <div class="ext-card reveal">
-      <img src="images/pic-convert.png" alt="Image Format Converter" class="ext-screenshot" loading="lazy" width="360" height="538">
+      <img src="images/pic-convert.webp" alt="Image Format Converter" class="ext-screenshot" loading="lazy" width="360" height="538">
       <div class="ext-card-body">
         <div class="ext-header">
           <span class="ext-icon">🖼️</span>
           <h3 data-i18n="extConv">Image Format Converter</h3>
         </div>
-        <p data-i18n="extConvDesc"></p>
+        <p data-i18n="extConvDesc">Convert images between PNG/JPG/WEBP/AVIF right in your browser. 100% local processing, zero upload.</p>
         <a href="https://annmax1983.com/extensions/imageconv.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
         <a href="https://github.com/annmax1983/ImageConv" target="_blank" rel="noopener" class="ext-link" style="opacity:0.6;" data-i18n="extRepo">GitHub →</a>
+        <div class="ext-stores">
+          <a href="https://chromewebstore.google.com/detail/jfeigfbfnciialfkdfjeofmkhofidehp" target="_blank" rel="noopener" class="store-btn chrome" title="Install on Chrome">Chrome</a>
+          <a href="https://microsoftedge.microsoft.com/addons/detail/fdjbckphkemnkgljgoongejilpepjpbp" target="_blank" rel="noopener" class="store-btn edge" title="Install on Edge">Edge</a>
+        </div>
         <div class="ext-tags">
-          <span class="ext-tag" data-i18n="extFree">Core Free</span>
           <span class="ext-tag" data-i18n="extFree">Core Free</span>
           <span class="ext-tag" data-i18n="extPrivacy">Privacy First</span>
           <span class="ext-tag" data-i18n="extLocal">100% Local</span>
@@ -200,15 +226,19 @@
     </div>
 
     <div class="ext-card reveal">
-      <img src="images/page-shot.png" alt="Page Screenshot" class="ext-screenshot" loading="lazy" width="300" height="312">
+      <img src="images/page-shot.webp" alt="Page Screenshot" class="ext-screenshot" loading="lazy" width="300" height="312">
       <div class="ext-card-body">
         <div class="ext-header">
           <span class="ext-icon">📸</span>
           <h3 data-i18n="extShot">Page Screenshot</h3>
         </div>
-        <p data-i18n="extShotDesc"></p>
+        <p data-i18n="extShotDesc">Full-page, visible area, and selection screenshots with annotation and mosaic tools. No upload needed.</p>
         <a href="https://annmax1983.com/extensions/pageshot.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
         <a href="https://github.com/annmax1983/PageShot" target="_blank" rel="noopener" class="ext-link" style="opacity:0.6;" data-i18n="extRepo">GitHub →</a>
+        <div class="ext-stores">
+          <a href="https://chromewebstore.google.com/detail/jonikcknondlhibmemapljjodhjikcje" target="_blank" rel="noopener" class="store-btn chrome" title="Install on Chrome">Chrome</a>
+          <a href="https://microsoftedge.microsoft.com/addons/detail/pooedlcmpdgcfkjfojhblenegbhhahmd" target="_blank" rel="noopener" class="store-btn edge" title="Install on Edge">Edge</a>
+        </div>
         <div class="ext-tags">
           <span class="ext-tag" data-i18n="extFree">Core Free</span>
           <span class="ext-tag" data-i18n="extPrivacy">Privacy First</span>
@@ -218,15 +248,19 @@
     </div>
 
     <div class="ext-card reveal">
-      <img src="images/style-patch.png" alt="Style Customizer" class="ext-screenshot" loading="lazy" width="360" height="345">
+      <img src="images/style-patch.webp" alt="Style Customizer" class="ext-screenshot" loading="lazy" width="360" height="345">
       <div class="ext-card-body">
         <div class="ext-header">
           <span class="ext-icon">🎨</span>
           <h3 data-i18n="extStyle">Style Customizer</h3>
         </div>
-        <p data-i18n="extStyleDesc"></p>
+        <p data-i18n="extStyleDesc">One-click to change webpage background, text color, and font size. Per-site settings, real-time preview.</p>
         <a href="https://annmax1983.com/extensions/stylepatch.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
         <a href="https://github.com/annmax1983/StylePatch" target="_blank" rel="noopener" class="ext-link" style="opacity:0.6;" data-i18n="extRepo">GitHub →</a>
+        <div class="ext-stores">
+          <a href="https://chromewebstore.google.com/detail/hlmnodnjlhdecfcaiahnngpldkialkca" target="_blank" rel="noopener" class="store-btn chrome" title="Install on Chrome">Chrome</a>
+          <a href="https://microsoftedge.microsoft.com/addons/detail/lkhpdpimlelcldbnkhggfdoejcimcfgo" target="_blank" rel="noopener" class="store-btn edge" title="Install on Edge">Edge</a>
+        </div>
         <div class="ext-tags">
           <span class="ext-tag" data-i18n="extFree">Core Free</span>
           <span class="ext-tag" data-i18n="extPrivacy">Privacy First</span>
@@ -236,15 +270,19 @@
     </div>
 
     <div class="ext-card reveal">
-      <img src="images/pic-grabber.png" alt="Image Batch Downloader" class="ext-screenshot" loading="lazy" width="355" height="599">
+      <img src="images/pic-grabber.webp" alt="Image Batch Downloader" class="ext-screenshot" loading="lazy" width="355" height="599">
       <div class="ext-card-body">
         <div class="ext-header">
           <span class="ext-icon">📦</span>
           <h3 data-i18n="extGrab">Image Batch Downloader</h3>
         </div>
-        <p data-i18n="extGrabDesc"></p>
+        <p data-i18n="extGrabDesc">Smart image detection from any webpage. Filter, preview, and batch download. Premium: pHash dedup, format conversion, compression.</p>
         <a href="https://annmax1983.com/extensions/imagegrabber.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
         <a href="https://github.com/annmax1983/ImageGrabber" target="_blank" rel="noopener" class="ext-link" style="opacity:0.6;" data-i18n="extRepo">GitHub →</a>
+        <div class="ext-stores">
+          <a href="https://chromewebstore.google.com/detail/chahehfnmhgnekhnnlmnganffejjaocc" target="_blank" rel="noopener" class="store-btn chrome" title="Install on Chrome">Chrome</a>
+          <a href="https://microsoftedge.microsoft.com/addons/detail/peiilcogdklfmnlioikcmdkgmnlpobke" target="_blank" rel="noopener" class="store-btn edge" title="Install on Edge">Edge</a>
+        </div>
         <div class="ext-tags">
           <span class="ext-tag" data-i18n="extFree">Core Free</span>
           <span class="ext-tag" data-i18n="extPrivacy">Privacy First</span>
@@ -254,15 +292,19 @@
     </div>
 
     <div class="ext-card reveal">
-      <img src="images/lite-copy.png" alt="Copy Assistant" class="ext-screenshot" loading="lazy" width="280" height="364">
+      <img src="images/lite-copy.webp" alt="Copy Assistant" class="ext-screenshot" loading="lazy" width="280" height="364">
       <div class="ext-card-body">
         <div class="ext-header">
           <span class="ext-icon">🔓</span>
           <h3 data-i18n="extCopy">Copy Assistant</h3>
         </div>
-        <p data-i18n="extCopyDesc"></p>
+        <p data-i18n="extCopyDesc">Improve text selection and copy experience on web pages. Fix unselectable text issues for easier reading and research.</p>
         <a href="https://annmax1983.com/extensions/litecopy.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
         <a href="https://github.com/annmax1983/LiteCopy" target="_blank" rel="noopener" class="ext-link" style="opacity:0.6;" data-i18n="extRepo">GitHub →</a>
+        <div class="ext-stores">
+          <a href="https://chromewebstore.google.com/detail/opckcochfnlfcdoblnmgeebeeggfnilg" target="_blank" rel="noopener" class="store-btn chrome" title="Install on Chrome">Chrome</a>
+          <a href="https://microsoftedge.microsoft.com/addons/detail/acpfcfipfalphidhmpflecncacgldggl" target="_blank" rel="noopener" class="store-btn edge" title="Install on Edge">Edge</a>
+        </div>
         <div class="ext-tags">
           <span class="ext-tag" data-i18n="extFree">Core Free</span>
           <span class="ext-tag" data-i18n="extPrivacy">Privacy First</span>
@@ -272,15 +314,19 @@
     </div>
 
     <div class="ext-card reveal">
-      <img src="images/local-box2-fa.png" alt="Browser 2FA Authenticator" class="ext-screenshot" loading="lazy" width="360" height="452">
+      <img src="images/local-box2-fa.webp" alt="Browser 2FA Authenticator" class="ext-screenshot" loading="lazy" width="360" height="452">
       <div class="ext-card-body">
         <div class="ext-header">
           <span class="ext-icon">🔐</span>
           <h3 data-i18n="ext2fa">Browser 2FA Authenticator</h3>
         </div>
-        <p data-i18n="ext2faDesc"></p>
+        <p data-i18n="ext2faDesc">Generate TOTP verification codes in your browser. No phone needed, fully offline, privacy-safe.</p>
         <a href="https://annmax1983.com/extensions/localbox2fa.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
         <a href="https://github.com/annmax1983/LocalBox2FA" target="_blank" rel="noopener" class="ext-link" style="opacity:0.6;" data-i18n="extRepo">GitHub →</a>
+        <div class="ext-stores">
+          <a href="https://chromewebstore.google.com/detail/hhhfdioecpkgnplkcdbcdabjodjpimem" target="_blank" rel="noopener" class="store-btn chrome" title="Install on Chrome">Chrome</a>
+          <a href="https://microsoftedge.microsoft.com/addons/detail/mgmcahbcekbibbldnmgpeajnkphlnpin" target="_blank" rel="noopener" class="store-btn edge" title="Install on Edge">Edge</a>
+        </div>
         <div class="ext-tags">
           <span class="ext-tag" data-i18n="extFree">Core Free</span>
           <span class="ext-tag" data-i18n="extPrivacy">Privacy First</span>
@@ -290,15 +336,19 @@
     </div>
 
     <div class="ext-card reveal">
-      <img src="images/table-excel-converter.png" alt="Table to CSV Exporter" class="ext-screenshot" loading="lazy" width="1280" height="800">
+      <img src="images/table-excel-converter.webp" alt="Table to CSV Exporter" class="ext-screenshot" loading="lazy" width="1280" height="800">
       <div class="ext-card-body">
         <div class="ext-header">
           <span class="ext-icon">📊</span>
           <h3 data-i18n="extTable">Table to CSV Exporter</h3>
         </div>
-        <p data-i18n="extTableDesc"></p>
+        <p data-i18n="extTableDesc">Auto-detect HTML tables, handle merged cells, export to CSV. Free: export first 5 tables per page. Premium: unlimited.</p>
         <a href="https://annmax1983.com/extensions/tablegrab.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
         <a href="https://github.com/annmax1983/TableExcelConverter" target="_blank" rel="noopener" class="ext-link" style="opacity:0.6;" data-i18n="extRepo">GitHub →</a>
+        <div class="ext-stores">
+          <a href="https://chromewebstore.google.com/detail/mekelpcokmdjgoiikpedhojmjappfeji" target="_blank" rel="noopener" class="store-btn chrome" title="Install on Chrome">Chrome</a>
+          <a href="https://microsoftedge.microsoft.com/addons/detail/lhoelnklgfdihllglpjkpbinfkejceah" target="_blank" rel="noopener" class="store-btn edge" title="Install on Edge">Edge</a>
+        </div>
         <div class="ext-tags">
           <span class="ext-tag" data-i18n="extFree">Core Free</span>
           <span class="ext-tag" data-i18n="extPrivacy">Privacy First</span>
@@ -308,15 +358,19 @@
     </div>
 
     <div class="ext-card reveal">
-      <img src="images/font-fixer.png" alt="Font Optimizer" class="ext-screenshot" loading="lazy" width="300" height="326">
+      <img src="images/font-fixer.webp" alt="Font Optimizer" class="ext-screenshot" loading="lazy" width="300" height="326">
       <div class="ext-card-body">
         <div class="ext-header">
           <span class="ext-icon">🔤</span>
           <h3 data-i18n="extFont">Font Optimizer</h3>
         </div>
-        <p data-i18n="extFontDesc"></p>
+        <p data-i18n="extFontDesc">Customize webpage fonts, sizes, and text colors. Per-site configuration for comfortable reading.</p>
         <a href="https://annmax1983.com/extensions/fontfixer.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
         <a href="https://github.com/annmax1983/FontFixer" target="_blank" rel="noopener" class="ext-link" style="opacity:0.6;" data-i18n="extRepo">GitHub →</a>
+        <div class="ext-stores">
+          <a href="https://chromewebstore.google.com/detail/fdcanpeipbhjnjimogebfdfkmmchoiib" target="_blank" rel="noopener" class="store-btn chrome" title="Install on Chrome">Chrome</a>
+          <a href="https://microsoftedge.microsoft.com/addons/detail/npoflpnnknpmehccioccmhifddfaeahj" target="_blank" rel="noopener" class="store-btn edge" title="Install on Edge">Edge</a>
+        </div>
         <div class="ext-tags">
           <span class="ext-tag" data-i18n="extFreemium">Free + Pro</span>
           <span class="ext-tag" data-i18n="extPrivacy">Privacy First</span>
@@ -326,15 +380,19 @@
     </div>
 
     <div class="ext-card reveal">
-      <img src="images/just-focus.png" alt="Focus & Blocker" class="ext-screenshot" loading="lazy" width="680" height="636">
+      <img src="images/just-focus.webp" alt="Focus & Blocker" class="ext-screenshot" loading="lazy" width="680" height="636">
       <div class="ext-card-body">
         <div class="ext-header">
           <span class="ext-icon">🎯</span>
           <h3 data-i18n="extFocus">Focus & Blocker</h3>
         </div>
-        <p data-i18n="extFocusDesc"></p>
+        <p data-i18n="extFocusDesc">Block distracting websites and stay focused. Lightweight, fast, privacy-first.</p>
         <a href="https://annmax1983.com/extensions/justfocus.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
         <a href="https://github.com/annmax1983/JustFocus" target="_blank" rel="noopener" class="ext-link" style="opacity:0.6;" data-i18n="extRepo">GitHub →</a>
+        <div class="ext-stores">
+          <a href="https://chromewebstore.google.com/detail/iocnhglbdkdonajhkipknhgdnbombcic" target="_blank" rel="noopener" class="store-btn chrome" title="Install on Chrome">Chrome</a>
+          <a href="https://microsoftedge.microsoft.com/addons/detail/eigeengnoahojmfcnkkjnipbdnpngaod" target="_blank" rel="noopener" class="store-btn edge" title="Install on Edge">Edge</a>
+        </div>
         <div class="ext-tags">
           <span class="ext-tag" data-i18n="extFree">Core Free</span>
           <span class="ext-tag" data-i18n="extPrivacy">Privacy First</span>
@@ -344,15 +402,19 @@
     </div>
 
     <div class="ext-card reveal">
-      <img src="images/refresh-mate.png" alt="Auto Page Refresh" class="ext-screenshot" loading="lazy" width="760" height="536">
+      <img src="images/refresh-mate.webp" alt="Auto Page Refresh" class="ext-screenshot" loading="lazy" width="760" height="536">
       <div class="ext-card-body">
         <div class="ext-header">
           <span class="ext-icon">🔄</span>
           <h3 data-i18n="extRefresh">Auto Page Refresh</h3>
         </div>
-        <p data-i18n="extRefreshDesc"></p>
+        <p data-i18n="extRefreshDesc">Customizable auto page refresh with random intervals and keyword change alerts.</p>
         <a href="https://annmax1983.com/extensions/refreshmate.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
         <a href="https://github.com/annmax1983/RefreshMate" target="_blank" rel="noopener" class="ext-link" style="opacity:0.6;" data-i18n="extRepo">GitHub →</a>
+        <div class="ext-stores">
+          <a href="https://chromewebstore.google.com/detail/camggpihgjdgbjnidhdalapchepdflbg" target="_blank" rel="noopener" class="store-btn chrome" title="Install on Chrome">Chrome</a>
+          <a href="https://microsoftedge.microsoft.com/addons/detail/ikgfdokioakgjgcmofboemcmahhnijjg" target="_blank" rel="noopener" class="store-btn edge" title="Install on Edge">Edge</a>
+        </div>
         <div class="ext-tags">
           <span class="ext-tag" data-i18n="extFree">Core Free</span>
           <span class="ext-tag" data-i18n="extPrivacy">Privacy First</span>
@@ -362,15 +424,19 @@
     </div>
 
     <div class="ext-card reveal">
-      <img src="images/linkharvest.png" alt="Link Extractor" class="ext-screenshot" loading="lazy" width="680" height="500">
+      <img src="images/linkharvest.webp" alt="Link Extractor" class="ext-screenshot" loading="lazy" width="680" height="500">
       <div class="ext-card-body">
         <div class="ext-header">
           <span class="ext-icon">🔗</span>
           <h3 data-i18n="extLinkHarvest">Link Extractor</h3>
         </div>
-        <p data-i18n="extLinkHarvestDesc"></p>
+        <p data-i18n="extLinkHarvestDesc">Scan and extract all links from any webpage. Filter, search, copy, and export to CSV.</p>
         <a href="https://annmax1983.com/extensions/linkharvest.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
         <a href="https://github.com/annmax1983/LinkHarvest" target="_blank" rel="noopener" class="ext-link" style="opacity:0.6;" data-i18n="extRepo">GitHub →</a>
+        <div class="ext-stores">
+          <a href="https://chromewebstore.google.com/detail/cnkbdmjkfnlgpjehaogliipehjaibojn" target="_blank" rel="noopener" class="store-btn chrome" title="Install on Chrome">Chrome</a>
+          <a href="https://microsoftedge.microsoft.com/addons/detail/abfpbiilibfniidobemeffponimgdaff" target="_blank" rel="noopener" class="store-btn edge" title="Install on Edge">Edge</a>
+        </div>
         <div class="ext-tags">
           <span class="ext-tag" data-i18n="extFree">Core Free</span>
           <span class="ext-tag" data-i18n="extPrivacy">Privacy First</span>
@@ -380,15 +446,19 @@
     </div>
 
     <div class="ext-card reveal">
-      <img src="images/retro-time.png" alt="Floating Timer" class="ext-screenshot" loading="lazy" width="680" height="500">
+      <img src="images/retro-time.webp" alt="Floating Timer" class="ext-screenshot" loading="lazy" width="680" height="500">
       <div class="ext-card-body">
         <div class="ext-header">
           <span class="ext-icon">⏱</span>
           <h3 data-i18n="extRetroTime">Floating Timer</h3>
         </div>
-        <p data-i18n="extRetroTimeDesc"></p>
+        <p data-i18n="extRetroTimeDesc">Minimalist glassmorphism floating timer with stopwatch, countdown, and Pomodoro modes. Customizable colors.</p>
         <a href="https://annmax1983.com/extensions/retrotime.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
         <a href="https://github.com/annmax1983/RetroTime" target="_blank" rel="noopener" class="ext-link" style="opacity:0.6;" data-i18n="extRepo">GitHub →</a>
+        <div class="ext-stores">
+          <a href="https://chromewebstore.google.com/detail/cdboleaglibdjbogeofpcaodilmbljgp" target="_blank" rel="noopener" class="store-btn chrome" title="Install on Chrome">Chrome</a>
+          <a href="https://microsoftedge.microsoft.com/addons/detail/fbpjlhjnggfpfeakomkllgljbpegajbd" target="_blank" rel="noopener" class="store-btn edge" title="Install on Edge">Edge</a>
+        </div>
         <div class="ext-tags">
           <span class="ext-tag" data-i18n="extFree">Core Free</span>
           <span class="ext-tag" data-i18n="extPrivacy">Privacy First</span>
@@ -398,14 +468,17 @@
     </div>
 
     <div class="ext-card reveal">
-      <img src="images/vkt-form.png" alt="Form Snapshot & Auto-Fill" class="ext-screenshot" loading="lazy" width="128" height="128">
+      <img src="images/vkt-form.webp" alt="Form Snapshot & Auto-Fill" class="ext-screenshot" loading="lazy" width="360" height="360">
       <div class="ext-card-body">
         <div class="ext-header">
           <span class="ext-icon">📋</span>
           <h3 data-i18n="extForm">Form Snapshot & Auto-Fill</h3>
         </div>
-        <p data-i18n="extFormDesc"></p>
+        <p data-i18n="extFormDesc">Save web form snapshots and auto-fill them later. One-click collection, smart matching, framework compatible. Free 5 snapshots / 20 fills per day, Premium unlimited.</p>
         <a href="https://annmax1983.com/extensions/vkt-form.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
+        <div class="ext-stores">
+          <span class="store-btn soon">Store · Coming Soon</span>
+        </div>
         <div class="ext-tags">
           <span class="ext-tag" data-i18n="extFree">Core Free</span>
           <span class="ext-tag" data-i18n="extPrivacy">Privacy First</span>
@@ -415,15 +488,18 @@
     </div>
 
     <div class="ext-card reveal">
-      <img src="images/web-header.png" alt="VKT Header" class="ext-screenshot" loading="lazy" width="128" height="128">
+      <img src="images/web-header.webp" alt="VKT Header" class="ext-screenshot" loading="lazy" width="360" height="360">
       <div class="ext-card-body">
         <div class="ext-header">
           <span class="ext-icon">🌐</span>
           <h3 data-i18n="extWebHeader">HTTP Header Modifier</h3>
         </div>
-        <p data-i18n="extWebHeaderDesc"></p>
+        <p data-i18n="extWebHeaderDesc">Domain-matched HTTP header modifier. Rules match by domain and apply to every tab. Session rules auto-clear on browser restart.</p>
         <a href="https://annmax1983.com/extensions/vkt-header.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
         <a href="https://github.com/annmax1983/vkt-header" target="_blank" rel="noopener" class="ext-link" style="opacity:0.6;" data-i18n="extRepo">GitHub →</a>
+        <div class="ext-stores">
+          <a href="https://microsoftedge.microsoft.com/addons/detail/oankkbickmjahhclbaldoejlokakoghn" target="_blank" rel="noopener" class="store-btn edge" title="Install on Edge">Edge</a>
+        </div>
         <div class="ext-tags">
           <span class="ext-tag" data-i18n="extFree">Core Free</span>
           <span class="ext-tag" data-i18n="extPrivacy">Privacy First</span>
@@ -433,15 +509,18 @@
     </div>
 
     <div class="ext-card reveal">
-      <img src="images/vkt-note.png" alt="Markdown Note-Taking" class="ext-screenshot" loading="lazy" width="128" height="128">
+      <img src="images/vkt-note.webp" alt="Markdown Note-Taking" class="ext-screenshot" loading="lazy" width="360" height="360">
       <div class="ext-card-body">
         <div class="ext-header">
           <span class="ext-icon">📝</span>
           <h3 data-i18n="extNote">Markdown Note-Taking</h3>
         </div>
-        <p data-i18n="extNoteDesc"></p>
+        <p data-i18n="extNoteDesc">Markdown note-taking with unified right-click save, formatting toolbar, auto-save, and full-screen preview. HTML→Markdown via Turndown. Free 3/day, Premium unlimited.</p>
         <a href="https://annmax1983.com/extensions/vkt-note.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
         <a href="https://github.com/annmax1983/vkt-note" target="_blank" rel="noopener" class="ext-link" style="opacity:0.6;" data-i18n="extRepo">GitHub →</a>
+        <div class="ext-stores">
+          <a href="https://microsoftedge.microsoft.com/addons/detail/imdfdonlhgecdhcfaapfohphcfnjgcef" target="_blank" rel="noopener" class="store-btn edge" title="Install on Edge">Edge</a>
+        </div>
         <div class="ext-tags">
           <span class="ext-tag" data-i18n="extFree">Core Free</span>
           <span class="ext-tag" data-i18n="extPrivacy">Privacy First</span>
@@ -451,15 +530,18 @@
     </div>
 
     <div class="ext-card reveal">
-      <img src="images/vkt-shortcut.png" alt="Keyboard Shortcut Manager" class="ext-screenshot" loading="lazy" width="128" height="128">
+      <img src="images/vkt-shortcut.webp" alt="Keyboard Shortcut Manager" class="ext-screenshot" loading="lazy" width="360" height="360">
       <div class="ext-card-body">
         <div class="ext-header">
           <span class="ext-icon">⌨️</span>
           <h3 data-i18n="extShortcut">Keyboard Shortcut Manager</h3>
         </div>
-        <p data-i18n="extShortcutDesc"></p>
+        <p data-i18n="extShortcutDesc">Block and remap keyboard shortcuts globally. One-click key recording, one rule set for all sites, global toggle. Free 3 rules, Premium unlimited.</p>
         <a href="https://annmax1983.com/extensions/vkt-shortcut.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
         <a href="https://github.com/annmax1983/vkt-shortcut" target="_blank" rel="noopener" class="ext-link" style="opacity:0.6;" data-i18n="extRepo">GitHub →</a>
+        <div class="ext-stores">
+          <a href="https://microsoftedge.microsoft.com/addons/detail/odbcgmpmlcobfpahpcpcikhbfhajmila" target="_blank" rel="noopener" class="store-btn edge" title="Install on Edge">Edge</a>
+        </div>
         <div class="ext-tags">
           <span class="ext-tag" data-i18n="extFree">Core Free</span>
           <span class="ext-tag" data-i18n="extPrivacy">Privacy First</span>
@@ -468,6 +550,73 @@
       </div>
     </div>
 
+  </div>
+  <div style="text-align:center;margin-top:2rem;">
+    <a href="blog.html" class="btn btn-outline" style="display:inline-block;">Read How These Are Built →</a>
+  </div>
+</section>
+
+
+<!-- ============================================================
+     Products
+     ============================================================ -->
+<section id="products">
+  <div class="section-header reveal">
+    <div class="section-tag" data-i18n="navProducts">Products</div>
+    <h2 class="section-title" data-i18n="productsTitle">SaaS Products</h2>
+    <p class="section-subtitle" data-i18n="productsSubtitle">Beyond extensions — subscription platforms I built and operate</p>
+  </div>
+
+  <div class="products-intro reveal">
+    <p data-i18n="productsIntro">In addition to browser extensions, I also build and operate SaaS platforms. <strong>CertTrack Pro</strong> is a multi-tenant subscription platform for automated expiration reminders — helping teams never miss a deadline for certificates, equipment maintenance, or inspection tasks.</p>
+    <a href="https://remind.annmax1983.com" target="_blank" rel="noopener" class="btn btn-outline" style="margin-top:1rem;" data-i18n="productsVisit">Visit CertTrack Pro →</a>
+  </div>
+
+  <div class="ext-grid">
+    <div class="ext-card reveal">
+      <div class="ext-card-body">
+        <div class="ext-header">
+          <span class="ext-icon">📋</span>
+          <h3>Cert-Track</h3>
+        </div>
+        <p data-i18n="prodCertDesc">Track employee certificates & licenses — operating permits, qualifications, training records. Staff upload, admin review, full compliance.</p>
+        <a href="https://remind.annmax1983.com/cert-track.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
+        <div class="ext-tags">
+          <span class="ext-tag">$36/mo</span>
+          <span class="ext-tag" data-i18n="prodTagConstruction">Construction & Labor</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ext-card reveal">
+      <div class="ext-card-body">
+        <div class="ext-header">
+          <span class="ext-icon">⚙️</span>
+          <h3>Equip-CMMS</h3>
+        </div>
+        <p data-i18n="prodEquipDesc">Digital equipment registry with preventive maintenance schedules & work orders. Auto-reminders for every service, inspection, or calibration.</p>
+        <a href="https://remind.annmax1983.com/equip-cmms.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
+        <div class="ext-tags">
+          <span class="ext-tag">$39/mo</span>
+          <span class="ext-tag" data-i18n="prodTagFactory">Factory & Facility</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ext-card reveal">
+      <div class="ext-card-body">
+        <div class="ext-header">
+          <span class="ext-icon">✅</span>
+          <h3>Task-Pulse</h3>
+        </div>
+        <p data-i18n="prodTaskDesc">Create and assign inspection & field tasks, track status, auto-remind before deadlines. For on-site operations and cross-project management.</p>
+        <a href="https://remind.annmax1983.com/task-pulse.html" target="_blank" rel="noopener" class="ext-link" data-i18n="extDetails">Details →</a>
+        <div class="ext-tags">
+          <span class="ext-tag">$29/mo</span>
+          <span class="ext-tag" data-i18n="prodTagInspection">Inspection & Field Teams</span>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -482,24 +631,51 @@
     <p class="section-subtitle" data-i18n="blogSubtitle">Sharing 18 years of development experience</p>
   </div>
   <div class="blog-grid">
-    <a href="blog/service-worker-resilience.html" class="blog-card reveal">
-      <div class="blog-date">2026-05</div>
-      <h3 data-i18n="blog1Title">Service Worker Resilience & State Persistence for MV3</h3>
-      <p data-i18n="blog1Desc">Production patterns for handling SW termination, persistent task queues, alarm-based timers, and ACK-based messaging in Manifest V3 extensions.</p>
-      <span class="blog-tag">ServiceWorker</span>
+    <a href="blog/git-beyond-commit-and-push.html" class="blog-card reveal">
+      <div class="blog-date">2026-09</div>
+      <h3 data-i18n="blog8Title">Git Beyond Commit and Push: Reflog, Bisect, Worktree and Interactive Rebase</h3>
+      <p data-i18n="blog8Desc">Practical Git that saves hours: recover deleted work with reflog, find the commit that broke production with bisect, and work two branches at once with worktree.</p>
+      <span class="blog-tag">Git</span>
     </a>
-    <a href="blog/least-privilege-review.html" class="blog-card reveal">
-      <div class="blog-date">2026-06</div>
-      <h3 data-i18n="blog2Title">Least Privilege Implementation & Chrome Web Store Review Checklist</h3>
-      <p data-i18n="blog2Desc">activeTab dynamic injection, permission minimization, top 12 rejection reasons with fixes, and multi-browser compatibility strategies.</p>
-      <span class="blog-tag">Permissions</span>
+    <a href="blog/modern-css-you-probably-missed.html" class="blog-card reveal">
+      <div class="blog-date">2026-09</div>
+      <h3 data-i18n="blog9Title">Modern CSS You Probably Missed: :has(), Container Queries, @layer and Native Nesting</h3>
+      <p data-i18n="blog9Desc">Seven CSS features that replace JavaScript and preprocessor workarounds — with real examples you can ship today.</p>
+      <span class="blog-tag">CSS</span>
     </a>
-    <a href="blog/offscreen-image-processing.html" class="blog-card reveal">
-      <div class="blog-date">2026-07</div>
-      <h3 data-i18n="blog3Title">Local-Only Image Processing Architecture via Offscreen Documents</h3>
-      <p data-i18n="blog3Desc">Zero-network image conversion, batch processing with memory management, CDP screenshots, and clipboard operations — all without a single fetch() call.</p>
-      <span class="blog-tag">Offscreen</span>
+    <a href="blog/debugging-like-a-senior-engineer.html" class="blog-card reveal">
+      <div class="blog-date">2026-09</div>
+      <h3 data-i18n="blog10Title">Debugging Like a Senior Engineer: A Systematic Method That Actually Works</h3>
+      <p data-i18n="blog10Desc">Reproduce deterministically, read the whole error, cut the search space in half, work outside in, change one thing at a time, lock it in with a test.</p>
+      <span class="blog-tag">Debugging</span>
     </a>
+    <a href="blog/browser-fingerprinting-privacy.html" class="blog-card reveal">
+      <div class="blog-date">2026-08</div>
+      <h3 data-i18n="blog4Title">Browser Fingerprinting Explained: 30 Ways You're Being Tracked Online</h3>
+      <p data-i18n="blog4Desc">Canvas, WebGL, AudioContext, font enumeration, and 26 more fingerprinting vectors. How websites identify you without cookies and how to defend your privacy.</p>
+      <span class="blog-tag">Privacy</span>
+    </a>
+    <a href="blog/webassembly-image-processing.html" class="blog-card reveal">
+      <div class="blog-date">2026-08</div>
+      <h3 data-i18n="blog5Title">WebAssembly Image Processing in the Browser: From Pixels to Formats</h3>
+      <p data-i18n="blog5Desc">Build high-performance, zero-network image processing pipelines with Canvas API and WebAssembly. PNG, JPEG, WebP, AVIF conversion with real code examples.</p>
+      <span class="blog-tag">WebAssembly</span>
+    </a>
+    <a href="blog/webgpu-browser-ai-inference.html" class="blog-card reveal">
+      <div class="blog-date">2026-09</div>
+      <h3 data-i18n="blog6Title">WebGPU in 2026: Running AI Inference and Parallel Computing in Your Browser</h3>
+      <p data-i18n="blog6Desc">WebGPU brings GPU-accelerated computing to the browser. Run AI models, process images, and perform parallel computation entirely client-side.</p>
+      <span class="blog-tag">WebGPU</span>
+    </a>
+    <a href="blog/sqlite-opfs-local-first-database.html" class="blog-card reveal">
+      <div class="blog-date">2026-09</div>
+      <h3 data-i18n="blog7Title">SQLite in the Browser: Building a Local-First Database with OPFS</h3>
+      <p data-i18n="blog7Desc">Run a full SQLite database in the browser using WebAssembly and OPFS. Persistent, fast, and completely offline. No server required.</p>
+      <span class="blog-tag">SQLite</span>
+    </a>
+  </div>
+  <div style="text-align:center;margin-top:2rem;">
+    <a href="blog.html" class="btn btn-outline" style="display:inline-block;">View All Articles →</a>
   </div>
 </section>
 
@@ -605,12 +781,7 @@
     <a href="mailto:support@annmax1983.com" class="contact-card">
       <div class="contact-icon">📧</div>
       <h3 data-i18n="contactEmail">Email</h3>
-      <p data-i18n="contactEmailDesc">Custom development & collaboration</p>
-    </a>
-    <a href="mailto:support@annmax1983.com" class="contact-card">
-      <div class="contact-icon">🛠️</div>
-      <h3 data-i18n="contactSupport">VKT Support</h3>
-      <p data-i18n="contactSupportDesc">Plugin issues, refunds, trial requests</p>
+      <p data-i18n="contactEmailDesc">Custom development, plugin support, refunds & collaboration</p>
     </a>
     <a href="https://github.com/annmax1983" target="_blank" rel="noopener" class="contact-card">
       <div class="contact-icon">🐙</div>
@@ -620,18 +791,18 @@
   </div>
 
   <div class="contact-direct reveal">
-    <p data-i18n="contactOr">Or send an email directly</p>
     <a href="mailto:support@annmax1983.com" class="contact-email-link">support@annmax1983.com</a>
-    <p style="margin-top:8px;font-size:0.85rem;opacity:0.6;">VKT plugin support: <a href="mailto:support@annmax1983.com" style="color:var(--accent);">support@annmax1983.com</a></p>
   </div>
 </section>
+
+</main>
 
 <!-- ============================================================
      Footer
      ============================================================ -->
 <footer>
   <p data-i18n="footerText">© 2026 AnnMax · Full-Stack Developer · Changing the world with code</p>
-  <p><a href="https://annmax1983.com/" target="_blank" rel="noopener" style="color:var(--accent);">Official Website / 官网</a> · <a href="https://github.com/annmax1983" target="_blank" rel="noopener" style="color:var(--accent);">GitHub</a></p>
+  <p><a href="blog.html" style="color:var(--accent);">Blog / 技术文章</a> · <a href="https://annmax1983.com/" target="_blank" rel="noopener" style="color:var(--accent);">Official Website / 官网</a> · <a href="https://github.com/annmax1983" target="_blank" rel="noopener" style="color:var(--accent);">GitHub</a></p>
   <p><span data-i18n="footerMade">Built with ❤️ and pure HTML/CSS/JS</span></p>
 </footer>
 

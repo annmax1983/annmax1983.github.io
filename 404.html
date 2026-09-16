@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 — Page Not Found — AnnMax</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .error-page { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2rem; }
+    .error-code { font-size: 8rem; font-weight: 900; background: linear-gradient(135deg, var(--accent-1), var(--accent-2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1; margin-bottom: 1rem; }
+    .error-title { font-size: 1.5rem; color: var(--text-primary); margin-bottom: 0.5rem; }
+    .error-desc { color: var(--text-secondary); margin-bottom: 2rem; max-width: 480px; line-height: 1.8; }
+    .error-links { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
+    .error-links a { color: var(--accent-2); text-decoration: none; padding: 8px 20px; border: 1px solid var(--border-glass); border-radius: 8px; transition: all 0.2s; }
+    .error-links a:hover { background: var(--accent-1); color: #fff; border-color: var(--accent-1); }
+  </style>
+</head>
+<body>
+  <div class="error-page">
+    <div class="error-code">404</div>
+    <h1 class="error-title">Page Not Found</h1>
+    <p class="error-desc">The page you're looking for doesn't exist, or may have been moved. Here are some helpful links:</p>
+    <div class="error-links">
+      <a href="/">← Home</a>
+      <a href="/blog.html">Blog</a>
+      <a href="https://annmax1983.com">Official Website</a>
+    </div>
+  </div>
+</body>
+</html>
