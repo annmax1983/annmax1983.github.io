@@ -10,7 +10,7 @@ I started with .NET desktop apps and enterprise Java systems. Moved through Pyth
 
 ## What I Build
 
-I maintain **16 Chrome extensions** — all 100% local processing, zero data collection:
+I maintain **17 Chrome extensions** — all 100% local processing, zero data collection:
 
 - 📸 **PageShot** — Full-page screenshots with annotation
 - 🖼️ **ImageConv** — Image format conversion (PNG/JPG/WEBP/AVIF)
@@ -28,6 +28,7 @@ I maintain **16 Chrome extensions** — all 100% local processing, zero data col
 - 📝 **VKT Note** — Markdown note-taking with text selection
 - 📝 **VKT Form** — Form snapshot & auto-fill
 - ⌨️ **VKT Shortcut** — Keyboard shortcut manager
+- 📌 **ItemPin** — Product saver & price history
 
 ## Philosophy
 
