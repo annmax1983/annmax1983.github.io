@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Perceptual Hashing in the Browser: Near-Duplicate Image Detection — AnnMax</title>
+  <meta name="description" content="How pHash works end to end in pure browser JavaScript: 32×32 grayscale, DCT with a precomputed cosine table, median threshold, Hamming distance, banded indexing for whole libraries — and an honest look at the limits.">
+  <meta property="og:title" content="Perceptual Hashing in the Browser: Near-Duplicate Image Detection">
+  <meta property="og:description" content="DCT-based perceptual hashing in pure JavaScript: grayscale downscale, precomputed cosine tables, bit packing, Hamming distance, and banded indexing for large libraries.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/perceptual-hash-image-dedup.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="keywords" content="perceptual hash javascript, phash, image deduplication, hamming distance, dct image hash, near duplicate detection, canvas grayscale, image fingerprint">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/perceptual-hash-image-dedup.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Perceptual Hashing in the Browser: Near-Duplicate Image Detection</h1>
+    <div class="meta" id="articleMeta"><span>October 2026</span><span class="reading-time">~13 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="the-problem">Same Picture, Different Bytes</h2>
+<p>Cryptographic hashes (SHA-256 and friends) answer "are these two files identical?" For images, that is almost never the question you have. The same photo saved twice from different sources differs in every byte: JPEG quality 85 versus 92, a 2× resize, metadata stripped, an alpha channel added. SHA-256 sees two unrelated files; your eyes see the same picture.</p>
+<p>Perceptual hashing closes that gap. The idea: compress the image's <em>visual content</em> — not its bytes — into a small fingerprint, typically 64 bits, such that similar-looking images produce fingerprints with small differences. "Similar" then becomes a numeric threshold on the Hamming distance between fingerprints, and duplicate detection becomes a distance query.</p>
+<p>The classic construction is <strong>pHash</strong>: downscale to 32×32 grayscale, run a 2D DCT, keep the top-left 8×8 block of low-frequency coefficients, and threshold each against their median. Every step is a few dozen lines of JavaScript; there is no library gap to fill, and the whole pipeline — decode aside — costs well under a millisecond per image. This article builds it end to end, then deals with the two hard parts most tutorials skip: indexing thousands of 64-bit fingerprints, and being honest about what the hash cannot see.</p>
+
+<h2 id="grayscale">Step 1: Decode, Flatten, Downscale</h2>
+<p>The first 90% of real-world wall-clock time is decoding. A 4000×3000 JPEG takes tens of milliseconds to decode no matter how fast the math that follows is — so the goal here is to touch full-resolution pixels as little as possible. <code>createImageBitmap</code> can resize during bitmap creation, which is strictly faster than drawing a full-size canvas and reading it back:</p>
+<pre><code>async function toGrayscale32(blob) {
+  const bitmap = await createImageBitmap(blob, {
+    resizeWidth: 32,
+    resizeHeight: 32,
+    resizeQuality: 'medium',
+    imageOrientation: 'from-image',   // honor EXIF rotation deterministically
+  });
+
+  const canvas = new OffscreenCanvas(32, 32);
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  // Transparent pixels would read back as black — composite onto white first
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, 32, 32);
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
+
+  const { data } = ctx.getImageData(0, 0, 32, 32);
+  const gray = new Float32Array(32 * 32);
+  for (let i = 0; i &lt; gray.length; i++) {
+    const o = i * 4;
+    // Rec. 709 luma weights — matches human brightness perception better
+    // than a flat (r + g + b) / 3, and is what pHash implementations use.
+    gray[i] = 0.2126 * data[o] + 0.7152 * data[o + 1] + 0.0722 * data[o + 2];
+  }
+  return gray;
+}</code></pre>
+<p>Three details that each cost an afternoon if missed. <strong>The white composite:</strong> PNGs with transparency yield <code>(0,0,0,0)</code> pixels; drawing them straight onto a fresh canvas reads back as black, so a transparent logo hashes differently from the same logo on white — and differently again from the same logo on a dark page. Compositing onto white first makes the hash a function of the artwork, not of whatever alpha happened to be in the file. <strong>EXIF orientation:</strong> request <code>'from-image'</code> explicitly rather than depending on platform defaults; the same photo with two different orientation tags should hash the same. <strong>Rec. 709 weights</strong> over a flat average: the green channel carries most luminance information for human vision, and weighting it 0.7152 gives visibly better discrimination on color-similar images.</p>
+<p>Why 32×32 as the working size? The DCT keeps only the top-left 8×8 block, and a common rule for that transform is to start from 4× the target dimension. 32×32 is the size used by the reference pHash implementation and every port since, so it is also what gives you comparable thresholds with published guidance.</p>
+
+<h2 id="dct">Step 2: The DCT, With One Precomputed Table</h2>
+<p>The discrete cosine transform converts the 32×32 spatial image into 32×32 frequency coefficients, where low frequencies live in the top-left corner. The 2D transform is separable — apply it to every row, then every column — which turns an O(n⁴) naive computation into two O(n³) passes of plain multiply-add.</p>
+<p>The only real trick is the cosine table. Every coefficient's kernel is <code>cos((2x + 1) · u · π / 64)</code> — a function of pixel position and frequency only — so a 32×32 table of cosines can be computed once per application and reused for every image and every row and column:</p>
+<pre><code>// cos[(2x + 1) * u * PI / 64], precomputed once for the lifetime of the app
+const COS = new Float32Array(32 * 32);
+for (let u = 0; u &lt; 32; u++) {
+  for (let x = 0; x &lt; 32; x++) {
+    COS[u * 32 + x] = Math.cos(((2 * x + 1) * u * Math.PI) / 64);
+  }
+}
+
+function dct2d(src) {
+  const tmp = new Float32Array(32 * 32);
+  const out = new Float32Array(32 * 32);
+
+  // Pass 1: rows. src[y][x] -> tmp[y][u]
+  for (let y = 0; y &lt; 32; y++) {
+    for (let u = 0; u &lt; 32; u++) {
+      let sum = 0;
+      for (let x = 0; x &lt; 32; x++) sum += src[y * 32 + x] * COS[u * 32 + x];
+      tmp[y * 32 + u] = sum;
+    }
+  }
+
+  // Pass 2: columns. tmp[y][u] -> out[v][u]
+  // The DCT's normalization factor (2/32, plus 1/sqrt(2) for u=0) is a
+  // constant scaling — pHash only compares relative magnitudes, so skipping
+  // it changes nothing downstream.
+  for (let x = 0; x &lt; 32; x++) {
+    for (let v = 0; v &lt; 32; v++) {
+      let sum = 0;
+      for (let y = 0; y &lt; 32; y++) sum += tmp[y * 32 + x] * COS[v * 32 + y];
+      out[v * 32 + x] = sum;
+    }
+  }
+  return out;
+}</code></pre>
+<p>Count the work: 2 × 32³ ≈ 65,000 multiply-adds per image. On any machine from the last decade that is tens of microseconds of <code>Float32Array</code> math — which is worth knowing, because it means pHash never needs WebAssembly or a worker for the <em>math</em>. If your pipeline is slow, it is decoding, and the fix is a decode-side optimization (thumbnail first, smaller resize target, parallelism across workers), not a faster DCT.</p>
+
+<h2 id="bits">Step 3: Median, Bits, and a 63-Bit Fingerprint</h2>
+<p>The top-left 8×8 block of the coefficient matrix holds the low frequencies — the coarse structure of the image. The DC term at <code>(0,0)</code> is the average brightness of the whole image and carries no structure, so it is excluded; that leaves 63 AC coefficients. Each one becomes one bit: 1 if it is at or above the median of all 63, 0 otherwise. The median comparison is what makes the fingerprint robust to uniform brightness and contrast changes — scaling an image's brightness scales all coefficients together, so the bit pattern survives.</p>
+<pre><code>function phash64(gray) {
+  const dct = dct2d(gray);
+
+  const low = [];                       // 63 low-frequency AC coefficients
+  for (let v = 0; v &lt; 8; v++) {
+    for (let u = 0; u &lt; 8; u++) {
+      if (v === 0 &amp;&amp; u === 0) continue;   // skip the DC term
+      low.push(dct[v * 32 + u]);
+    }
+  }
+
+  const sorted = [...low].sort((a, b) =&gt; a - b);
+  const median = sorted[sorted.length &gt;&gt; 1];
+
+  let hi = 0, lo = 0;                   // 64-bit fingerprint as two int32 halves
+  for (let i = 0; i &lt; low.length; i++) {
+    if (low[i] &gt;= median) {
+      if (i &lt; 32) hi |= (1 &lt;&lt; i);
+      else        lo |= (1 &lt;&lt; (i - 32));
+    }
+  }
+  return { hi: hi &gt;&gt;&gt; 0, lo: lo &gt;&gt;&gt; 0 };  // >>> 0 normalizes int32 to unsigned
+}</code></pre>
+<p>Two packing conventions to note because implementations in the wild disagree. Some libraries include the DC coefficient in the median calculation but not in the bits; I exclude it from both. What matters is being consistent within one deployment — hashes from two different base algorithms are not comparable, even at the same bit width. The 63rd bit stays 0, so the fingerprint is really 63 effective bits; serializing as 16 hex characters keeps storage uniform:</p>
+<pre><code>const hex = h =&gt; h.hi.toString(16).padStart(8, '0')
+               + h.lo.toString(16).padStart(8, '0');
+// '9f2c4e1a0b3d5c7e' — 16 chars, one row per image in your database</code></pre>
+
+<h2 id="hamming">Step 4: Hamming Distance and Calibration</h2>
+<p>Comparing fingerprints is XOR plus population count — the number of differing bits:</p>
+<pre><code>function popcount(x) {
+  x -= (x &gt;&gt;&gt; 1) &amp; 0x55555555;
+  x = (x &amp; 0x33333333) + ((x &gt;&gt;&gt; 2) &amp; 0x33333333);
+  x = (x + (x &gt;&gt;&gt; 4)) &amp; 0x0f0f0f0f;
+  return (x * 0x01010101) &gt;&gt;&gt; 24;
+}
+
+const hamming = (a, b) =&gt; popcount(a.hi ^ b.hi) + popcount(a.lo ^ b.lo);</code></pre>
+<p>Now the hard question: what distance means "duplicate"? There is no universal number, and articles that quote one without qualification are wrong about your data. What is true across datasets:</p>
+<ul>
+<li><strong>0–2:</strong> almost certainly the same image — re-encoded, resized, metadata-stripped. For screenshot libraries and photo apps, this band is your dedup target.</li>
+<li><strong>3–8:</strong> the ambiguous middle. Different photos of the same subject, watermarked copies, and genuinely different images from a series all land here. This band is where calibration matters.</li>
+<li><strong>Above ~10:</strong> unrelated images, usually. A 63-bit hash of unrelated content typically differs in 25–35 bits, so distances around 10 are already anomalous and worth inspecting.</li>
+</ul>
+<p>Calibrate empirically instead of guessing: sample a few thousand pairs from your actual library (or hash a folder of known variants), histogram the distances, and look for the valley between the "same image" cluster near 0 and the "different image" mass around 30. Put the threshold there. In my image-download workflows the valley sits at 5–7, and the default threshold is a user-visible setting, because the cost of a false positive (deleting a distinct image) and a false negative (a duplicate slips through) are both unacceptable to guess at.</p>
+
+<h2 id="limits">What pHash Cannot Do</h2>
+<p>The failure modes are as important as the algorithm, and they are usually undersold:</p>
+<ul>
+<li><strong>No crop tolerance.</strong> Cropping 10% off the left edge changes the frequency content enough to push distances past any sane threshold. There is no setting that fixes this; pHash compares whole-frame layout.</li>
+<li><strong>No rotation tolerance.</strong> Rotate 90° and the low-frequency energy distribution changes completely — a 90°-rotated photo is a different fingerprint, full stop.</li>
+<li><strong>Mirrors fail too</strong> for the same reason, unless you hash both orientations and compare the minimum of the two distances.</li>
+<li><strong>Flat and symmetric images degenerate.</strong> A solid-color image has near-zero AC energy everywhere, so the median threshold compares noise against noise and the fingerprint becomes unstable — two solid blue images may differ in dozens of bits. Detect low-variance images (<code>standardDeviation &lt; ε</code>) and route them to exact-hash comparison instead.</li>
+</ul>
+<p>When you need crop- or rotation-robust matching, pHash is the wrong tool; that problem belongs to feature-based matching (ORB, SIFT) which trades orders of magnitude more computation for geometric invariance. For the dominant real-world cases — re-encodes, resizes, screenshots, downloads from different sites — the 63-bit fingerprint is the right 65,000 multiply-adds.</p>
+
+<h2 id="indexing">Indexing a Whole Library: Banding Beats Brute Force</h2>
+<p>Comparing candidate images one at a time is fine for hundreds of files. At ten thousand it is a hundred million Hamming computations per batch — wasteful, because almost all pairs are obviously different. The problem is that Hamming distance is not a B-tree-queryable metric, so the fix has to be algorithmic. The standard one is <strong>banding</strong>, and it rests on a pigeonhole argument:</p>
+<blockquote>Split the 64-bit hash into B bands. If two hashes differ in at most B − 1 bits total, then at least one band is <em>bit-for-bit identical</em> between them.</blockquote>
+<p>With 4 bands of 16 bits, any pair within distance 3 shares at least one identical band. So you index images by each band's 16-bit value, and a query only has to check the union of the query's four posting lists — a few dozen candidates instead of the whole library:</p>
+<pre><code>const bandsOf = h =&gt; {
+  const s = hex(h);
+  return [s.slice(0, 4), s.slice(4, 8), s.slice(8, 12), s.slice(12, 16)];
+};
+
+// INSERT: for each band, push the image id into that band's bucket
+// bands: Map&lt;bandValue, Set&lt;imageId&gt;&gt;
+function index(hash, id, bands) {
+  for (const b of bandsOf(hash)) {
+    if (!bands.has(b)) bands.set(b, new Set());
+    bands.get(b).add(id);
+  }
+}
+
+// QUERY: union the 4 posting lists, then verify exact distance
+function candidates(hash, bands) {
+  const out = new Set();
+  for (const b of bandsOf(hash)) {
+    const bucket = bands.get(b);
+    if (bucket) for (const id of bucket) out.add(id);
+  }
+  return out;
+}</code></pre>
+<p>Two caveats, stated plainly. First, banding only finds pairs within <code>B − 1</code> bits; querying with distance threshold 6 requires 7 bands of ~9 bits, and more bands means more false-positive candidates for the verification pass to filter. Second, identical bands are necessary but not sufficient — the verification pass with exact Hamming distance is still mandatory. If your threshold needs to float, a BK-tree over the distance metric is the more flexible structure at moderate library sizes; banding with a fixed threshold is the one that stays simple and fast.</p>
+<p>Where do the hashes live? One row per image in your storage layer of choice — 16 hex characters plus an identifier — which is a rounding error next to the images themselves. If the app already embeds SQLite (a natural fit for local-first image tools), the band index maps directly to four indexed columns; compute the candidate set with a single <code>OR</code> query and verify in JavaScript.</p>
+
+<h2 id="where-to-run">Where It Runs: Workers and Progress</h2>
+<p>Decode dominates, so that is what to parallelize. A worker pool sized to <code>navigator.hardwareConcurrency</code> keeps the UI responsive while a batch imports, and <code>Blob</code> objects cross the worker boundary cheaply:</p>
+<pre><code>// hash-worker.js — one worker, many images
+self.onmessage = async ({ data: { jobId, blob, imageId } }) =&gt; {
+  try {
+    const gray = await toGrayscale32(blob);
+    self.postMessage({ jobId, imageId, hash: phash64(gray) });
+  } catch (err) {
+    self.postMessage({ jobId, imageId, error: err.message });
+  }
+};</code></pre>
+<p>Two production notes. Size the pool by cores but cap it — eight workers each holding a decoded 12-megapixel bitmap is roughly a gigabyte of transient memory, and the correct pool size for a batch importer on a mid-range laptop is often four. And report progress per completed image, not per percent of bytes: the user's mental model is "47 of 230 images", and a per-file counter also surfaces stuck decodes (a corrupt image that never calls back) far earlier than a bytes-progress bar ever would. Wrap the per-image decode in a timeout for the same reason.</p>
+
+<h2 id="checklist">Production Checklist</h2>
+<ol>
+<li>Composite onto white before reading pixels — transparent PNGs must hash as art, not alpha.</li>
+<li>Request <code>imageOrientation: 'from-image'</code> on <code>createImageBitmap</code> for deterministic EXIF handling.</li>
+<li>Resize inside the decoder (<code>resizeWidth</code>/<code>resizeHeight</code>); never touch full-resolution <code>ImageData</code> in JS.</li>
+<li>Precompute the cosine table once; keep DCT math in <code>Float32Array</code>.</li>
+<li>Exclude the DC coefficient consistently — pick one convention and never mix fingerprints from different ones.</li>
+<li>Calibrate the distance threshold against your own library's histogram; make it a setting, not a constant.</li>
+<li>Detect degenerate low-variance images and route them to exact hashing.</li>
+<li>Index by bands for large libraries; always verify candidates with full Hamming distance.</li>
+<li>Hash in a worker pool sized to cores — capped around 4–8 — and close bitmaps eagerly.</li>
+<li>Timeout individual decodes and surface per-image progress.</li>
+<li>Store 16-hex-char fingerprints as ordinary rows; keep originals and hashes in the same transaction so the index can rebuild.</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://www.phash.org/" target="_blank">pHash — the open source perceptual hash library</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Hamming_distance" target="_blank">Hamming Distance — Wikipedia</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/createImageBitmap" target="_blank">createImageBitmap() — MDN</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas" target="_blank">OffscreenCanvas — MDN</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API" target="_blank">Web Workers API — MDN</a></li>
+</ul>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./webassembly-image-processing.html">WebAssembly Image Processing in the Browser</a></li>
+  <li><a href="./offscreen-image-processing.html">Local-Only Image Processing via Offscreen Documents</a></li>
+  <li><a href="./full-page-screenshot-stitching.html">Full-Page Screenshots in Chrome Extensions</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Perceptual Hashing in the Browser: Near-Duplicate Image Detection',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '浏览器中的感知哈希：近似重复图片检测与去重',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'ブラウザでの知覚ハッシュ：類似画像の検出と重複排除',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Perzeptuelles Hashing im Browser: Nahezu doppelte Bilder erkennen',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Hashing perceptual en el navegador: detección de imágenes casi duplicadas',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Hachage perceptuel dans le navigateur : détection d\'images quasi identiques',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+</body>
+</html>

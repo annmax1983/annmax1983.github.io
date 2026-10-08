@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blog — AnnMax · Full-Stack Developer · Browser Extension Developer</title>
-  <meta name="description" content="Technical articles for working developers: Git, modern CSS, debugging methodology, browser extensions, WebAssembly, WebGPU, privacy engineering and local-first architecture. 18 years of experience distilled.">
-  <meta name="keywords" content="git tutorial, modern css, debugging methodology, browser extension development, WebAssembly tutorial, WebGPU, privacy engineering, local-first, SQLite browser, Service Worker, Chrome extension blog">
+  <meta name="description" content="Technical articles for working developers: Chrome extension engineering, TOTP and Web Crypto, perceptual hashing, HTML table parsing, PWA offline caching, Canvas simulations, Git, modern CSS and debugging methodology. 18 years of experience distilled.">
+  <meta name="keywords" content="git tutorial, modern css, debugging methodology, browser extension development, full page screenshot, TOTP implementation, perceptual hash, html table parsing, PWA offline, canvas simulation, WebAssembly tutorial, WebGPU, privacy engineering, local-first, Chrome extension blog">
   <meta property="og:title" content="Blog — AnnMax · Technical Articles">
-  <meta property="og:description" content="Technical articles for working developers: Git, modern CSS, debugging methodology, browser extensions, WebAssembly, WebGPU, privacy engineering and more.">
+  <meta property="og:description" content="Technical articles for working developers: Chrome extension engineering, Web Crypto, image algorithms, PWA offline caching, Canvas performance, Git, CSS and debugging methodology.">
   <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
   <meta property="og:url" content="https://annmax1983.github.io/blog.html">
   <meta property="og:type" content="blog">
@@ -21,7 +21,7 @@
     "@context": "https://schema.org",
     "@type": "Blog",
     "name": "AnnMax Technical Blog",
-    "description": "Technical articles on browser extensions, WebAssembly, WebGPU, privacy engineering, and more.",
+    "description": "Technical articles on browser extensions, Web Crypto and security, image algorithms, PWA offline architecture, Canvas performance, WebAssembly, WebGPU, and more.",
     "url": "https://annmax1983.github.io/blog.html",
     "author": {
       "@type": "Person",
@@ -29,6 +29,48 @@
       "url": "https://annmax1983.github.io/"
     },
     "blogPost": [
+      {
+        "@type": "BlogPosting",
+        "headline": "Full-Page Screenshots in Chrome Extensions: Stitching, Fixed Elements and Memory Limits",
+        "url": "https://annmax1983.github.io/blog/full-page-screenshot-stitching.html",
+        "datePublished": "2026-10-08",
+        "description": "captureVisibleTab quota pacing, scroll-and-stitch with devicePixelRatio, hiding fixed headers, and canvas size limits."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "TOTP from Scratch: Building an Offline 2FA Authenticator with Web Crypto",
+        "url": "https://annmax1983.github.io/blog/totp-web-crypto-implementation.html",
+        "datePublished": "2026-10-07",
+        "description": "Implement RFC 6238 in the browser with zero dependencies: Base32, HMAC via Web Crypto, dynamic truncation, and RFC test vectors."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "Perceptual Hashing in the Browser: Near-Duplicate Image Detection",
+        "url": "https://annmax1983.github.io/blog/perceptual-hash-image-dedup.html",
+        "datePublished": "2026-10-05",
+        "description": "DCT-based pHash in pure JavaScript: grayscale downscale, bit packing, Hamming distance, and banded indexing."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "Parsing HTML Tables with Merged Cells: A Grid Normalization Algorithm",
+        "url": "https://annmax1983.github.io/blog/html-table-merged-cells-parsing.html",
+        "datePublished": "2026-10-03",
+        "description": "A grid normalization algorithm for rowspan/colspan tables, header flattening, and safe CSV export."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "PWA Install and Offline Caching: What Actually Works in 2026",
+        "url": "https://annmax1983.github.io/blog/pwa-install-offline-caching.html",
+        "datePublished": "2026-10-02",
+        "description": "Install criteria, the beforeinstallprompt dance, iOS Safari's rules, and versioned service worker caches."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "Falling Sand on Canvas: Cellular Automata at 60 FPS",
+        "url": "https://annmax1983.github.io/blog/falling-sand-canvas-simulation.html",
+        "datePublished": "2026-10-01",
+        "description": "Uint8Array grids, bottom-up iteration, ImageData rendering, and a fixed-timestep loop at 60 FPS."
+      },
       {
         "@type": "BlogPosting",
         "headline": "Git Beyond Commit and Push: Reflog, Bisect, Worktree and Interactive Rebase",
@@ -112,8 +154,9 @@
       <li><a href="/#about">About</a></li>
       <li><a href="/#skills">Skills</a></li>
       <li><a href="/#extensions">Extensions</a></li>
-      <li><a href="/blog.html" style="color:var(--accent);">Blog</a></li>
+      <li><a href="/#pwa">PWA</a></li>
       <li><a href="/#products">Products</a></li>
+      <li><a href="/blog.html" style="color:var(--accent);">Blog</a></li>
       <li><a href="/#custom">Custom Dev</a></li>
       <li><a href="/#contact">Contact</a></li>
       <li><a href="https://annmax1983.com" target="_blank" rel="noopener" style="color:var(--accent);">Official Website</a></li>
@@ -130,6 +173,54 @@
   </div>
 
   <div class="blog-grid">
+
+    <a href="blog/full-page-screenshot-stitching.html" class="blog-card reveal">
+      <div class="blog-date">2026-10</div>
+      <h3>Full-Page Screenshots in Chrome Extensions: Stitching, Fixed Elements and Memory Limits</h3>
+      <p>captureVisibleTab quota pacing, scroll-and-stitch with devicePixelRatio, hiding fixed headers, canvas size limits, and the CDP captureBeyondViewport alternative.</p>
+      <span class="blog-tag">Chrome Extensions</span>
+      <span class="blog-tag">Canvas</span>
+    </a>
+
+    <a href="blog/totp-web-crypto-implementation.html" class="blog-card reveal">
+      <div class="blog-date">2026-10</div>
+      <h3>TOTP from Scratch: Building an Offline 2FA Authenticator with Web Crypto</h3>
+      <p>Implement RFC 6238 in the browser with zero dependencies: Base32, HMAC via Web Crypto, dynamic truncation, otpauth URIs, and RFC test vectors.</p>
+      <span class="blog-tag">Security</span>
+      <span class="blog-tag">Web Crypto</span>
+    </a>
+
+    <a href="blog/perceptual-hash-image-dedup.html" class="blog-card reveal">
+      <div class="blog-date">2026-10</div>
+      <h3>Perceptual Hashing in the Browser: Near-Duplicate Image Detection</h3>
+      <p>DCT-based pHash in pure JavaScript: grayscale downscale, bit packing, Hamming distance, and banded indexing for whole image libraries.</p>
+      <span class="blog-tag">Image Processing</span>
+      <span class="blog-tag">Algorithms</span>
+    </a>
+
+    <a href="blog/html-table-merged-cells-parsing.html" class="blog-card reveal">
+      <div class="blog-date">2026-10</div>
+      <h3>Parsing HTML Tables with Merged Cells: A Grid Normalization Algorithm</h3>
+      <p>A grid normalization algorithm for rowspan/colspan tables, multi-row header flattening, text extraction, and CSV export that opens safely.</p>
+      <span class="blog-tag">Algorithms</span>
+      <span class="blog-tag">Data Extraction</span>
+    </a>
+
+    <a href="blog/pwa-install-offline-caching.html" class="blog-card reveal">
+      <div class="blog-date">2026-10</div>
+      <h3>PWA Install and Offline Caching: What Actually Works in 2026</h3>
+      <p>Install criteria, the beforeinstallprompt dance, iOS Safari's separate rules, versioned service worker caches, and storage persistence.</p>
+      <span class="blog-tag">PWA</span>
+      <span class="blog-tag">ServiceWorker</span>
+    </a>
+
+    <a href="blog/falling-sand-canvas-simulation.html" class="blog-card reveal">
+      <div class="blog-date">2026-10</div>
+      <h3>Falling Sand on Canvas: Cellular Automata at 60 FPS</h3>
+      <p>Uint8Array grids, bottom-up iteration, ImageData rendering, and a fixed-timestep loop — the data layout that makes 60 FPS the default.</p>
+      <span class="blog-tag">Canvas</span>
+      <span class="blog-tag">Performance</span>
+    </a>
 
     <a href="blog/git-beyond-commit-and-push.html" class="blog-card reveal">
       <div class="blog-date">2026-09</div>

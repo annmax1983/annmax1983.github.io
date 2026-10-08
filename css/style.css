@@ -18,6 +18,7 @@
   --accent-1: #6366f1;
   --accent-2: #8b5cf6;
   --accent-3: #a78bfa;
+  --accent: var(--accent-2);
   --gradient-1: linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa);
   --gradient-2: linear-gradient(135deg, #06b6d4, #3b82f6, #6366f1);
   --gradient-hero: linear-gradient(135deg, #0a0a0f 0%, #1a1033 50%, #0a0a0f 100%);
@@ -887,6 +888,31 @@ footer p { margin-bottom: 0.5rem; }
 .products-intro p { color: var(--text-secondary); line-height: 1.8; font-size: 1rem; }
 .products-intro strong { color: var(--accent); }
 #products { padding: 2.5rem 1rem; }
+
+/* PWA section */
+#pwa { padding: 2.5rem 1rem; }
+.pwa-group-label {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 2.5rem 0 1.25rem;
+}
+.pwa-group-label .pwa-group-sub {
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+.pwa-app-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border-glass);
+  flex: none;
+}
 
 /* Skip-to-content link (accessibility) */
 .skip-link {

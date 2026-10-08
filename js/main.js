@@ -30,6 +30,9 @@
       if (dict[key] !== undefined) {
         if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
           el.placeholder = dict[key];
+        } else if (dict[key].indexOf('<strong>') !== -1) {
+          // Static, author-controlled strings only; allows inline emphasis
+          el.innerHTML = dict[key];
         } else {
           el.textContent = dict[key];
         }

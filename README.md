@@ -30,6 +30,29 @@ I maintain **17 Chrome extensions** — all 100% local processing, zero data col
 - ⌨️ **VKT Shortcut** — Keyboard shortcut manager
 - 📌 **ItemPin** — Product saver & price history
 
+I also build **VKT PWA** — 9 installable web apps that run offline, installed straight from the browser:
+
+- 🧮 **Tally** — Tap counter with live ratio
+- 🖥️ **Screen** — Full-screen solid colours to spot dead pixels
+- 🫧 **Pop** — Infinite bubble wrap
+- 🍃 **Bloom** — Sweep fallen leaves, grow a garden
+- ✂️ **Slice** — Draw a line, cut it in half
+- 🪟 **Shatter** — Tap the glass, watch it crack and collapse
+- ⏳ **Sand** — Draw with falling sand
+- 🌀 **Flow** — Ink swirls through still water
+- 💧 **Ripple** — One drop, spreading ripples
+
+And on the SaaS side: **CertTrack Pro** — a multi-tenant reminder platform for certificate expiry tracking, equipment maintenance (CMMS) and inspection tasks, with automatic deadline reminders.
+
+## Links
+
+- 🌐 Official website — https://annmax1983.com
+- 🧩 Browser extensions — https://annmax1983.com/extensions/
+- 📱 PWA apps — https://annmax1983.com/pwa/
+- 📝 Guides & blog, 6 languages — https://annmax1983.com/blogs/
+- 💼 CertTrack Pro (remind SaaS) — https://remind.annmax1983.com
+- 🪪 Personal site — https://annmax1983.github.io
+
 ## Philosophy
 
 Good tools should be:

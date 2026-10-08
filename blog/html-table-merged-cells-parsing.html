@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Parsing HTML Tables with Merged Cells: A Grid Normalization Algorithm — AnnMax</title>
+  <meta name="description" content="rowspan and colspan break every naive table scraper. A practical normalization algorithm that turns any HTML table into a dense matrix, plus multi-row header flattening, correct text extraction, and safe CSV export.">
+  <meta property="og:title" content="Parsing HTML Tables with Merged Cells: A Grid Normalization Algorithm">
+  <meta property="og:description" content="Turn any HTML table into a dense matrix: occupancy grid, rowspan=0 quirks, multi-row header flattening, text extraction, and CSV export that opens safely.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/html-table-merged-cells-parsing.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="keywords" content="html table parsing, rowspan colspan, table scraping javascript, csv export javascript, csv injection, merged cells, table.rows, content script table">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/html-table-merged-cells-parsing.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Parsing HTML Tables with Merged Cells: A Grid Normalization Algorithm</h1>
+    <div class="meta" id="articleMeta"><span>October 2026</span><span class="reading-time">~12 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="the-problem">Why Table Scraping Is Always Wrong the First Time</h2>
+<p>Extracting a table looks like a two-line job: grab <code>table.rows</code>, map each row's <code>cells</code> to text. It works on the table you wrote by hand and fails on approximately every table in production. The reason is merged cells:</p>
+<pre><code>&lt;table&gt;
+  &lt;tr&gt;&lt;th rowspan="2"&gt;Region&lt;/th&gt;&lt;th colspan="2"&gt;2025&lt;/th&gt;&lt;th colspan="2"&gt;2026&lt;/th&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;th&gt;Q3&lt;/th&gt;&lt;th&gt;Q4&lt;/th&gt;&lt;th&gt;Q3&lt;/th&gt;&lt;th&gt;Q4&lt;/th&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;EMEA&lt;/td&gt;&lt;td&gt;12&lt;/td&gt;&lt;td&gt;15&lt;/td&gt;&lt;td&gt;18&lt;/td&gt;&lt;td&gt;21&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;</code></pre>
+<p>Row 2 has five <code>&lt;th&gt;</code> elements in the markup but occupies five <em>logical</em> columns only because "2025" spans two of them. Row 3 has five cells and five values, but naively indexing them against row 2's position numbers puts "EMEA" under Q4/2025 — every column shifted. There is no per-row fix for this, because the semantics are two-dimensional: a cell's position depends on spans from <em>previous</em> rows.</p>
+<p>The robust solution is a single up-front transformation: normalize the table into a dense <strong>occupancy grid</strong> — a matrix where every logical (row, column) position exists, merged cells appear once with their covered positions marked — and do all extraction, header detection, and export on the matrix. Rendering quirks (CSS, whitespace, layout) stop mattering the moment the grid is built. This article builds that grid, then solves the four problems that remain on real pages: multi-row headers, text extraction, nested tables, and CSV export.</p>
+
+<h2 id="grid">The Occupancy Grid</h2>
+<p>Two invariants make the algorithm work, and every bug in home-made versions is a violation of one of them:</p>
+<ol>
+<li>Process cells left to right within each row, maintaining a current column cursor. Before placing a cell, advance the cursor past any positions already occupied by <code>rowspan</code> cells from earlier rows.</li>
+<li>After placing a cell, mark its full rectangle as occupied: its own row and column plus every position to the right (<code>colspan</code>) and below (<code>rowspan</code>). Future rows consult these marks to skip positions.</li>
+</ol>
+<p>A <code>Map&lt;column, origin&gt;</code> per row is enough to carry occupancy forward — sparse, cheap, and it doesn't need to know the table's total width (which, with rowspans, you cannot know until you finish).</p>
+<pre><code>function normalizeTable(table) {
+  const rows = [...table.rows];
+  const grid   = rows.map(() =&gt; []);          // text at origin, null where covered
+  const origin = rows.map(() =&gt; []);          // [r0, c0] that each position maps to
+  const carried = rows.map(() =&gt; new Map());  // col -&gt; origin, occupied from above
+
+  for (let r = 0; r &lt; rows.length; r++) {
+    let c = 0;                                  // column cursor
+    for (const cell of rows[r].cells) {
+      while (carried[r].has(c)) c++;            // invariant 1: skip rowspan holes
+
+      // IDL properties, not getAttribute: the DOM already clamps these
+      // per the HTML spec — colSpan to 1..1000, rowSpan to 0..65534 — so
+      // colspan="junk" and colspan="-3" arrive here as colSpan === 1.
+      const colspan = cell.colSpan;
+      let   rowspan = cell.rowSpan;
+
+      // rowspan="0" is legal and means "to the end of my row group"
+      if (rowspan === 0) {
+        const section = cell.closest('thead, tbody, tfoot') || table;
+        const sectionRows = [...section.rows];
+        rowspan = sectionRows.length - sectionRows.indexOf(rows[r]);
+      }
+      rowspan = Math.min(rowspan, rows.length - r);  // never spill past the table
+
+      const text = readCellText(cell);
+
+      for (let dr = 0; dr &lt; rowspan; dr++) {
+        for (let dc = 0; dc &lt; colspan; dc++) {
+          const rr = r + dr, cc = c + dc;
+          grid[rr][cc] = (dr === 0 &amp;&amp; dc === 0) ? text : null;
+          origin[rr][cc] = [r, c];               // invariant 2: record every position
+          if (dr &gt; 0) carried[rr].set(cc, [r, c]); // block this column below
+        }
+      }
+      c += colspan;
+    }
+  }
+  return { grid, origin, rowCount: rows.length };
+}</code></pre>
+<p>Details that matter, each learned from a real page:</p>
+<ul>
+<li><strong><code>table.rows</code> is scoped correctly.</strong> It lists rows of <em>this</em> table across all row groups (thead/tbody/tfoot) in document order — and crucially, it does <em>not</em> include rows of a nested table. The one DOM detail that pays for itself here.</li>
+<li><strong>Use <code>cell.colSpan</code>/<code>cell.rowSpan</code>, not <code>getAttribute</code>.</strong> These IDL properties reflect the attributes through the spec's clamping rules, so malformed markup — and it is everywhere in hand-written HTML — can't produce a negative or absurd span. You inherit the browser's parsing work for free.</li>
+<li><strong><code>rowspan="0"</code> is not broken markup.</strong> It's valid HTML meaning "span to the end of the row group". Generators emit it for section-spanning labels. Handle it explicitly, or you'll ship a table where one cell shadows everything below it.</li>
+<li><strong>Clamp the rowspan to the remaining rows.</strong> A <code>rowspan="99"</code> on the last row of a five-row table is a real thing (WYSIWYG editors produce it); without the clamp, <code>carried[r + dr]</code> writes into future-row maps that <code>grid</code> doesn't have, and the while-loop can walk off the end of the world.</li>
+<li><strong>The unguarded while loop is a hazard:</strong> if a malformed table ever carries occupancy into every column up to some huge index, the cursor walk is unbounded. Belt and braces: cap <code>c</code> at the maximum occupied column + the widest colspan seen so far, which is a two-line change. It should never trigger; it will the day someone opens a table exported from a broken CMS.</li>
+</ul>
+
+<h2 id="resolve">Blank, Repeat, or Both: Resolving Merged Values</h2>
+<p>The grid stores each merged cell's text exactly once, at its origin, with <code>null</code> at covered positions. That's the right internal representation because it loses nothing — both common output conventions are derivable:</p>
+<pre><code>function toMatrix(ctx, fill = 'blank') {
+  return ctx.grid.map((row, r) =&gt; row.map((v, c) =&gt; {
+    if (v !== null) return v;
+    if (fill === 'blank') return '';             // spreadsheet 'merged cells' look
+    const [r0, c0] = ctx.origin[r][c];
+    return ctx.grid[r0][c0] ?? '';               // repeat the origin value
+  }));
+}</code></pre>
+<p>Which mode to use is not arbitrary. <strong>Blank</strong> matches how Excel models merges and reads best for display. <strong>Repeat</strong> is what you want for data analysis — every row carrying "EMEA" in the Region column survives a <code>GROUP BY</code>, a pivot, or a filter, none of which know what a merge is. My default for CSV export is repeat, with blank available as an option, and I've never regretted making it a parameter instead of a decision.</p>
+<p>Worth stating because it surprises people: <code>origin</code> is also the key to <em>un-merging in the other direction</em>. Given a target position, you can always answer "which cell visually covers this spot" — needed later for header flattening, and for hit-testing when the export feature offers "extract this column" on click.</p>
+
+<h2 id="text">Extracting Cell Text Without the Traps</h2>
+<p><code>textContent</code> on a cell concatenates everything with no separators — <code>&lt;td&gt;&lt;div&gt;Product&lt;/div&gt;&lt;div&gt;Price&lt;/div&gt;&lt;/td&gt;</code> becomes <code>ProductPrice</code>. <code>innerText</code> gets this right by consulting layout — but it forces style and layout recalculation per cell, which on a thousand-row table is a measurable stall inside a content script. The middle path: walk the nodes and insert a space at every element that renders as a block, plus map <code>&lt;br&gt;</code> and images' alt text explicitly:</p>
+<pre><code>const BLOCK = new Set(['DIV','P','LI','UL','OL','SECTION','ARTICLE',
+                       'H1','H2','H3','H4','H5','H6','PRE','BLOCKQUOTE']);
+
+function readCellText(cell) {
+  const parts = [];
+  const walk = (node) =&gt; {
+    for (const child of node.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        parts.push(child.data);
+      } else if (child.nodeType === Node.ELEMENT_NODE) {
+        if (child.tagName === 'TABLE') continue;      // nested table: handled elsewhere
+        if (child.tagName === 'BR') { parts.push(' '); continue; }
+        if (child.tagName === 'IMG') { parts.push(child.alt || ''); continue; }
+        const space = BLOCK.has(child.tagName);
+        if (space) parts.push(' ');
+        walk(child);
+        if (space) parts.push(' ');
+      }
+    }
+  };
+  walk(cell);
+  return parts.join('').replace(/\s+/g, ' ').trim();
+}</code></pre>
+<p>Three decisions baked in. <strong>Nested tables are skipped, not flattened</strong> — their text belongs to the inner table's own grid, and silently concatenating it into a parent cell produces cells containing three unrelated rows' worth of text; handle the inner table as its own extraction (below). <strong><code>\s+</code> collapse also folds non-breaking spaces</strong> — JavaScript's <code>\s</code> includes <code>\u00A0</code>, which is exactly the character tables are full of (<code>&amp;nbsp;</code> is the universal way to keep an "empty" cell from collapsing, and it should export as empty, not as an invisible character). <strong>The block-tag set is a heuristic, honestly labeled as one.</strong> If your extraction fidelity needs to be perfect — legal tables, invoices — swap <code>BLOCK.has(child.tagName)</code> for <code>getComputedStyle(child).display</code> checks and pay the style-recalc cost. For the 95% case, the name list runs in microseconds and produces identical output.</p>
+<p>Nested tables, in practice: walk <code>cell.querySelectorAll('table')</code>, normalize each with the same function, and decide representation by use case — a placeholder like <code>[3×4 table]</code> in the parent cell (my default, since it keeps the parent grid rectangular and the data reachable), or flatten the inner table into the parent with a separator row. What you should <em>not</em> do is pretend the nesting doesn't exist: the moment one layout table wraps the real content is the moment a flattened extraction goes from "data" to "haystack".</p>
+
+<h2 id="headers">Multi-Row Headers, Flattened</h2>
+<p>Real report tables have grouped headers: "2025" spanning Q3 and Q4. Exported flat, the user loses the grouping; exported as two header rows, half of every downstream tool misreads it. The standard answer is a <strong>path per column</strong>: the column is "2025 / Q3".</p>
+<p>Header detection first. Reliable signals in priority order: rows inside <code>&lt;thead&gt;</code>; rows where every cell is a <code>&lt;th&gt;</code>; a <code>scope</code> attribute on cells. In the wild, header rows are a <em>prefix</em> of the rows — so the pragmatic rule is: count leading rows that are entirely header cells, using thead as a tiebreaker:</p>
+<pre><code>function headerRowCount(table) {
+  const rows = [...table.rows];
+  let n = 0;
+  for (const row of rows) {
+    const inThead = row.closest('thead') !== null;
+    const allTh = [...row.cells].every(c =&gt; c.tagName === 'TH');
+    if (inThead || allTh) n++;
+    else break;                                 // headers are a prefix, in practice
+  }
+  return n;
+}</code></pre>
+<p>With the normalized grid in hand, flattening is a short walk — and it's where the <code>origin</code> map pays off, because a header cell with <code>rowspan="2"</code> under "2025" resolves to a single path element instead of repeating on every row:</p>
+<pre><code>function columnHeaderPath(ctx, col, headerRows) {
+  const parts = [];
+  for (let r = 0; r &lt; headerRows; r++) {
+    const [r0, c0] = ctx.origin[r][col];
+    const value = ctx.grid[r0][c0];
+    if (value &amp;&amp; value !== parts[parts.length - 1]) parts.push(value);
+  }
+  return parts.join(' / ');                    // '2025 / Q3'
+}</code></pre>
+<p>Two refinements from use. When the group header equals the sub-header ("Q3 / Q3" from a merged first row), the dedupe above drops the repeat. And when the header path is empty for some column — no header row covers it, which happens with off-by-one markup — fall back to the column letter (<code>A</code>, <code>B</code>, …) rather than emitting an empty string that turns into a nameless CSV column.</p>
+
+<h2 id="csv">CSV Export That Opens Correctly</h2>
+<p>Writing CSV looks trivial and has exactly three failure modes, all with the same symptom: someone opens the file and says "it's wrong".</p>
+<pre><code>function toCSV(matrix) {
+  const esc = (v) =&gt; {
+    let s = String(v ?? '');
+    // CSV injection: =, +, @, TAB, CR as the first character execute as
+    // formulas in Excel / Sheets. '-' only if not a plain negative number.
+    if (/^[=+@\t\r]/.test(s) || /^-(?!\d+(\.\d+)?$)/.test(s)) s = "'" + s;
+    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const bom = '\uFEFF';   // without this, Excel mangles non-ASCII as mojibake
+  return bom + matrix.map(row =&gt; row.map(esc).join(',')).join('\r\n');
+}</code></pre>
+<p><strong>Quoting (RFC 4180):</strong> fields containing comma, quote, or newline get wrapped in quotes, and embedded quotes double. The classic bug is quoting only for commas, then discovering a cell with a line break splits the row on import. <strong>Formula injection:</strong> a cell beginning with <code>=</code> is a formula — in a file exported from a <em>hostile page</em>, that's an attack that fires on the downloader's machine (<code>=HYPERLINK(...)</code>, DDE, and worse). Prefix with a single quote — Excel's text marker, invisible in the cell — and skip the prefix for ordinary negative numbers so numeric columns stay numeric. <strong>The BOM:</strong> UTF-8 without a byte-order mark is correctly parsed by everything except the program most users will open it in. One <code>\uFEFF</code> at the start costs 3 bytes and removes an entire support category.</p>
+<p>File download has one extension-specific wrinkle worth knowing before you build it: in an MV3 service worker, <code>URL.createObjectURL</code> does not exist. Options: a <code>data:</code> URL (fine for small exports, memory-heavy for a 50 MB CSV), or — better — create the blob and object URL in an offscreen document and pass the URL to <code>chrome.downloads.download</code> from the service worker, which is the same offscreen pattern that keeps long jobs alive and is the reason heavy export logic belongs there in the first place.</p>
+
+<h2 id="checklist">Production Checklist</h2>
+<ol>
+<li>Normalize once into a grid + origin map; never index <code>row.cells</code> directly for anything positional.</li>
+<li>Advance the column cursor past carried occupancy before placing each cell; record origin for every merged position.</li>
+<li>Use <code>cell.colSpan</code>/<code>cell.rowSpan</code> (IDL) instead of raw attributes; handle <code>rowSpan === 0</code> as section-end semantics; clamp to remaining rows.</li>
+<li>Cap the cursor-skip loop defensively against malformed occupancy.</li>
+<li>Make blank-vs-repeat an explicit fill mode; default to repeat for analysis exports.</li>
+<li>Extract text with a node walker: block-boundary spaces, <code>&lt;br&gt;</code>, alt text, nested-table skip, whitespace and nbsp collapse.</li>
+<li>Treat nested tables as sub-problems, with a placeholder or recursive extraction — never silent concatenation.</li>
+<li>Detect header rows as an all-th/thead prefix; flatten grouped headers into "Group / Column" paths through the origin map.</li>
+<li>Emit RFC 4180 CSV: quote comma/quote/newline, double embedded quotes, \r\n line endings, UTF-8 BOM.</li>
+<li>Guard formula injection on export; exempt plain negative numbers.</li>
+<li>Create blob URLs in an offscreen document; hand downloads to <code>chrome.downloads.download</code> from the service worker.</li>
+<li>Test against the ugly corpus: rowspan=0, colspan=0, nested tables, missing tbody, 1000-row tables, and a table inside the first table.</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://html.spec.whatwg.org/multipage/tables.html" target="_blank">HTML Standard — Tables</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLTableCellElement/colSpan" target="_blank">HTMLTableCellElement.colSpan — MDN</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLTableCellElement/rowSpan" target="_blank">HTMLTableCellElement.rowSpan — MDN</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc4180" target="_blank">RFC 4180 — CSV Format</a></li>
+<li><a href="https://owasp.org/www-community/attacks/CSV_Injection" target="_blank">CSV Injection — OWASP</a></li>
+</ul>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./full-page-screenshot-stitching.html">Full-Page Screenshots in Chrome Extensions</a></li>
+  <li><a href="./debugging-like-a-senior-engineer.html">Debugging Like a Senior Engineer</a></li>
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience &amp; State Persistence for MV3</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Parsing HTML Tables with Merged Cells: A Grid Normalization Algorithm',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '解析带合并单元格的 HTML 表格：网格归一化算法',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: '結合セルを持つHTMLテーブルの解析：グリッド正規化アルゴリズム',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'HTML-Tabellen mit verbundenen Zellen parsen: Ein Grid-Normalisierungsalgorithmus',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Parsear tablas HTML con celdas combinadas: un algoritmo de normalización de rejilla',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Parser des tableaux HTML avec cellules fusionnées : un algorithme de normalisation de grille',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+</body>
+</html>

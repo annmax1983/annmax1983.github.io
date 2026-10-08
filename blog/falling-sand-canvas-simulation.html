@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Falling Sand on Canvas: Cellular Automata at 60 FPS — AnnMax</title>
+  <meta name="description" content="A falling-sand simulation in plain Canvas and typed arrays: bottom-up cellular automaton iteration, a Uint8Array grid, ImageData pixel writes, a fixed-timestep loop, and pointer painting with Bresenham.">
+  <meta property="og:title" content="Falling Sand on Canvas: Cellular Automata at 60 FPS">
+  <meta property="og:description" content="Uint8Array grids, bottom-up iteration, ImageData rendering, fixed-timestep loops and pointer painting — the data-layout decisions that make 60 FPS trivial.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/falling-sand-canvas-simulation.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="keywords" content="falling sand game javascript, cellular automata canvas, Uint8Array simulation, ImageData putImageData, requestAnimationFrame fixed timestep, pixel simulation, sand simulation tutorial">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/falling-sand-canvas-simulation.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Falling Sand on Canvas: Cellular Automata at 60 FPS</h1>
+    <div class="meta" id="articleMeta"><span>October 2026</span><span class="reading-time">~13 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="the-grid">The Grid Is the Data Structure</h2>
+<p>A falling-sand simulation looks like a physics problem and is actually a data-structure problem. Every behavior — sand piling, water flowing, walls blocking — is the same operation applied millions of times per minute: look at a cell, look at its neighbors, maybe swap two values. The entire performance question is how expensive "look at a cell" is.</p>
+<p>The grid is a flat <code>Uint8Array</code> where each byte is a material id. That's the whole model:</p>
+<pre><code>const W = 240, H = 135;                     // simulation cells, not screen pixels
+const EMPTY = 0, SAND = 1, WATER = 2, STONE = 3;
+
+const grid = new Uint8Array(W * H);         // 32,400 bytes for a full screen
+const idx  = (x, y) =&gt; y * W + x;           // row-major, cache-friendly</code></pre>
+<p>Wrap that in the naive alternative — an array of cell objects, <code>{ type: 'sand', color: '...', density: 4 }</code> — and you get an object per pixel, pointer-chasing through the heap on every neighbor lookup, and GC pressure if anything is re-allocated per frame. The typed array wins by roughly two orders of magnitude, and that is not an exaggeration; it is the single authoritative reason pixel simulations run at 60 FPS in a browser tab. Everything below assumes this layout: neighbor access is <code>index ± 1</code> and <code>index ± W</code> — arithmetic on cache lines, not property lookups.</p>
+<p>One immediate consequence of the flat array: swap is three byte assignments, no allocation, no method calls:</p>
+<pre><code>function swap(a, b) {
+  const t = grid[a];
+  grid[a] = grid[b];
+  grid[b] = t;
+}</code></pre>
+
+<h2 id="iteration-order">Why You Iterate Bottom-Up</h2>
+<p>Here is the bug that every first implementation ships: iterate rows top-down, move grains down, and watch the sand fall at ten cells per frame — because a grain moved from row 5 to row 6 is re-examined when the loop reaches row 6, and moves again, and again, until it hits the floor in a single frame. Physics becomes teleportation.</p>
+<p>Iterating <strong>bottom-up</strong> fixes it structurally. When you process row <i>y</i>, every row below has already been processed for this frame, so a grain that moves into row <i>y+1</i> will not be touched again until the next frame. One row of travel per frame — exactly the "slow, satisfying trickle" the genre is named for.</p>
+<p>There is a second, subtler bias: scanning columns left-to-right every frame makes sand lean left (ties resolve toward a direction, water drifts). The fix is to alternate the horizontal scan direction every frame, so the asymmetry cancels out over any two consecutive frames:</p>
+<pre><code>let frame = 0;
+
+function step() {
+  frame++;
+  const ltr = (frame &amp; 1) === 1;            // left-to-right this frame?
+
+  for (let y = H - 2; y &gt;= 0; y--) {        // bottom-up: one row of fall per frame
+    for (let i = 0; i &lt; W; i++) {
+      const x = ltr ? i : W - 1 - i;
+      const cell = grid[y * W + x];
+      if (cell === SAND)       stepSand(y * W + x, x, y);
+      else if (cell === WATER) stepWater(y * W + x, x, y, ltr);
+    }
+  }
+}</code></pre>
+<p>Note what the bottom-up property buys for <em>downward</em> moves of any kind: straight down, down-left, down-right all land in already-processed rows, so no grain can move twice downward in one frame, with no bookkeeping at all. The only move that needs care is water sliding <em>sideways in its own row</em>: if the scan is left-to-right and water moves right, the loop will reach it again and it can skate multiple cells per frame. The clean answer without allocating anything: when scanning left-to-right, let water's sideways option be leftward only, and flip with the scan. Over two frames the behavior is symmetric, and no water ever double-moves.</p>
+
+<h2 id="materials">Materials as Rules</h2>
+<p>Each material is a function from (cell, neighbors) to (maybe swap). Sand first — including two behaviors that separate a pleasant sim from a rigid one:</p>
+<pre><code>function stepSand(i, x, y) {
+  const below = i + W;
+  if (grid[below] === EMPTY || grid[below] === WATER) {
+    swap(i, below);                          // falls — and sinks through water
+    return;
+  }
+
+  const openLeft  = x &gt; 0     &amp;&amp; isOpen(grid[below - 1]);
+  const openRight = x &lt; W - 1 &amp;&amp; isOpen(grid[below + 1]);
+
+  // Diagonal choice must be random, or piles grow lopsided
+  if (openLeft &amp;&amp; openRight) swap(i, Math.random() &lt; 0.5 ? below - 1 : below + 1);
+  else if (openLeft)          swap(i, below - 1);
+  else if (openRight)         swap(i, below + 1);
+}
+
+const isOpen = v =&gt; v === EMPTY || v === WATER;   // sand falls through water too</code></pre>
+<p>Those two water tolerances — falling into it, sliding into it diagonally — produce the density behavior everyone expects from a sandbox: sand poured into a pool sinks and displaces the water upward, with no water-specific code in the sand function and no density field anywhere. Emergence for free from four comparisons.</p>
+<p>Water is sand's rule set plus lateral flow:</p>
+<pre><code>function stepWater(i, x, y, ltr) {
+  const below = i + W;
+  if (grid[below] === EMPTY) { swap(i, below); return; }
+
+  const opts = [];
+  if (x &gt; 0     &amp;&amp; grid[below - 1] === EMPTY) opts.push(below - 1);
+  if (x &lt; W - 1 &amp;&amp; grid[below + 1] === EMPTY) opts.push(below + 1);
+  // Sideways: only against the scan direction, or water skates across the row
+  if (ltr &amp;&amp; x &gt; 0     &amp;&amp; grid[i - 1] === EMPTY) opts.push(i - 1);
+  if (!ltr &amp;&amp; x &lt; W - 1 &amp;&amp; grid[i + 1] === EMPTY) opts.push(i + 1);
+
+  if (opts.length) swap(i, opts[(Math.random() * opts.length) | 0]);
+}</code></pre>
+<p><code>Math.random()</code> in the hot loop is fine at this scale — tens of thousands of calls per frame are nothing. If you want determinism (replay, tests, or "same seed, same collapse") swap in a 32-bit xorshift; it is three lines and dozens of times faster, which matters only if you scale the grid up by 10×. STONE is simply a material with no rule function: the switch statement never calls anything for it, and it can never move. Static is the default state; motion is opt-in.</p>
+
+<h2 id="rendering">From Uint8Array to Pixels in One Write</h2>
+<p>The wrong renderer calls <code>fillRect</code> once per cell — 32,400 draw calls per frame, each with full Canvas API overhead, and the frame budget is gone before physics even runs. The right renderer writes pixels directly and lets the canvas do the scaling.</p>
+<pre><code>// Color lookup table, indexed by material id. Packs little-endian ABGR,
+// which is the byte order of a Uint32 view over ImageData.
+const rgb = (r, g, b) =&gt; ((0xff &lt;&lt; 24) | (b &lt;&lt; 16) | (g &lt;&lt; 8) | r) &gt;&gt;&gt; 0;
+const COLORS = new Uint32Array(256);
+COLORS[EMPTY] = rgb(11, 15, 20);
+COLORS[SAND]  = rgb(232, 176, 64);
+COLORS[WATER] = rgb(64, 140, 232);
+COLORS[STONE] = rgb(120, 124, 132);
+
+// Allocate once — never per frame
+const imageData = new ImageData(W, H);
+const pixels = new Uint32Array(imageData.data.buffer);   // view, zero copies
+
+const simCanvas = new OffscreenCanvas(W, H);
+const simCtx = simCanvas.getContext('2d');
+
+function render(ctx, canvas) {
+  for (let i = 0; i &lt; grid.length; i++) pixels[i] = COLORS[grid[i]];
+  simCtx.putImageData(imageData, 0, 0);
+
+  ctx.imageSmoothingEnabled = false;          // crisp chunky pixels
+  ctx.drawImage(simCanvas, 0, 0, canvas.width, canvas.height);
+}</code></pre>
+<p>Three things make this fast. The color LUT turns per-cell rendering into one array lookup — the loop is a single pass over two typed arrays with perfect locality. The <code>Uint32Array</code> over <code>imageData.data.buffer</code> is a <em>view</em>, not a copy: writing 32,400 uint32s is a memcpy-class operation measured in microseconds. And the scaled <code>drawImage</code> hands magnification to the compositor with smoothing disabled, so a 240×135 grid fills a 4K screen with sharp pixels at GPU cost, not JS cost. The entire render step is well under a millisecond; the genre's smoothness is bought here, not in the physics.</p>
+
+<h2 id="resolution">Resolution Strategy: Simulate Coarse, Display Sharp</h2>
+<p>The most valuable design decision in the whole project: <strong>the simulation grid has nothing to do with screen pixels.</strong> Simulating at device resolution on a 4K display means 8.3 million cells to update; simulating at 240×135 means 32,400 — a factor of 250 in work, for a visual difference most players read as aesthetic (sand grains are visible) rather than degraded. Chunky is the genre's look. Lean into it.</p>
+<pre><code>function sizeGrid(displayWidth, displayHeight) {
+  const targetCells = 34000;                 // tune: 34000 ~= smooth everywhere
+  const aspect = displayWidth / displayHeight;
+  const h = Math.round(Math.sqrt(targetCells / aspect));
+  return { w: Math.round(h * aspect), h };
+}</code></pre>
+<p>Everything downstream handles the conversion: pointer coordinates map display→grid, and rendering maps grid→display via the single scaled <code>drawImage</code>. One consequence to respect: cell aspect ratio should stay close to 1 by deriving both dimensions from the real display aspect (as above), otherwise diagonal sand piles look sheared on ultrawide screens. And the display canvas itself can stay at CSS size with <code>width</code>/<code>height</code> attributes set to the grid dimensions — the browser scales it for free in the layout, and <code>drawImage</code> becomes optional. Two canvases, one lookup: pick whichever fits your rendering pipeline.</p>
+
+<h2 id="frame-loop">The Frame Loop: Fixed Steps, Capped Catch-Up</h2>
+<p><code>requestAnimationFrame</code> calls you at display refresh — 60 Hz, 120 Hz, or whatever the system feels like — and occasionally not at all (background tab, OS sleep, GC pause). Coupling simulation speed to callback count means your sim runs at double speed on a gaming monitor and teleports after every stall. Decouple with the standard accumulator pattern:</p>
+<pre><code>const STEP_MS = 1000 / 60;                   // simulation time step
+const MAX_DT  = 100;                         // ignore stalls longer than this
+let acc = 0, last = performance.now();
+
+function frame(now) {
+  requestAnimationFrame(frame);
+
+  let dt = now - last;
+  last = now;
+  if (dt &gt; MAX_DT) dt = MAX_DT;              // tab was hidden: don't spiral
+  acc += dt;
+
+  let steps = 0;
+  while (acc &gt;= STEP_MS &amp;&amp; steps &lt; 2) {     // at most 2 catch-up steps
+    step();
+    acc -= STEP_MS;
+    steps++;
+  }
+  if (acc &gt;= STEP_MS) acc = 0;               // backlog abandoned, not deferred
+
+  render(ctx, canvas);
+}
+requestAnimationFrame(frame);</code></pre>
+<p>Each guard in that loop prevents a specific failure. <code>MAX_DT</code> stops a five-minute background tab from queuing 18,000 simulation steps. The two-step cap bounds worst-case frame cost when the machine is slow — the sim runs slightly slow rather than collapsing into a death spiral where each frame's catch-up work makes the next frame later. And abandoning the backlog (<code>acc = 0</code>) expresses the correct priority: for an ambient toy, dropping simulation time is invisible; stuttering is not.</p>
+<p>Add one more line-level behavior and the battery story is complete: on <code>visibilitychange</code> to hidden, cancel the rAF loop entirely (and reset <code>last</code> on resume). A background tab rendering a sandbox at 60 Hz is pure waste the user can feel on a laptop.</p>
+<p>If you want graceful degradation instead of dropped frames, instrument it: keep an exponential moving average of <code>step() + render()</code> cost, and when it stays above ~12 ms, halve the grid resolution (fewer cells) and rebuild canvases. Users on weak hardware keep 60 FPS with a coarser grid — a much better trade than letting the sim crawl, and about fifteen lines of code.</p>
+
+<h2 id="input">Painting With the Pointer</h2>
+<p>The simulation is the frame's real deadline, so input handling must never do more than a few grid writes per event. Map display coordinates to grid coordinates, and — the one detail that makes or breaks the feel — interpolate between consecutive pointer events, because a fast stroke delivers samples far apart and painting only at sample points yields a dotted line:</p>
+<pre><code>let lastPoint = null;
+
+const toGrid = (e) =&gt; {
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: Math.floor((e.clientX - r.left) / r.width  * W),
+    y: Math.floor((e.clientY - r.top)  / r.height * H),
+  };
+};
+
+canvas.addEventListener('pointerdown', (e) =&gt; {
+  canvas.setPointerCapture(e.pointerId);     // keep events outside the canvas
+  lastPoint = toGrid(e);
+  paintDot(lastPoint.x, lastPoint.y, current);
+});
+
+canvas.addEventListener('pointermove', (e) =&gt; {
+  if (!canvas.hasPointerCapture(e.pointerId)) return;
+  const p = toGrid(e);
+  paintLine(lastPoint.x, lastPoint.y, p.x, p.y, current);
+  lastPoint = p;
+});</code></pre>
+<p><code>setPointerCapture</code> is what makes strokes that leave the canvas and come back behave; without it, a fast drag delivers a gap, a missed <code>pointerup</code>, and a stuck brush. The line itself is Bresenham — integer-only, and exactly what an 8-connected grid needs (each painted step touches every cell the line passes through):</p>
+<pre><code>function paintLine(x0, y0, x1, y1, material, radius = 3) {
+  const dx = Math.abs(x1 - x0), sx = x0 &lt; x1 ? 1 : -1;
+  const dy = -Math.abs(y1 - y0), sy = y0 &lt; y1 ? 1 : -1;
+  let err = dx + dy;
+  for (;;) {
+    paintDot(x0, y0, material, radius);
+    if (x0 === x1 &amp;&amp; y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 &gt;= dy) { err += dy; x0 += sx; }
+    if (e2 &lt;= dx) { err += dx; y0 += sy; }
+  }
+}</code></pre>
+<p>Two CSS/Layout details that only surface on phones: set <code>touch-action: none</code> on the canvas (otherwise the browser claims touch drags for scrolling and the brush dies mid-stroke), and let <code>paintDot</code> clip at the grid boundary rather than the caller — radius-3 brushes at the edge are the norm, not an edge case.</p>
+
+<h2 id="numbers">The Actual Numbers</h2>
+<p>At 240×135, a frame's work is: ~32k cells examined with 1–3 <code>Uint8Array</code> reads each, ~32k <code>Uint32Array</code> stores for rendering, one <code>putImageData</code>, one scaled <code>drawImage</code>. On hardware from the last decade, the physics pass is tens of microseconds to a low single-digit millisecond, and rendering is comparable. Against a 16.7 ms budget that is order-of-magnitude headroom — which is the point worth carrying to other projects: at this scale, the genre has no optimization problem at all, provided the data layout is right. The simulations that stutter are not victims of JavaScript's speed; they're victims of an object per pixel, a <code>fillRect</code> per cell, or an <code>ImageData</code> allocated per frame. Fix the layout and 60 FPS stops being a performance goal and becomes the default outcome.</p>
+<p>When you do scale up — and the itch to scale up is real, since the same architecture runs at 960×540 with the loop unchanged — the first lever is not the physics, it's <em>not scanning settled regions</em>. Track a simple dirty-row band (rows above the lowest settled row since last frame, plus any row a brush touched) and skip the rest; piles of settled sand cost nothing. That single change buys roughly an order of magnitude on typical scenes, and it composes with everything above rather than replacing it.</p>
+
+<h2 id="checklist">Production Checklist</h2>
+<ol>
+<li>Flat <code>Uint8Array</code> grid of material ids; neighbor access as index arithmetic; no per-cell objects.</li>
+<li>Bottom-up row iteration — one row of fall per frame, with no per-cell bookkeeping.</li>
+<li>Alternate column scan direction each frame; restrict same-row water movement against the scan direction to prevent multi-cell skates.</li>
+<li>Randomize (or parity-alternate) diagonal choices, or piles lean.</li>
+<li>Color LUT as <code>Uint32Array</code>; <code>ImageData</code> and its pixel view allocated once.</li>
+<li>One <code>putImageData</code> + one scaled <code>drawImage</code> per frame; <code>imageSmoothingEnabled = false</code>.</li>
+<li>Simulate coarse (tens of thousands of cells), display at any size; derive grid dimensions from display aspect.</li>
+<li>Fixed timestep accumulator with a max-delta clamp and a catch-up cap; abandon backlog rather than defer it.</li>
+<li>Cancel the loop on tab hide; reset the clock on resume.</li>
+<li>Bresenham interpolation between pointer events; <code>setPointerCapture</code>; <code>touch-action: none</code>.</li>
+<li>Clip brush writes at the grid boundary, not at the caller.</li>
+<li>Instrument step+render cost; degrade resolution before dropping frames.</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/Falling-sand_game" target="_blank">Falling-sand Game — Wikipedia</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/putImageData" target="_blank">putImageData() — MDN</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/ImageData" target="_blank">ImageData — MDN</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/requestAnimationFrame" target="_blank">requestAnimationFrame() — MDN</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Typed_arrays" target="_blank">JavaScript Typed Arrays — MDN</a></li>
+<li><a href="https://github.com/MaxBittker/sandspiel" target="_blank">sandspiel — a production falling-sand sandbox</a></li>
+</ul>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./pwa-install-offline-caching.html">PWA Install and Offline Caching: What Actually Works in 2026</a></li>
+  <li><a href="./webgpu-browser-ai-inference.html">WebGPU in 2026: AI Inference and Parallel Computing in Your Browser</a></li>
+  <li><a href="./webassembly-image-processing.html">WebAssembly Image Processing in the Browser</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Falling Sand on Canvas: Cellular Automata at 60 FPS',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: 'Canvas 落沙模拟：让元胞自动机跑满 60fps',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'Canvasの落下砂シミュレーション：セルオートマトンを60fpsで',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Falling Sand auf Canvas: Zelluläre Automaten mit 60 FPS',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Arena que cae en Canvas: autómatas celulares a 60 FPS',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Sable qui tombe sur Canvas : automates cellulaires à 60 FPS',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+</body>
+</html>

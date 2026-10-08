@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">TOTP from Scratch: Building an Offline 2FA Authenticator with Web Crypto — AnnMax</title>
+  <meta name="description" content="Implement RFC 6238 TOTP in the browser with zero dependencies: Base32 decoding, HMAC via Web Crypto, dynamic truncation, otpauth URI parsing, QR scanning, clock-drift verification, and a realistic threat model.">
+  <meta property="og:title" content="TOTP from Scratch: Building an Offline 2FA Authenticator with Web Crypto">
+  <meta property="og:description" content="Base32 decoding, HMAC via Web Crypto, dynamic truncation, RFC 6238 test vectors, otpauth URIs, and a realistic threat model for an offline authenticator.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/totp-web-crypto-implementation.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="keywords" content="TOTP implementation javascript, RFC 6238, Web Crypto HMAC, base32 decode, otpauth URI, two factor authenticator browser, BarcodeDetector, constant time compare">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/totp-web-crypto-implementation.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">TOTP from Scratch: Building an Offline 2FA Authenticator with Web Crypto</h1>
+    <div class="meta" id="articleMeta"><span>October 2026</span><span class="reading-time">~15 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="how-totp-works">The Algorithm in Five Steps</h2>
+<p>TOTP — the six digits your bank app shows for thirty seconds — is specified in RFC 6238, and it is dramatically simpler than its reputation suggests. It is a thin wrapper around HOTP (RFC 4226), which is itself a thin wrapper around HMAC. The entire algorithm is five steps:</p>
+<ol>
+<li>Take the shared secret (a random byte string, usually stored Base32-encoded) and the current time.</li>
+<li>Compute a counter: <code>floor(unixSeconds / 30)</code>. This is what makes it <em>time</em>-based — the counter changes every 30 seconds.</li>
+<li>HMAC the 8-byte big-endian counter with the secret as key. In practice this means HMAC-SHA1, because that's what every server and every QR code in the wild uses.</li>
+<li>Apply <strong>dynamic truncation</strong> to the HMAC output to extract a 31-bit integer.</li>
+<li>Reduce modulo 10⁶ (or 10⁷, 10⁸) and zero-pad to the digit count.</li>
+</ol>
+<p>No network, no server call, no state. Both sides — your device and the server — independently derive the same six digits from the same secret and the same clock. That is the whole trick, and it means a fully offline implementation is not a compromise; it is the design's natural form.</p>
+<p>The pieces you cannot get from Web Crypto directly are Base32 (it has no decoder) and the truncation math (it has no opinion). Everything else is <code>crypto.subtle</code>. Let's build each piece.</p>
+
+<h2 id="base32">Base32 Without a Dependency</h2>
+<p>Secrets travel as RFC 4648 Base32: the alphabet is <code>A–Z</code> then <code>2–7</code>, five bits per character, with optional <code>=</code> padding at the end. The string is frequently shown in groups with spaces (<code>JBSW Y3DP EHPK 3PXP</code>), sometimes lowercase, sometimes with padding stripped. A decoder that chokes on any of those variations will reject valid secrets copied from real services.</p>
+<pre><code>const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+function base32Decode(input) {
+  // Tolerate the formatting variations seen in the wild
+  const clean = input.replace(/[\s-]/g, '').replace(/=+$/, '').toUpperCase();
+  let bits = 0, value = 0;
+  const bytes = [];
+  for (const ch of clean) {
+    const idx = ALPHABET.indexOf(ch);
+    if (idx === -1) throw new Error(`Invalid base32 character: ${ch}`);
+    value = (value &lt;&lt; 5) | idx;
+    bits += 5;
+    if (bits &gt;= 8) {
+      bytes.push((value &gt;&gt;&gt; (bits - 8)) &amp; 0xff);
+      bits -= 8;
+      value &amp;= (1 &lt;&lt; bits) - 1;   // drop consumed bits before the next shift
+    }
+  }
+  return new Uint8Array(bytes);
+}</code></pre>
+<p>That last line — masking off the consumed bits — is the difference between a decoder that works for short secrets and one that silently corrupts long ones. Without it, <code>value</code> keeps growing on every shift; past 32 bits, JavaScript's bitwise operators wrap and the decoded bytes become garbage. The bug hides for secrets under ~6 bytes and appears exactly when someone pastes a 32-character secret.</p>
+<p>The character set check matters too: decoding a mistyped secret into <em>almost</em> the right bytes produces codes that are always wrong, which is far more confusing for the user than an immediate "invalid secret" error.</p>
+
+<h2 id="counter-hmac">The Counter and the HMAC</h2>
+<p>The counter is a 64-bit integer, and it must be serialized big-endian into exactly 8 bytes — that is what the RFC specifies and what servers verify. The temptation is to hand-roll it with bit shifts; the correct tool is <code>DataView.setBigUint64</code>, which exists precisely for this:</p>
+<pre><code>async function hmac(secretBytes, counter, algorithm = 'SHA-1') {
+  const key = await crypto.subtle.importKey(
+    'raw', secretBytes,
+    { name: 'HMAC', hash: algorithm },
+    false, ['sign']
+  );
+  const msg = new ArrayBuffer(8);
+  new DataView(msg).setBigUint64(0, BigInt(counter)); // big-endian by default
+  return new Uint8Array(await crypto.subtle.sign('HMAC', key, msg));
+}</code></pre>
+<p>Notes that save time later:</p>
+<ul>
+<li><code>HMAC</code> with <code>SHA-1</code> is fully supported by Web Crypto in every modern browser. SHA-1's collision weaknesses are irrelevant here — HMAC-SHA1 does not rely on collision resistance, which is why RFC 4226 chose it and why it remains the interoperable default.</li>
+<li><code>setBigUint64</code> defaults to big-endian; passing <code>true</code> for the little-endian flag is a classic silent bug that produces valid-looking but wrong codes.</li>
+<li>When parsing <code>otpauth://</code> URIs, the <code>algorithm</code> parameter arrives as <code>SHA1</code>, <code>SHA256</code>, or <code>SHA512</code> — normalize to the Web Crypto spellings <code>'SHA-1'</code>, <code>'SHA-256'</code>, <code>'SHA-512'</code>. An absent parameter means SHA-1.</li>
+<li><code>importKey</code> parses and validates the key material every call. If you generate a code every second for a ticking countdown, cache the resulting <code>CryptoKey</code> per secret instead of re-importing it each tick.</li>
+</ul>
+
+<h2 id="truncation">Dynamic Truncation and Formatting</h2>
+<p>HMAC output is 20 bytes of noise; the code lives in four of them. Dynamic truncation picks the offset non-obviously — the low nibble of the <em>last</em> byte — then reads a 31-bit big-endian integer starting there:</p>
+<pre><code>function truncate(mac, digits) {
+  const offset = mac[mac.length - 1] &amp; 0x0f;          // 0..15
+  const code =
+    ((mac[offset]     &amp; 0x7f) &lt;&lt; 24) |               // 31 bits, sign bit cleared
+    ( mac[offset + 1]        &lt;&lt; 16) |
+    ( mac[offset + 2]        &lt;&lt;  8) |
+      mac[offset + 3];
+  return String(code % 10 ** digits).padStart(digits, '0');
+}</code></pre>
+<p>Three details are load-bearing. The <code>&amp; 0x7f</code> masks the top bit so the value is always positive — skip it and JavaScript's signed 32-bit shifts produce negative numbers and negative codes. <code>10 ** digits</code> with <code>padStart</code> handles the leading-zero case ("07081804" is a real RFC test vector; naive <code>String(code)</code> would print "7081804"). And the modulo is taken <em>after</em> masking, not by slicing the last N digits — those differ.</p>
+<p>Wrapping it all into the generator that the rest of the app talks to:</p>
+<pre><code>async function generateTOTP(secretBytes, {
+  digits = 6, period = 30, algorithm = 'SHA-1', timestamp = Date.now(),
+} = {}) {
+  const counter = Math.floor(timestamp / 1000 / period);
+  const mac = await hmac(secretBytes, counter, algorithm);
+  return truncate(mac, digits);
+}
+
+// Code for right now:
+// await generateTOTP(base32Decode('JBSWY3DPEHPK3PXP'))  →  '…six digits…'</code></pre>
+
+<h2 id="test-vectors">Proving It Against RFC 6238</h2>
+<p>Cryptographic code that "looks right" is worthless; cryptographic code that matches published test vectors is a different category of thing. RFC 6238 ships vectors for the SHA-1 secret <code>12345678901234567890</code> (ASCII), which Base32-encodes to:</p>
+<pre><code>GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ</code></pre>
+<p>The expected 8-digit codes at specific timestamps:</p>
+<pre><code>const VECTORS = [
+  { t:          59, expected: '94287082' },
+  { t:  1111111109, expected: '07081804' },
+  { t:  1234567890, expected: '89005924' },
+  { t:  2000000000, expected: '69279037' },
+];
+
+const secret = base32Decode('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ');
+
+for (const { t, expected } of VECTORS) {
+  const actual = await generateTOTP(secret, { digits: 8, timestamp: t * 1000 });
+  console.assert(actual === expected,
+    `RFC 6238 vector failed at T=${t}: got ${actual}, want ${expected}`);
+}</code></pre>
+<p>Run this once in a unit test and you have permanent proof that Base32, the big-endian counter, HMAC, and truncation are all correct simultaneously — because a vector only matches if every stage matches. Note the <code>07081804</code> vector in particular: it is the one that catches missing zero-padding, which the other three would let slip through.</p>
+<p>If you later add SHA-256 or SHA-512 accounts, note that the RFC's vectors for those use <em>longer</em> secrets (32 and 64 bytes) — the SHA-1 row above only validates the SHA-1 path.</p>
+
+<h2 id="verify">Verification with Clock Drift and Constant-Time Compare</h2>
+<p>Generating codes is the easy half. Accepting them correctly has two pieces:</p>
+<p><strong>Clock drift.</strong> A user's device clock is rarely more than a second off, but "rarely" is not "never" — NTP sync can lag, users travel with manual clocks. Every real authenticator accepts a window of ±1 timestep (±30 s), and good ones expose the drift they observed so the user can fix their clock:</p>
+<pre><code>function timingSafeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i &lt; a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+async function verifyTOTP(input, secretBytes, {
+  digits = 6, period = 30, algorithm = 'SHA-1', window = 1,
+} = {}) {
+  const now = Date.now();
+  for (let w = -window; w &lt;= window; w++) {
+    const candidate = await generateTOTP(secretBytes, {
+      digits, period, algorithm,
+      timestamp: now + w * period * 1000,
+    });
+    if (timingSafeEqual(candidate, input.trim())) return w; // drift in steps
+  }
+  return null;
+}</code></pre>
+<p><strong>Replay.</strong> A ±1 window means the same code is valid for up to 90 seconds — and a code observed by an attacker (shoulder-surf, screen share, a compromised paste buffer) works for the rest of that window. The fix is one line of state: record the counter value of the last <em>accepted</em> code per account and refuse any verification that matches a counter ≤ the recorded one. Then a replayed code fails even inside its validity window.</p>
+<p>For the comparison itself, the XOR-accumulate loop above avoids the short-circuit behavior of <code>===</code>. In a local, offline app the timing channel is mostly theoretical — but the cost of writing the safe version is four lines, and it means nobody has to relitigate the question later.</p>
+
+<h2 id="otpauth-uri">Parsing otpauth:// URIs</h2>
+<p>The universal interchange format is the Google Authenticator key URI: <code>otpauth://totp/Label?secret=...&amp;issuer=...&amp;algorithm=SHA1&amp;digits=6&amp;period=30</code>. The URL constructor does the heavy lifting, but there are several awkward cases in the wild: the label may carry the issuer as a <code>Issuer:account</code> prefix, the <code>issuer</code> query parameter may or may not match the label prefix, and both may contain spaces and unicode.</p>
+<pre><code>function parseOtpauthUri(uri) {
+  const u = new URL(uri);
+  if (u.protocol !== 'otpauth:') throw new Error('Not an otpauth URI');
+  if (u.host !== 'totp') throw new Error('Only TOTP is supported');
+
+  const params = u.searchParams;
+  const secret = params.get('secret');
+  if (!secret) throw new Error('Missing secret');
+
+  // Label: '/Issuer:account@example.com' or just '/account@example.com'
+  const label = decodeURIComponent(u.pathname.replace(/^\//, ''));
+  const [labelIssuer, account] = label.includes(':')
+    ? label.split(/:(.+)/)                    // split on FIRST colon only
+    : ['', label];
+
+  // Normalize 'SHA1' / 'sha-256' / 'SHA512' → '1' / '256' / '512'
+  const alg = (params.get('algorithm') || 'SHA1')
+    .toUpperCase().replace(/[^0-9]/g, '');
+
+  return {
+    secretBytes: base32Decode(secret),
+    digits:   Number(params.get('digits') || 6),
+    period:   Number(params.get('period') || 30),
+    algorithm: `SHA-${alg || '1'}`,           // → SHA-1 / SHA-256 / SHA-512
+    issuer:  (params.get('issuer') || labelIssuer).trim(),
+    account: account.trim(),
+  };
+}</code></pre>
+<p>Two parsing traps worth calling out. The label split must happen on the <em>first</em> colon — accounts like <code>user:sub@example.com</code> exist, and <code>label.split(':')</code> mangles them. And some issuers encode the label fully (<code>%20</code> and friends) while others leave it raw; one <code>decodeURIComponent</code> on the whole path segment is correct, but be ready for double-encoded labels from buggy QR generators — decode defensively and prefer the <code>issuer</code> query parameter when both are present.</p>
+<p>Also validate rather than trust: <code>digits</code> should be 6–8, <code>period</code> is almost always 30 (60 exists), and a <code>secret</code> that fails Base32 decoding should be rejected at import time with a clear message — not saved and then discovered when the first code doesn't work.</p>
+
+<h2 id="qr-scan">QR Scan and the Fallback That Matters</h2>
+<p>Half the point of importing via <code>otpauth://</code> URIs is QR codes. Chromium provides <code>BarcodeDetector</code>, which makes scanning a dozen lines — feature-detect it, because Safari still doesn't ship it, and — at the time of writing — the API is not available in every Chromium context either:</p>
+<pre><code>async function scanOnce(video) {
+  if (!('BarcodeDetector' in window)) return null;
+  const detector = new BarcodeDetector({ formats: ['qr_code'] });
+  const codes = await detector.detect(video);
+  return codes.length ? codes[0].rawValue : null;
+}</code></pre>
+<p>Scanning loop hygiene: request the camera once, run <code>detect</code> on a periodic timer against the same <code>&lt;video&gt;</code> element (not per-frame — detection is heavier than frame rate needs), and stop both tracks immediately on success. A forgot-to-stop camera is the kind of bug users notice and reviewers write about.</p>
+<p>The fallback is not optional: <em>manual secret entry is the primary path, and the scanner is the convenience.</em> Every authenticator that dropped manual entry eventually heard from the user with a 32-character secret on screen and no QR in sight — enterprise enrollment flows, hardware tokens' printed backup codes, and services that only show the secret once. Accept both the raw secret and a pasted <code>otpauth://</code> URI in the same input field, and detect which one you were given.</p>
+
+<h2 id="threat-model">Threat Model: What Offline Does and Doesn't Buy</h2>
+<p>The reason to build an authenticator with no network code is not privacy aesthetics — it is that 2FA exists to survive a server-side breach. If your second factor's secrets sync to a cloud account, the second factor collapses back into the first whenever the attacker reaches the sync backend. An authenticator whose manifest contains no network permission at all makes that collapse impossible by construction, and that property is worth designing around:</p>
+<ul>
+<li><strong>Secrets never leave the device</strong> — stored via <code>chrome.storage.local</code> (or a SQLite/OPFS store for larger scale), never synced. <code>chrome.storage.sync</code> is off the table for exactly this reason.</li>
+<li><strong>Honesty about at-rest protection.</strong> Local storage is not encrypted by the app; it is protected by the OS user profile (DPAPI on Windows, Keychain on macOS). Be explicit about that instead of bolting on home-grown "encryption" that stores its own key beside the ciphertext. If you want encryption at rest, derive the key from a user passphrase via PBKDF2 and accept that "I forgot the passphrase" now means "secrets are gone".</li>
+<li><strong>Clipboard hygiene is convenience, not security.</strong> Auto-clearing a copied code after ~30 s is polite; it does not stop a hostile process from reading the clipboard in the first second. Codes are one-time anyway — the replay defense above is the actual control.</li>
+<li><strong>Nothing protects against a compromised device.</strong> Malware with profile access reads the secrets regardless of extension design. No client-side scheme fixes that; the mitigation is device hygiene plus recovery codes.</li>
+</ul>
+<p>And one operational habit that pays off across the whole feature: never log a secret or a generated code — not to the console, not to error reports, not in a debug string. Redact at the source with a helper that formats secrets as <code>JBSW…3PXP</code>, so that any future logging call is already safe by default.</p>
+
+<h2 id="checklist">Production Checklist</h2>
+<ol>
+<li>Base32 decoder tolerates spaces, dashes, lowercase, and missing padding — and rejects invalid characters loudly.</li>
+<li>Mask consumed bits in the decoder, or long secrets silently corrupt.</li>
+<li>Serialize the counter with <code>setBigUint64</code> (big-endian); never hand-roll it with shifts.</li>
+<li>Clear the sign bit in the first truncation byte; zero-pad the final code.</li>
+<li>Validate against the RFC 6238 vectors in a test — including the <code>07081804</code> leading-zero case.</li>
+<li>Accept codes within a ±1 timestep window; return the observed drift.</li>
+<li>Record the last accepted counter per account and reject replays inside the window.</li>
+<li>Compare codes with a constant-time loop.</li>
+<li>Parse <code>otpauth://</code> URIs with <code>new URL</code>; split the label on the first colon only; normalize <code>SHA1</code> → <code>SHA-1</code>.</li>
+<li>Feature-detect <code>BarcodeDetector</code>; stop camera tracks on success and on unmount.</li>
+<li>Always offer manual secret entry as the primary import path.</li>
+<li>Ship with no network permission, store secrets locally only, and never log secrets or codes.</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc4226" target="_blank">RFC 4226 — HOTP: An HMAC-Based One-Time Password Algorithm</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc6238" target="_blank">RFC 6238 — TOTP: Time-Based One-Time Password Algorithm</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc4648" target="_blank">RFC 4648 — The Base16, Base32, and Base64 Data Encodings</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/sign" target="_blank">SubtleCrypto.sign() — MDN</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/BarcodeDetector" target="_blank">BarcodeDetector — MDN</a></li>
+<li><a href="https://github.com/google/google-authenticator/wiki/Key-Uri-Format" target="_blank">Key Uri Format — google-authenticator wiki</a></li>
+</ul>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./least-privilege-review.html">Least Privilege &amp; Chrome Web Store Review Checklist</a></li>
+  <li><a href="./sqlite-opfs-local-first-database.html">SQLite in the Browser with OPFS</a></li>
+  <li><a href="./browser-fingerprinting-privacy.html">Browser Fingerprinting Explained</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'TOTP from Scratch: Building an Offline 2FA Authenticator with Web Crypto',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '从零实现 TOTP：用 Web Crypto 构建离线两步验证器',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'TOTPをゼロから実装：Web Cryptoで作るオフライン2段階認証',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'TOTP von Grund auf: Ein Offline-2FA-Authenticator mit Web Crypto',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'TOTP desde cero: un autenticador 2FA offline con Web Crypto',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'TOTP de zéro : un authentificateur 2FA hors ligne avec Web Crypto',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+</body>
+</html>

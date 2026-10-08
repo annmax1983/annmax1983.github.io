@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
   <title>AnnMax — Technical Articles</title>
-  <subtitle>Full-stack developer sharing 18 years of coding experience. Browser extensions, WebAssembly, WebGPU, privacy engineering, and more.</subtitle>
+  <subtitle>Full-stack developer sharing 18 years of coding experience. Browser extensions, Web Crypto, image algorithms, PWA offline architecture, WebAssembly, WebGPU, and more.</subtitle>
   <link href="https://annmax1983.github.io/feed.xml" rel="self" type="application/atom+xml"/>
   <link href="https://annmax1983.github.io/" rel="alternate" type="text/html"/>
   <id>https://annmax1983.github.io/</id>
@@ -9,7 +9,106 @@
     <name>AnnMax</name>
     <email>annmax1985@gmail.com</email>
   </author>
-  <updated>2026-09-16T00:00:00Z</updated>
+  <updated>2026-10-08T00:00:00Z</updated>
+
+  <entry>
+    <title>Full-Page Screenshots in Chrome Extensions: Stitching, Fixed Elements and Memory Limits</title>
+    <link href="https://annmax1983.github.io/blog/full-page-screenshot-stitching.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/full-page-screenshot-stitching.html</id>
+    <updated>2026-10-08T00:00:00Z</updated>
+    <summary>captureVisibleTab quota pacing, scroll-and-stitch with devicePixelRatio, hiding fixed headers, canvas size limits, and the CDP captureBeyondViewport alternative.</summary>
+    <category term="Chrome Extensions"/>
+    <category term="Canvas"/>
+    <category term="MV3"/>
+  </entry>
+
+  <entry>
+    <title>TOTP from Scratch: Building an Offline 2FA Authenticator with Web Crypto</title>
+    <link href="https://annmax1983.github.io/blog/totp-web-crypto-implementation.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/totp-web-crypto-implementation.html</id>
+    <updated>2026-10-07T00:00:00Z</updated>
+    <summary>Implement RFC 6238 in the browser with zero dependencies: Base32, HMAC via Web Crypto, dynamic truncation, otpauth URIs, and RFC test vectors.</summary>
+    <category term="Security"/>
+    <category term="Web Crypto"/>
+    <category term="TOTP"/>
+  </entry>
+
+  <entry>
+    <title>Perceptual Hashing in the Browser: Near-Duplicate Image Detection</title>
+    <link href="https://annmax1983.github.io/blog/perceptual-hash-image-dedup.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/perceptual-hash-image-dedup.html</id>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <summary>DCT-based pHash in pure JavaScript: grayscale downscale, bit packing, Hamming distance, and banded indexing for whole image libraries.</summary>
+    <category term="Image Processing"/>
+    <category term="Algorithms"/>
+    <category term="DCT"/>
+  </entry>
+
+  <entry>
+    <title>Parsing HTML Tables with Merged Cells: A Grid Normalization Algorithm</title>
+    <link href="https://annmax1983.github.io/blog/html-table-merged-cells-parsing.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/html-table-merged-cells-parsing.html</id>
+    <updated>2026-10-03T00:00:00Z</updated>
+    <summary>A grid normalization algorithm for rowspan/colspan tables, multi-row header flattening, text extraction, and CSV export that opens safely.</summary>
+    <category term="Algorithms"/>
+    <category term="Data Extraction"/>
+    <category term="CSV"/>
+  </entry>
+
+  <entry>
+    <title>PWA Install and Offline Caching: What Actually Works in 2026</title>
+    <link href="https://annmax1983.github.io/blog/pwa-install-offline-caching.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/pwa-install-offline-caching.html</id>
+    <updated>2026-10-02T00:00:00Z</updated>
+    <summary>Install criteria, the beforeinstallprompt dance, iOS Safari's separate rules, versioned service worker caches, and storage persistence.</summary>
+    <category term="PWA"/>
+    <category term="ServiceWorker"/>
+    <category term="Offline"/>
+  </entry>
+
+  <entry>
+    <title>Falling Sand on Canvas: Cellular Automata at 60 FPS</title>
+    <link href="https://annmax1983.github.io/blog/falling-sand-canvas-simulation.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/falling-sand-canvas-simulation.html</id>
+    <updated>2026-10-01T00:00:00Z</updated>
+    <summary>Uint8Array grids, bottom-up iteration, ImageData rendering, and a fixed-timestep loop — the data layout that makes 60 FPS the default.</summary>
+    <category term="Canvas"/>
+    <category term="Performance"/>
+    <category term="Simulation"/>
+  </entry>
+
+  <entry>
+    <title>Git Beyond Commit and Push: Reflog, Bisect, Worktree and Interactive Rebase</title>
+    <link href="https://annmax1983.github.io/blog/git-beyond-commit-and-push.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/git-beyond-commit-and-push.html</id>
+    <updated>2026-09-16T00:00:00Z</updated>
+    <summary>Practical Git that saves hours: recover deleted work with reflog, find the commit that broke production with bisect, and work two branches at once with worktree.</summary>
+    <category term="Git"/>
+    <category term="Tooling"/>
+    <category term="Productivity"/>
+  </entry>
+
+  <entry>
+    <title>Modern CSS You Probably Missed: :has(), Container Queries, @layer and Native Nesting</title>
+    <link href="https://annmax1983.github.io/blog/modern-css-you-probably-missed.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/modern-css-you-probably-missed.html</id>
+    <updated>2026-09-16T00:00:00Z</updated>
+    <summary>Seven CSS features that replace JavaScript and preprocessor workarounds - with real examples you can ship today.</summary>
+    <category term="CSS"/>
+    <category term="Frontend"/>
+    <category term="Web Platform"/>
+  </entry>
+
+  <entry>
+    <title>Debugging Like a Senior Engineer: A Systematic Method That Actually Works</title>
+    <link href="https://annmax1983.github.io/blog/debugging-like-a-senior-engineer.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/debugging-like-a-senior-engineer.html</id>
+    <updated>2026-09-16T00:00:00Z</updated>
+    <summary>Reproduce deterministically, read the whole error, cut the search space in half, work outside in, change one thing at a time, lock it in with a test.</summary>
+    <category term="Debugging"/>
+    <category term="Methodology"/>
+    <category term="Productivity"/>
+  </entry>
 
   <entry>
     <title>SQLite in the Browser: Building a Local-First Database with OPFS</title>
@@ -87,38 +186,6 @@
     <category term="ServiceWorker"/>
     <category term="Chrome Extensions"/>
     <category term="MV3"/>
-  </entry>
-  <entry>
-    <title>Git Beyond Commit and Push: Reflog, Bisect, Worktree and Interactive Rebase</title>
-    <link href="https://annmax1983.github.io/blog/git-beyond-commit-and-push.html" rel="alternate" type="text/html"/>
-    <id>https://annmax1983.github.io/blog/git-beyond-commit-and-push.html</id>
-    <updated>2026-09-16T00:00:00Z</updated>
-    <summary>Practical Git that saves hours: recover deleted work with reflog, find the commit that broke production with bisect, and work two branches at once with worktree.</summary>
-    <category term="Git"/>
-    <category term="Tooling"/>
-    <category term="Productivity"/>
-  </entry>
-
-  <entry>
-    <title>Modern CSS You Probably Missed: :has(), Container Queries, @layer and Native Nesting</title>
-    <link href="https://annmax1983.github.io/blog/modern-css-you-probably-missed.html" rel="alternate" type="text/html"/>
-    <id>https://annmax1983.github.io/blog/modern-css-you-probably-missed.html</id>
-    <updated>2026-09-16T00:00:00Z</updated>
-    <summary>Seven CSS features that replace JavaScript and preprocessor workarounds - with real examples you can ship today.</summary>
-    <category term="CSS"/>
-    <category term="Frontend"/>
-    <category term="Web Platform"/>
-  </entry>
-
-  <entry>
-    <title>Debugging Like a Senior Engineer: A Systematic Method That Actually Works</title>
-    <link href="https://annmax1983.github.io/blog/debugging-like-a-senior-engineer.html" rel="alternate" type="text/html"/>
-    <id>https://annmax1983.github.io/blog/debugging-like-a-senior-engineer.html</id>
-    <updated>2026-09-16T00:00:00Z</updated>
-    <summary>Reproduce deterministically, read the whole error, cut the search space in half, work outside in, change one thing at a time, lock it in with a test.</summary>
-    <category term="Debugging"/>
-    <category term="Methodology"/>
-    <category term="Productivity"/>
   </entry>
 
 </feed>

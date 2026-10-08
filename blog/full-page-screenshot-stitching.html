@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Full-Page Screenshots in Chrome Extensions: Stitching, Fixed Elements and Memory Limits — AnnMax</title>
+  <meta name="description" content="How full-page screenshot extensions actually work in MV3: captureVisibleTab quota pacing, scroll-and-stitch with devicePixelRatio, hiding fixed headers, canvas size limits, and the CDP captureBeyondViewport alternative.">
+  <meta property="og:title" content="Full-Page Screenshots in Chrome Extensions: Stitching, Fixed Elements and Memory Limits">
+  <meta property="og:description" content="captureVisibleTab quota pacing, scroll-and-stitch with devicePixelRatio, hiding fixed headers, canvas size limits, and the CDP captureBeyondViewport alternative.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/full-page-screenshot-stitching.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="keywords" content="chrome extension full page screenshot, captureVisibleTab, captureBeyondViewport, chrome.debugger, canvas size limit, scroll stitching, sticky header screenshot, MV3">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/full-page-screenshot-stitching.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Full-Page Screenshots in Chrome Extensions: Stitching, Fixed Elements and Memory Limits</h1>
+    <div class="meta" id="articleMeta"><span>October 2026</span><span class="reading-time">~14 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="why-not-html2canvas">Why Not Just Use html2canvas</h2>
+<p>The obvious approach to "capture the whole page" is a DOM-to-canvas library. It re-renders the page you describe into a canvas. It is also, for screenshot purposes, the wrong tool: it approximates the browser's rendering rather than recording it. Cross-origin images taint or fail, shadow DOM and iframes are inconsistent, web fonts and CSS features drift, and anything drawn via <code>&lt;canvas&gt;</code>, WebGL, or video is either missed or captured blank.</p>
+<p>The alternative used by every serious screenshot extension is embarrassingly simple: take real screenshots of the real viewport, scroll, and stitch. The pixels come from the compositor, so fidelity is not an approximation — it is the page. What makes it hard is not the idea; it is five practical constraints that this article walks through one by one:</p>
+<ul>
+<li><code>chrome.tabs.captureVisibleTab</code> is rate-limited to 2 calls per second</li>
+<li>The capture scale is not <code>navigator.devicePixelRatio</code> in any way you should trust blindly</li>
+<li><code>position: fixed</code> and <code>position: sticky</code> elements appear in every single frame</li>
+<li>Canvas dimensions and total area have hard limits — exceeding them fails silently</li>
+<li>Decoded frames are large enough to exhaust memory on tall pages</li>
+</ul>
+
+<h2 id="capture-quota">The captureVisibleTab Quota</h2>
+<p><code>captureVisibleTab</code> can only capture the <strong>active tab of a window</strong>. That single sentence has two consequences most implementations get wrong: you must activate the target tab before capturing, and you cannot sneak a screenshot of a background tab. The API's first parameter is a <strong>windowId</strong>, not a tabId — a classic source of bugs when code passes the wrong id and captures some other window's content.</p>
+<pre><code>// Activate the tab first — captureVisibleTab only sees the active tab
+await chrome.tabs.update(tabId, { active: true });
+const tab = await chrome.tabs.get(tabId);
+const windowId = tab.windowId;   // note: captureVisibleTab takes a WINDOW id
+
+const dataUrl = await chrome.tabs.captureVisibleTab(windowId, {
+  format: 'png',
+  // quality: 92  // only meaningful for jpeg
+});</code></pre>
+<p>The second constraint is the quota: <code>MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND = 2</code>. Call it a third time within a second and Chrome rejects the promise with a quota error. A naive <code>for</code> loop over 40 scroll positions will fail on the second iteration — or worse, "mostly work" on fast machines and fail intermittently on slow ones.</p>
+<p>The fix is an explicit pacer. Every capture goes through a gate that enforces a minimum interval of ~550 ms, comfortably under the 2/second ceiling:</p>
+<pre><code>const MIN_CAPTURE_INTERVAL = 550; // ms; the quota is 2 calls per second
+let lastCaptureAt = 0;
+
+async function capturePaced(windowId) {
+  const wait = MIN_CAPTURE_INTERVAL - (Date.now() - lastCaptureAt);
+  if (wait &gt; 0) await new Promise(r =&gt; setTimeout(r, wait));
+  lastCaptureAt = Date.now();
+  return chrome.tabs.captureVisibleTab(windowId, { format: 'png' });
+}</code></pre>
+<p>This pacing sounds expensive — 40 frames means a ~22-second capture. In practice the scroll-and-settle wait for each step (next section) usually exceeds 550 ms anyway, so the pacer almost never adds real delay. It only exists to make the loop deterministic instead of racing the quota.</p>
+
+<h2 id="stitch-loop">The Scroll-and-Stitch Loop</h2>
+<p>The core loop is: measure the page, scroll to position <em>y</em>, wait until the frame is stable, capture, advance by one viewport minus an overlap. The overlap matters: without it, sub-pixel scroll rounding and rounding in <code>scrollTo</code> produce hairline seams or one-pixel content loss at every boundary. 80–120 CSS px of shared content absorbs that rounding.</p>
+<pre><code>async function captureFullPage(tabId) {
+  const [{ result: vp }] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () =&gt; ({
+      width: window.innerWidth,
+      height: window.innerHeight,
+      pageHeight: (document.scrollingElement || document.documentElement).scrollHeight,
+    }),
+  });
+
+  const overlap = 100;                  // CSS px shared between consecutive frames
+  const step = vp.height - overlap;
+  const frames = [];
+
+  for (let y = 0; ; y += step) {
+    // Clamp the last scroll so the page never over-scrolls past the bottom
+    const target = Math.max(0, Math.min(y, vp.pageHeight - vp.height));
+    await scrollAndSettle(tabId, target);
+    frames.push({ y: target, dataUrl: await capturePaced(windowId) });
+    if (target &gt;= vp.pageHeight - vp.height) break;
+  }
+  return { frames, viewport: vp };
+}</code></pre>
+<p>Two details in that loop earn their weight. First, the clamp: a page 1.7 viewports tall needs exactly 2 frames, and without clamping the second frame's <code>scrollTo(0, 1.7·vh)</code> silently lands at <code>0.7·vh</code> anyway — so record the position you asked for <em>after</em> clamping, or your stitch offsets will be wrong. Second, the scroll itself must be deterministic:</p>
+<pre><code>function scrollAndSettle(tabId, y) {
+  return chrome.scripting.executeScript({
+    target: { tabId },
+    func: (targetY) =&gt; new Promise(resolve =&gt; {
+      const root = document.documentElement;
+      const prev = root.style.scrollBehavior;
+      root.style.scrollBehavior = 'auto';   // defeat CSS `scroll-behavior: smooth`
+      window.scrollTo(0, targetY);
+      requestAnimationFrame(() =&gt; requestAnimationFrame(() =&gt; {
+        root.style.scrollBehavior = prev;
+        setTimeout(resolve, 80);            // one more beat for async content
+      }));
+    }),
+    args: [y],
+  });
+}</code></pre>
+<p>The double <code>requestAnimationFrame</code> covers the compositor committing the new scroll position. The 80 ms tail covers images that decode asynchronously right after entering the viewport — the kind that would otherwise produce half-painted frames. And the <code>scrollBehavior</code> override handles sites that set <code>html { scroll-behavior: smooth }</code>, which turns every <code>scrollTo</code> into an animation that your capture would photograph mid-flight.</p>
+<blockquote><strong>The scroll container problem:</strong> a surprising number of sites don't scroll the window at all. They put <code>overflow-y: auto</code> on an inner container and the body stays fixed. Before capturing, verify that <code>document.scrollingElement.scrollHeight &gt; innerHeight</code>. If not, find the element whose <code>overflow-y</code> computes to <code>auto</code>/<code>scroll</code> and whose <code>scrollHeight</code> exceeds its <code>clientHeight</code>, and scroll that instead. One check up front avoids the charming failure mode where every frame is identical.</blockquote>
+
+<h2 id="scale">Getting the Scale Right</h2>
+<p>Frames do not come back at CSS-pixel size. On a 2× display, <code>captureVisibleTab</code> returns an image at device pixel ratio — and that ratio is the <em>effective</em> one, which multiplies monitor scale factor by browser page zoom. Write code that trusts <code>window.devicePixelRatio</code> and you will eventually ship a broken build: page zoom changes between captures, edge cases in per-monitor DPI, and virtualized environments all break the assumption.</p>
+<p>The robust approach is to derive the scale from the artifact itself. Decode the first frame, divide its pixel width by the viewport width you measured in CSS px, and use that ratio for every coordinate conversion:</p>
+<pre><code>const probe = await toBitmap(frames[0].dataUrl);
+const scale = probe.width / viewport.width;   // DPR x page zoom, measured
+const pageWidth  = probe.width;
+const pageHeight = Math.round(viewport.pageHeight * scale);
+
+async function toBitmap(dataUrl) {
+  const blob = await (await fetch(dataUrl)).blob();
+  return createImageBitmap(blob);             // decoded, ready to draw
+}</code></pre>
+<p>Every later offset is then <code>Math.round(frame.y * scale)</code> when drawn. If the probe says 1.75, you resize canvases at 1.75 — no guessing involved.</p>
+
+<h2 id="overlays">Ghosting: Fixed and Sticky Elements</h2>
+<p>The first time you stitch a real site, the result looks haunted: the site header repeats at the top of every frame's segment, a chat bubble appears five times, a cookie banner floats mid-page. That's <code>position: fixed</code> behaving exactly as specified — pinned to the viewport — while your screenshot sweeps the viewport down the page.</p>
+<p>Trying to crop or paper over the duplicates never works reliably. The correct move is to <strong>hide overlays before capturing and restore them afterward</strong>. You don't need to walk every element with <code>querySelectorAll('*')</code>; the viewport perimeter tells you everything that can follow the scroll. Sample points along the edges and viewport-cross intersections with <code>elementsFromPoint</code>, then keep anything computing to <code>fixed</code> or <code>sticky</code>:</p>
+<pre><code>function hideOverlays() {
+  const found = new Set();
+  const xs = [0, innerWidth / 2, innerWidth - 1];
+  const ys = [0, innerHeight / 2, innerHeight - 1];
+  for (const x of xs) for (const y of ys) {
+    for (const el of document.elementsFromPoint(x, y)) {
+      const pos = getComputedStyle(el).position;
+      if (pos === 'fixed' || pos === 'sticky') found.add(el);
+    }
+  }
+  const saved = [];
+  for (const el of found) {
+    saved.push([el, el.style.visibility]);
+    el.style.visibility = 'hidden';   // visibility, not display: keeps layout
+  }
+  return saved;
+}</code></pre>
+<p>Use <code>visibility: hidden</code> rather than <code>display: none</code> — hiding must not reflow the page, or you'll change the very geometry you measured. Save and restore the previous inline value, not a hard-coded reset.</p>
+<p>One decision to make consciously: <em>when</em> to hide. A sticky header legitimately belongs in the first frame — it's the header as the user actually sees the top of the page. The pattern I use: capture frame 0 with overlays visible, hide them for frames 1..n, restore at the end. That yields one honest header and no repeats.</p>
+
+<h2 id="lazy-content">Lazy Content, Animations, and the Pre-Scroll Pass</h2>
+<p>Modern pages don't exist below the fold until you scroll. <code>loading="lazy"</code> images, IntersectionObserver-driven rendering, and <code>content-visibility: auto</code> sections all mean a fast programmatic scroll captures mostly empty space. Before the capture loop, do a slower reconnaissance pass: scroll through the whole page once, then come back to the top and wait for in-flight images to finish decoding.</p>
+<pre><code>async function warmUpPage(tabId) {
+  return chrome.scripting.executeScript({
+    target: { tabId },
+    func: async () =&gt; {
+      const root = document.scrollingElement || document.documentElement;
+      const step = innerHeight * 0.8;
+      const max = root.scrollHeight;
+      for (let y = 0; y &lt; max; y += step) {
+        window.scrollTo(0, y);
+        await new Promise(r =&gt; setTimeout(r, 60));   // let observers fire
+      }
+      window.scrollTo(0, 0);
+      await Promise.all([...document.images].filter(i =&gt; !i.complete).map(i =&gt;
+        new Promise(r =&gt; {
+          i.addEventListener('load', r, { once: true });
+          i.addEventListener('error', r, { once: true });
+          setTimeout(r, 2000);                       // never hang on a dead image
+        })
+      ));
+    },
+  });
+}</code></pre>
+<p>If your capture loop is paced at 550 ms per frame anyway, you can skip the separate warm-up and use a slower scroll during the first pass. Pick one, not both.</p>
+<p>The other source of non-reproducible frames is animation: carousels advancing, skeleton shimmer, marquee tickers. Each frame catches a different moment, and the stitched result shows the same widget in several states. Pause everything at the start and resume at the end:</p>
+<pre><code>const running = document.getAnimations().filter(a =&gt; a.playState === 'running');
+running.forEach(a =&gt; a.pause());
+// ...capture...
+running.forEach(a =&gt; a.play());</code></pre>
+<p>Whatever you hid, paused, or overrode, restore in a <code>finally</code> block. A screenshot feature that leaves the page in a modified state after a failed capture is a bug report waiting to happen.</p>
+
+<h2 id="canvas-limits">Canvas Limits and Downscaling</h2>
+<p>Here is the failure that wastes days: your stitch code is correct, but the exported image is blank. Canvas 2D has two hard limits, and exceeding either doesn't throw — Chrome logs a warning and silently ignores draw calls.</p>
+<ul>
+<li><strong>Maximum dimension:</strong> 65,535 px in either direction (Chrome)</li>
+<li><strong>Maximum area:</strong> 268,435,456 px total (2²⁸) — on a canvas wider than 4096, the area limit bites before the dimension limit does</li>
+</ul>
+<p>Do the arithmetic before allocating anything, because the numbers involved are large. A 1400 CSS px-wide page at 2× scale is a 2800 px-wide canvas; the area cap allows 268 435 456 / 2800 ≈ 95,869 px of height — but the dimension cap of 65,535 wins. And a full-page screenshot 2800 × 65000 px is 182 megapixels of RGBA — about 728 MB of backing store before PNG encoding even starts, which will peg memory on modest machines.</p>
+<pre><code>const MAX_DIM  = 65535;
+const MAX_AREA = 268_435_456;
+const maxHeightFor = (widthPx) =&gt;
+  Math.min(MAX_DIM, Math.floor(MAX_AREA / widthPx));
+
+const height = Math.round(viewport.pageHeight * scale);
+const limit  = maxHeightFor(pageWidth);
+
+let outputScale = 1;
+if (height &gt; limit) {
+  // Downscale to fit the canvas — a 4x-too-tall capture at 1/4 scale
+  // still shows every pixel of content, just smaller.
+  outputScale = limit / height;
+}
+const canvas = new OffscreenCanvas(
+  Math.round(pageWidth * outputScale),
+  Math.round(height * outputScale)
+);</code></pre>
+<p>Each frame then draws at <code>Math.round(frame.y * scale * outputScale)</code>. Downscaling is the pragmatic default: the user gets one complete, correct image, and the failure mode (slightly softer than native) is far better than a blank one. If the user actually needs native resolution for a very tall page, the honest answer is to emit numbered tiles — encode in vertical slices and either zip them or attach them in order:</p>
+<pre><code>const TILE_H = 8000;
+async function encodeTiles(canvas) {
+  const blobs = [];
+  for (let y = 0; y &lt; canvas.height; y += TILE_H) {
+    const h = Math.min(TILE_H, canvas.height - y);
+    const tile = new OffscreenCanvas(canvas.width, h);
+    tile.getContext('2d').drawImage(canvas, 0, y, canvas.width, h,
+                                    0, 0, canvas.width, h);
+    blobs.push(await tile.convertToBlob({ type: 'image/png' }));
+  }
+  return blobs;
+}</code></pre>
+<p>One more encoding note from production: PNG-encoding a 100+ megapixel canvas can take ten seconds or more and is CPU-bound; JPEG at quality 0.92 encodes in a fraction of that. Offer PNG for fidelity when the page is short, JPEG when it is enormous, and tell the user which one they got.</p>
+
+<h2 id="cdp">The CDP Alternative: captureBeyondViewport</h2>
+<p>If an extension is allowed to use the <code>debugger</code> permission, the whole stitching problem can be skipped. The Chrome DevTools Protocol exposes a single-shot full-page capture: <code>Page.captureScreenshot</code> with <code>captureBeyondViewport: true</code> renders past the visible area and returns one image.</p>
+<pre><code>async function captureWithCDP(tabId) {
+  const target = { tabId };
+  await chrome.debugger.attach(target, '1.3');
+  try {
+    const [{ result: size }] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () =&gt; ({
+        width:  Math.max(document.body.scrollWidth,
+                         document.documentElement.scrollWidth),
+        height: (document.scrollingElement || document.documentElement).scrollHeight,
+      }),
+    });
+    const { data } = await chrome.debugger.sendCommand(
+      target, 'Page.captureScreenshot',
+      {
+        format: 'png',
+        fromSurface: true,
+        captureBeyondViewport: true,
+        clip: { x: 0, y: 0, width: size.width, height: size.height, scale: 1 },
+      }
+    );
+    return `data:image/png;base64,${data}`;
+  } finally {
+    await chrome.debugger.detach(target);   // always detach
+  }
+}</code></pre>
+<p>It is faster, seam-free, and handles fixed elements more gracefully — they render once at their layout position instead of repeating. But the trade-offs are real and should be a conscious choice:</p>
+<ul>
+<li><strong>It fails when DevTools is open</strong> on the tab — only one debugger client can attach, and the error is ugly.</li>
+<li><strong>It shows a warning banner</strong> ("This browser is being debugged") while attached, which is user-visible and, for extensions distributed through the Chrome Web Store, a review-flagging permission.</li>
+<li><strong>It still doesn't solve lazy content</strong> — the renderer draws the full height in one pass, but images the page never scrolled into view may still be unloaded. The pre-scroll warm-up is still required.</li>
+<li><strong>Extremely tall pages can still fail</strong> inside the renderer's own raster limits, with far less control over fallback behavior than the manual loop gives you.</li>
+</ul>
+<p>My rule: use the scroll-and-stitch path as the default engine, because it needs no scary permissions and degrades predictably. Keep CDP as an opt-in "high quality" mode for users who understand what the debugger banner means.</p>
+
+<h2 id="memory">Memory Discipline</h2>
+<p>A screenshot pipeline holds three kinds of memory at once, and each has a different disposal strategy:</p>
+<ul>
+<li><strong>Data URLs</strong> — each full-viewport PNG frame is 2–6 MB of base64 <em>text</em>. Forty frames in an array is easily 100–300 MB. Draw each frame into the canvas as soon as it arrives and drop the string; never accumulate all frames "to stitch later" unless the page is short.</li>
+<li><strong>Decoded bitmaps</strong> — a 3840 × 2160 <code>ImageBitmap</code> is ~33 MB of unpadded RGBA that JavaScript GC does not track as heap pressure. Call <code>bitmap.close()</code> immediately after <code>drawImage</code>; don't wait for GC to feel like it.</li>
+<li><strong>The destination canvas</strong> — the single largest allocation, sized by the arithmetic in the previous section. Release it explicitly (<code>canvas.width = 0; canvas.height = 0;</code>) after encoding, or at minimum drop every reference.</li>
+</ul>
+<p>Where the work runs matters too. The capture <em>orchestration</em> must live in the service worker or popup (<code>chrome.tabs</code> and <code>chrome.debugger</code> aren't available elsewhere), but the <em>stitching</em> — decoding, drawing, encoding — is exactly the long, CPU-bound job that races the MV3 service worker's idle termination. Push it into an offscreen document, which gives you a stable DOM-less context that lives as long as the work does; the service worker just forwards frames and downloads the result. That split — thin orchestrator, fat offscreen worker — is the architecture I've settled on for every capture feature, and it is worth setting up on day one rather than retrofitting after the first "capture dies at frame 27" bug.</p>
+
+<h2 id="checklist">Production Checklist</h2>
+<ol>
+<li>Activate the tab before capturing; remember <code>captureVisibleTab</code> takes a <strong>windowId</strong>, and only sees the active tab.</li>
+<li>Pace every capture at ≥ 550 ms to stay under the 2/sec quota.</li>
+<li>Override <code>scroll-behavior: smooth</code>, scroll, wait two rAFs plus a tail delay before capturing.</li>
+<li>Clamp the final scroll position and record the clamped <em>y</em>, not the requested one.</li>
+<li>Detect the real scroll container instead of assuming the window scrolls.</li>
+<li>Derive scale from <code>bitmap.width / innerWidth</code> — never trust <code>devicePixelRatio</code> alone.</li>
+<li>Pre-scroll for lazy content; wait for pending image loads with a timeout.</li>
+<li>Capture frame 0 with overlays visible, hide fixed/sticky elements for the rest, restore in <code>finally</code>.</li>
+<li>Pause running animations during capture, resume after.</li>
+<li>Check canvas limits (65,535 px dim / 2²⁸ px area) before allocating; downscale or tile.</li>
+<li><code>bitmap.close()</code> after every draw; drop data URLs as soon as they're consumed.</li>
+<li>Run the stitch in an offscreen document; keep the service worker as a thin orchestrator.</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://developer.chrome.com/docs/extensions/reference/api/tabs#method-captureVisibleTab" target="_blank">chrome.tabs.captureVisibleTab — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.com/docs/extensions/reference/api/scripting" target="_blank">chrome.scripting API Reference</a></li>
+<li><a href="https://developer.chrome.com/docs/extensions/reference/api/debugger" target="_blank">chrome.debugger API Reference</a></li>
+<li><a href="https://chromedevtools.github.io/devtools-protocol/tot/Page/#method-captureScreenshot" target="_blank">CDP Page.captureScreenshot</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/createImageBitmap" target="_blank">createImageBitmap — MDN</a></li>
+</ul>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./offscreen-image-processing.html">Local-Only Image Processing via Offscreen Documents</a></li>
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience &amp; State Persistence for MV3</a></li>
+  <li><a href="./html-table-merged-cells-parsing.html">Parsing HTML Tables with Merged Cells</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Full-Page Screenshots in Chrome Extensions: Stitching, Fixed Elements and Memory Limits',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: 'Chrome 扩展全页截图实战：拼接、固定元素与内存上限',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'Chrome拡張の全ページスクリーンショット：結合・固定要素・メモリ制限',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Ganzseitige Screenshots in Chrome-Erweiterungen: Stitching, fixe Elemente und Speichergrenzen',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Capturas de página completa en extensiones de Chrome: unión, elementos fijos y límites de memoria',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Captures pleine page dans les extensions Chrome : assemblage, éléments fixes et limites mémoire',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+</body>
+</html>

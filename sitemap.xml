@@ -2,12 +2,12 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://annmax1983.github.io/</loc>
-    <lastmod>2026-09-16</lastmod>
+    <lastmod>2026-10-08</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://annmax1983.github.io/blog.html</loc>
-    <lastmod>2026-09-16</lastmod>
+    <lastmod>2026-10-08</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
@@ -58,6 +58,36 @@
   <url>
     <loc>https://annmax1983.github.io/blog/debugging-like-a-senior-engineer.html</loc>
     <lastmod>2026-09-16</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/full-page-screenshot-stitching.html</loc>
+    <lastmod>2026-10-08</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/totp-web-crypto-implementation.html</loc>
+    <lastmod>2026-10-07</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/perceptual-hash-image-dedup.html</loc>
+    <lastmod>2026-10-05</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/html-table-merged-cells-parsing.html</loc>
+    <lastmod>2026-10-03</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/pwa-install-offline-caching.html</loc>
+    <lastmod>2026-10-02</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/falling-sand-canvas-simulation.html</loc>
+    <lastmod>2026-10-01</lastmod>
     <priority>0.7</priority>
   </url>
 </urlset>

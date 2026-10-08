@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">PWA Install and Offline Caching: What Actually Works in 2026 — AnnMax</title>
+  <meta name="description" content="Installability criteria, the beforeinstallprompt dance, iOS Safari's separate rules, versioned service worker caches, storage persistence and eviction — what actually works when shipping installable, offline-capable web apps.">
+  <meta property="og:title" content="PWA Install and Offline Caching: What Actually Works in 2026">
+  <meta property="og:description" content="The install prompt dance, iOS's separate rules, versioned caches, storage eviction, and an offline test plan — practical PWA install and offline engineering.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/pwa-install-offline-caching.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="keywords" content="pwa install prompt, beforeinstallprompt, service worker caching, offline pwa, storage persist, iOS add to home screen, install criteria, stale while revalidate">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/pwa-install-offline-caching.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">PWA Install and Offline Caching: What Actually Works in 2026</h1>
+    <div class="meta" id="articleMeta"><span>October 2026</span><span class="reading-time">~14 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="installability">What Actually Makes an App Installable</h2>
+<p>"Installable PWA" sounds like a compliance checklist; in practice it is one specific browser behavior you're unlocking. Chromium shows the install affordance when it sees four things:</p>
+<ul>
+<li><strong>HTTPS</strong> (or localhost). Non-negotiable — everything below assumes a secure origin.</li>
+<li><strong>A manifest</strong> with <code>name</code>, <code>start_url</code>, <code>display</code> of <code>standalone</code>/<code>fullscreen</code>/<code>minimal-ui</code>, and icons at 192px and 512px. Icon size is the most common silent failure: one 512 icon listed without a matching 192 and the whole thing is not installable.</li>
+<li><strong>A registered service worker with a fetch handler.</strong> This requirement has wobbled across Chrome versions, but a registered SW with a <code>fetch</code> listener remains the version of reality that works everywhere — and since you need the SW for offline anyway, it's a given.</li>
+<li><strong>Two stable identity fields</strong> most developers don't know about: <code>start_url</code> within scope, and the manifest <code>id</code>. Chromium derives an app identity from <code>id</code> (falling back to <code>start_url</code>). If you change <code>start_url</code> without setting <code>id</code>, existing installs become a <em>different app</em> — a second icon appears and the first one's storage is orphaned. Set <code>id</code> on day one; retrofitting it later is the same breakage.</li>
+</ul>
+<pre><code>{
+  "id": "/sand/",
+  "name": "Falling Sand",
+  "short_name": "Sand",
+  "start_url": "/sand/?src=pwa",
+  "display": "standalone",
+  "background_color": "#0b0f14",
+  "theme_color": "#0b0f14",
+  "icons": [
+    { "src": "/icons/192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512",
+      "type": "image/png", "purpose": "maskable" }
+  ]
+}</code></pre>
+<p>Two details in that manifest earn their lines. The maskable icon is what makes the Android adaptive-icon treatment look intentional rather than a cropped, off-center logo; a maskable icon needs its content within the central safe circle, so it is usually a separate file from the regular 512. And <code>start_url</code>'s <code>?src=pwa</code> query is a free analytics channel: the only reliable way to count launches that came from the installed app rather than a browser tab.</p>
+
+<h2 id="install-prompt">The beforeinstallprompt Dance</h2>
+<p>Chromium fires <code>beforeinstallprompt</code> when the app passes the criteria and the browser's heuristics are satisfied. If you do nothing, the browser may show its own mini-infobar at a moment of its choosing. The standard pattern suppresses that and defers to your own UI — a button in your header or settings, shown at a moment you choose:</p>
+<pre><code>let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) =&gt; {
+  e.preventDefault();              // suppress the browser's mini-infobar
+  deferredPrompt = e;
+  installButton.hidden = false;    // show OUR button, at OUR moment
+});
+
+installButton.addEventListener('click', async () =&gt; {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;  // 'accepted' | 'dismissed'
+  deferredPrompt = null;           // the event is single-use either way
+  installButton.hidden = true;
+});
+
+window.addEventListener('appinstalled', () =&gt; {
+  // The only reliable "the user installed" signal
+});</code></pre>
+<p>Three behaviors to design around, all of them undocumented-feeling and all of them real:</p>
+<ul>
+<li><strong>The prompt event is single-use.</strong> After <code>prompt()</code> — accepted or dismissed — that event object is dead. You must wait for a fresh <code>beforeinstallprompt</code> before prompting again.</li>
+<li><strong>Chromium throttles the prompt.</strong> Repeated dismissals push the next available prompt further out (months, in some versions), and the heuristics can be conservative: a first-visit user may never see the event. Never gate core functionality on it — treat the custom button as an enhancement, with manual instructions as the baseline.</li>
+<li><strong>The event does not fire when the app is already installed</strong> or when the page is inside an iframe. Your button logic must handle "never fired, but the user has it installed" — which is exactly what <code>getInstalledRelatedApps()</code> exists for, though it requires a <code>related_applications</code> manifest entry pointing back at itself to work reliably.</li>
+</ul>
+<p>Detecting that you are <em>running</em> as the installed app is a different question, answered without any events:</p>
+<pre><code>const isStandalone =
+  window.matchMedia('(display-mode: standalone)').matches ||
+  window.navigator.standalone === true;   // legacy iOS property
+if (isStandalone) document.body.classList.add('pwa-mode');
+// CSS: @media (display-mode: standalone) { .install-cta { display: none; } }</code></pre>
+<p>Using this to hide the install CTA everywhere at once is the single highest-value three lines of PWA polish — installed users should never be told to install.</p>
+
+<h2 id="ios">iOS Safari: The Rules Are Different</h2>
+<p>Everything above describes Chromium. On iOS, <code>beforeinstallprompt</code> <em>does not exist</em> — not throttled, not gated: absent. There is no prompt API, no programmatic install, and no per-app install analytics event. The only path is the user doing Share → Add to Home Screen themselves, which means the only correct implementation is instructions:</p>
+<pre><code>const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' &amp;&amp; navigator.maxTouchPoints &gt; 1); // iPadOS masquerades as Mac
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+  || navigator.standalone === true;
+
+if (isIOS &amp;&amp; !isStandalone &amp;&amp; !('onbeforeinstallprompt' in window)) {
+  showIOSInstructions();   // 'Tap Share, then Add to Home Screen'
+}</code></pre>
+<p>The iPadOS user-agent masquerade on the second line is not paranoia — an iPad Safari UA reports <code>MacIntel</code>, and the touch-points check is the accepted way to tell it apart from a laptop.</p>
+<p>Two iOS behaviors that shape product decisions, not just code. First: the installed home-screen app and Safari use <strong>separate storage containers</strong>. Data a user accumulates in Safari (scores, notes, saved items) does not carry into the installed app, and vice versa. If your app accumulates meaningful local data, prompt for install <em>before</em> the user's data grows, or ship export/import — "install it and lose everything so far" is a support-ticket generator. Second: Safari's 7-day storage eviction (the ITP cap on script-writable storage for sites without recent interaction) does not apply to home-screen apps — an installed web app's storage persists. So on iOS, "add to home screen" is not a nicety; it is the difference between an app that keeps the user's data and a tab that may wake up empty. Scheduling, offline tools, anything with local state — say so in the install instructions, because it's true and it's the best argument the platform gives you.</p>
+<p>Also budget for the video question up front: iOS supports SW-based offline caching and the Cache API, so the caching architecture below works unchanged. Web Push on iOS exists for installed web apps only (since 16.4) — another reason install-first matters if you plan reminders.</p>
+
+<h2 id="caching">Precache vs Runtime: The Two-Layer Cache</h2>
+<p>Every sane offline strategy is two layers with different personalities. <strong>The precache</strong> is the app shell — HTML, CSS, JS, icons — fetched at install time, versioned, and treated as a unit: it changes only when the app version changes. <strong>Runtime caches</strong> hold everything discovered while the app runs — API responses, user-authored content, fonts — and evolve continuously with their own strategy per resource type. Mixing the two — dumping runtime responses into the precache — is why some offline apps serve a year-old page shell next to this morning's data.</p>
+<p>Versioned names make cleanup automatic. Bump a string, and old caches are orphaned for the <code>activate</code> handler to delete:</p>
+<pre><code>// sw.js
+const VERSION = 'v42';                       // bump on every deploy
+const PRECACHE = `precache-${VERSION}`;
+const RUNTIME  = `runtime-${VERSION}`;
+
+const SHELL = [                              // build-generated, kept small
+  '/', '/index.html', '/app.css', '/app.9f2c4e1a.js',
+  '/manifest.webmanifest', '/icons/192.png', '/icons/512.png',
+];
+
+self.addEventListener('install', (event) =&gt; {
+  event.waitUntil((async () =&gt; {
+    const cache = await caches.open(PRECACHE);
+    // addAll() rejects WHOLESALE if any single URL 404s — add individually
+    await Promise.all(SHELL.map(async (url) =&gt; {
+      try {
+        await cache.add(new Request(url, { cache: 'reload' }));
+      } catch (err) {
+        console.warn('precache miss:', url, err);
+      }
+    }));
+  })());
+});
+
+self.addEventListener('activate', (event) =&gt; {
+  event.waitUntil((async () =&gt; {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys.filter(k =&gt; k !== PRECACHE &amp;&amp; k !== RUNTIME)
+          .map(k =&gt; caches.delete(k))
+    );
+    await self.clients.claim();
+  })());
+});</code></pre>
+<p>Two lines in there are the ones people learn from production. <code>addAll</code> is all-or-nothing: one stale URL in the shell list and the install fails, the SW goes <em>redundant</em>, and offline silently never works — individual <code>add</code> with a logged failure keeps a single bad entry from taking down the feature. And <code>cache: 'reload'</code> bypasses the HTTP cache during precaching, so a new SW version doesn't precache HTTP-cached <em>old</em> assets — the exact mechanism behind "I deployed, but some users got the old bundle for a day".</p>
+<p>The fetch router assigns strategies by request kind:</p>
+<pre><code>self.addEventListener('fetch', (event) =&gt; {
+  const { request } = event;
+  if (request.method !== 'GET') return;              // never cache mutations
+  const url = new URL(request.url);
+  if (url.origin !== location.origin) return;        // cross-origin: leave to the network
+
+  // Navigations: network-first, fall back to the cached shell
+  if (request.mode === 'navigate') {
+    event.respondWith((async () =&gt; {
+      try {
+        const fresh = await fetch(request);
+        const cache = await caches.open(PRECACHE);
+        cache.put('/index.html', fresh.clone());     // keep the shell fresh
+        return fresh;
+      } catch {
+        return (await caches.match('/index.html')) ?? Response.error();
+      }
+    })());
+    return;
+  }
+
+  // Hashed static assets: cache-first (filenames change when content does)
+  event.respondWith((async () =&gt; {
+    const hit = await caches.match(request);
+    if (hit) return hit;
+    const fresh = await fetch(request);
+    if (fresh.ok) {
+      const cache = await caches.open(RUNTIME);
+      cache.put(request, fresh.clone());
+    }
+    return fresh;
+  })());
+});</code></pre>
+<p>The shape rewards a second look. Navigations go network-first so users on a good connection never see a stale page, with the cached shell as the offline floor — for a multi-page site, cache each page's URL and fall back to a dedicated <code>/offline.html</code> instead. Static assets go cache-first and only cache-first <em>because their filenames carry a content hash</em>: <code>app.9f2c4e1a.js</code> can never be stale, so there is nothing to revalidate. If your build doesn't hash filenames, don't copy this half — you need stale-while-revalidate for those assets, or you will ship the "deployed but users run old JS" bug the <code>cache: 'reload'</code> line was fighting. And the <code>fresh.ok</code> guard quietly keeps opaque cross-origin responses (status 0, <code>ok === false</code>) out of the cache; Chromium pads opaque responses to multi-megabyte effective sizes for quota accounting, so even "free" third-party images can blow the storage budget.</p>
+<p>One thing the code above deliberately does <em>not</em> do: <code>skipWaiting()</code> on install. Auto-activating a new SW takes control away from pages that are mid-session, and if the new version expects migrated data (an IndexedDB schema change is the classic), an uncontrolled takeover can corrupt state. Ship the waiting behavior with a UI prompt — the SW posts "update ready", the app shows a reload button, the button sends <code>SKIP_WAITING</code> — and users update on their terms.</p>
+
+<h2 id="storage">Storage That Survives: Persistence and Eviction</h2>
+<p>Offline code does not matter if the browser deletes its storage. Chromium runs an eviction policy: "best effort" origins (the default) can have their Cache Storage and IndexedDB cleared under disk pressure — LRU-ish, no user prompt. "Persistent" origins are only cleared by user action. You request the upgrade with <code>navigator.storage.persist()</code>, and the moment to ask is the install flow, where the user intent ("I want this app on my device") matches what you're asking for:</p>
+<pre><code>async function ensurePersistentStorage() {
+  if (!navigator.storage?.persist) return false;      // Safari: API absent, see below
+  if (await navigator.storage.persisted()) return true;
+  return navigator.storage.persist();                 // may resolve false
+}
+
+// An installed PWA in Chromium is usually granted automatically;
+// for browser-tab usage it depends on engagement heuristics.
+// Either way, asking is free and the answer is knowable:
+const { quota, usage } = await navigator.storage.estimate();
+const freeMB = Math.round((quota - usage) / 1048576);</code></pre>
+<p>The <code>estimate()</code> numbers are the raw material for honest UI: when an offline map download or media cache is about to consume a large share of quota, show "this will use about 300 MB of an estimated 4 GB available" before the user commits, not after the write fails. On Safari the <code>persist()</code> API is a no-op (absent), but installed home-screen apps effectively keep storage as described above — same product guidance, different mechanism.</p>
+<p>Finally, separate your storage by purpose. Code and static assets belong in Cache Storage because you control their versioning and you <em>want</em> them replaced wholesale on deploy. User data belongs in IndexedDB (or OPFS/SQLite for structured data), because it must survive those wholesale replacements. An offline app that stores user notes in a versioned cache named by deploy is an app that deletes user notes on its next release. If it matters to the user, it does not live in the cache you clear.</p>
+
+<h2 id="testing">Testing Offline Like You Mean It</h2>
+<p>Offline behavior is invisible in normal development, so it gets tested — when it gets tested — in exactly the ways that can't catch its real bugs. The workflow that does catch them:</p>
+<ul>
+<li><strong>Application panel → Service Workers:</strong> "Update on reload" while iterating, "Bypass for network" when you need to test network-path behavior, and <em>unregister</em> between "first visit" simulations — a registered SW from yesterday makes today's cold-start test a lie.</li>
+<li><strong>The cold-start test is two-step by definition.</strong> Visit online → let the SW install and precache → go offline <em>in DevTools</em> (Network tab, Offline) → hard-reload. First-ever visit offline cannot work, and any test that does it proves nothing. What you're validating is: activate completed, precache list complete, navigation fallback correct.</li>
+<li><strong>Simulating "slow network" matters more than "offline".</strong> Real users hit flaky, not absent — the interesting bugs live in requests that hang for 30 s before failing. Test with Slow 3G and watch whether your network-first navigations hang the app.</li>
+<li><strong>Deploy twice on purpose.</strong> Bump <code>VERSION</code>, redeploy, reload: watch the new SW move install → waiting → activated, confirm old caches are gone in Cache Storage, and confirm the update prompt appears in the UI. Update flow is the least-tested, most-shipped code path in every PWA.</li>
+<li><strong>Check the SW's own console</strong> (<code>chrome://serviceworker-internals</code> for lifecycle status; the Application panel for errors). A SW that failed to install shows as <em>redundant</em> and the browser console won't always tell you why — a failed precache is usually visible only here.</li>
+</ul>
+<p>The one habit that makes all of this cheap: keep the precache list small and generated by the build, so "what's cached" is a build artifact, not a hand-maintained list that drifts from reality the first busy week.</p>
+
+<h2 id="checklist">Production Checklist</h2>
+<ol>
+<li>HTTPS, manifest with name/start_url/display, 192+512 icons, and a stable <code>id</code> — set before the first install ever happens.</li>
+<li>Feature-detect <code>beforeinstallprompt</code>; defer the event, show your own button, treat the event as single-use.</li>
+<li>Never gate functionality on the install event — provide manual instructions as the baseline; dedicated iOS instructions with the iPadOS UA check.</li>
+<li>Hide install CTAs with <code>display-mode: standalone</code> detection; demo mode class for styling.</li>
+<li>Prompt for install before local data accumulation on iOS; ship export/import where install can't be assumed.</li>
+<li>Two-layer caching: versioned precache for the shell, strategy-per-type runtime caches for the rest.</li>
+<li>Precache URLs individually with <code>cache: 'reload'</code>; never <code>addAll</code> for anything that can 404.</li>
+<li>Cache-first only for hash-named assets; stale-while-revalidate for unhashed; never cache non-GET; skip opaque cross-origin responses.</li>
+<li>Navigation fallback to the shell (SPA) or a real <code>/offline.html</code> (multi-page).</li>
+<li>No blind <code>skipWaiting()</code> — surface update-ready UI and let the user reload; never auto-activate across schema changes.</li>
+<li>Request <code>navigator.storage.persist()</code> during install; show <code>estimate()</code> numbers before large downloads; keep user data out of versioned caches.</li>
+<li>Test the two-step cold start, a slow-flaky network, and one real deploy-then-update cycle before calling it done.</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://web.dev/articles/install-criteria" target="_blank">Installation Criteria — web.dev</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/beforeinstallprompt_event" target="_blank">beforeinstallprompt event — MDN</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Cache" target="_blank">Cache — MDN</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria" target="_blank">Storage Quotas and Eviction Criteria — MDN</a></li>
+<li><a href="https://webkit.org/blog/13966/webkit-features-in-safari-16-4/" target="_blank">Web Push for Web Apps on iOS — WebKit Blog</a></li>
+</ul>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./sqlite-opfs-local-first-database.html">SQLite in the Browser with OPFS</a></li>
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience &amp; State Persistence for MV3</a></li>
+  <li><a href="./falling-sand-canvas-simulation.html">Falling Sand on Canvas: Cellular Automata at 60 FPS</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'PWA Install and Offline Caching: What Actually Works in 2026',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: 'PWA 安装与离线缓存实战：2026 年真正有效的做法',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'PWAのインストールとオフラインキャッシュ：2026年に実際に機能する方法',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'PWA-Installation und Offline-Caching: Was 2026 tatsächlich funktioniert',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Instalación PWA y caché offline: lo que realmente funciona en 2026',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Installation PWA et cache hors ligne : ce qui fonctionne vraiment en 2026',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+</body>
+</html>
