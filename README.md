@@ -63,7 +63,7 @@ Good tools should be:
 
 Need a custom browser extension? I offer end-to-end development — from idea to Chrome Web Store publication.
 
-📬 annmax1985@gmail.com
+📬 support@annmax1983.com
 
 ---
 
