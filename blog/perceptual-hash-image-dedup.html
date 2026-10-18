@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title id="pageTitle">Perceptual Hashing in the Browser: Near-Duplicate Image Detection — AnnMax</title>
-  <meta name="description" content="How pHash works end to end in pure browser JavaScript: 32×32 grayscale, DCT with a precomputed cosine table, median threshold, Hamming distance, banded indexing for whole libraries — and an honest look at the limits.">
+  <title id="pageTitle">Perceptual Hashing: Near-Duplicate Image Detection</title>
+  <meta name="description" content="How pHash works in pure browser JavaScript: 32×32 grayscale, DCT with a precomputed cosine table, median threshold, Hamming distance and banded indexing.">
   <meta property="og:title" content="Perceptual Hashing in the Browser: Near-Duplicate Image Detection">
   <meta property="og:description" content="DCT-based perceptual hashing in pure JavaScript: grayscale downscale, precomputed cosine tables, bit packing, Hamming distance, and banded indexing for large libraries.">
   <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
@@ -16,6 +16,33 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
   <link rel="stylesheet" href="../css/style.css">
   <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Perceptual Hashing in the Browser: Near-Duplicate Image Detection",
+    "description": "How pHash works in pure browser JavaScript: 32×32 grayscale, DCT with a precomputed cosine table, median threshold, Hamming distance and banded indexing.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-10-05",
+    "dateModified": "2026-10-05",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/perceptual-hash-image-dedup.html"
+    },
+    "url": "https://annmax1983.github.io/blog/perceptual-hash-image-dedup.html",
+    "keywords": "perceptual hash javascript, phash, image deduplication, hamming distance, dct image hash, near duplicate detection, canvas grayscale, image fingerprint"
+  }
+  </script>
 </head>
 <body>
   <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>

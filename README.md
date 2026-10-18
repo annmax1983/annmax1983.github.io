@@ -10,7 +10,7 @@ I started with .NET desktop apps and enterprise Java systems. Moved through Pyth
 
 ## What I Build
 
-I maintain **17 Chrome extensions** — all 100% local processing, zero data collection:
+I maintain **17 Chrome extensions** — all local-first: no analytics, no tracking, no accounts, and your content never leaves your browser. The only outbound request any of them makes is an optional license check for paid plans:
 
 - 📸 **PageShot** — Full-page screenshots with annotation
 - 🖼️ **ImageConv** — Image format conversion (PNG/JPG/WEBP/AVIF)
@@ -20,7 +20,7 @@ I maintain **17 Chrome extensions** — all 100% local processing, zero data col
 - 🔐 **LocalBox2FA** — Offline TOTP authenticator
 - 📊 **TableGrab** — HTML table to CSV exporter
 - 🔤 **FontFixer** — Web font optimizer
-- 🎯 **JustFocus** — Site blocker with timer
+- 🎯 **JustFocus** — Site blocker with timed blocks; Surgical Blocking hides Shorts/Reels/For You feeds (unlimited sites free)
 - 🔄 **RefreshMate** — Auto page refresher
 - 🔗 **LinkHarvest** — Link extractor & scanner
 - ⏱️ **RetroTime** — Floating timer widget (stopwatch / countdown / Pomodoro)

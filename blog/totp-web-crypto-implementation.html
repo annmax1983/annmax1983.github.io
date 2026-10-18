@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title id="pageTitle">TOTP from Scratch: Building an Offline 2FA Authenticator with Web Crypto — AnnMax</title>
-  <meta name="description" content="Implement RFC 6238 TOTP in the browser with zero dependencies: Base32 decoding, HMAC via Web Crypto, dynamic truncation, otpauth URI parsing, QR scanning, clock-drift verification, and a realistic threat model.">
+  <title id="pageTitle">TOTP from Scratch: Offline 2FA with Web Crypto</title>
+  <meta name="description" content="Implement RFC 6238 TOTP in the browser with zero dependencies: Base32 decoding, HMAC via Web Crypto, dynamic truncation, otpauth URIs and clock-drift checks.">
   <meta property="og:title" content="TOTP from Scratch: Building an Offline 2FA Authenticator with Web Crypto">
   <meta property="og:description" content="Base32 decoding, HMAC via Web Crypto, dynamic truncation, RFC 6238 test vectors, otpauth URIs, and a realistic threat model for an offline authenticator.">
   <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
@@ -16,6 +16,33 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
   <link rel="stylesheet" href="../css/style.css">
   <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "TOTP from Scratch: Building an Offline 2FA Authenticator with Web Crypto",
+    "description": "Implement RFC 6238 TOTP in the browser with zero dependencies: Base32 decoding, HMAC via Web Crypto, dynamic truncation, otpauth URIs and clock-drift checks.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-10-07",
+    "dateModified": "2026-10-07",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/totp-web-crypto-implementation.html"
+    },
+    "url": "https://annmax1983.github.io/blog/totp-web-crypto-implementation.html",
+    "keywords": "TOTP implementation javascript, RFC 6238, Web Crypto HMAC, base32 decode, otpauth URI, two factor authenticator browser, BarcodeDetector, constant time compare"
+  }
+  </script>
 </head>
 <body>
   <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
