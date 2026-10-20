@@ -130,7 +130,7 @@ console.log(rows);</code></pre>
 <li><strong>Use IndexedDB when</strong>: simple key-value storage, caching API responses, storing blobs/files, you need broad browser support including older browsers</li>
 <li><strong>Use SQLite on OPFS when</strong>: relational data with joins, complex queries with filtering/sorting, full-text search, you need indexes for performance, data migration from existing SQLite databases</li>
 </ul>
-<p>For browser extensions specifically, SQLite on OPFS is compelling because it lets you <strong>reuse the same database schema</strong> as a server-side application. Tools like <a href="https://annmax1983.com/extensions/localbox2fa.html" target="_blank" rel="noopener">LocalBox2FA</a> store TOTP secrets entirely locally — a relational database is a natural fit for organizing accounts, groups, and metadata.</p>
+<p>For browser extensions specifically, SQLite on OPFS is compelling because it lets you <strong>reuse the same database schema</strong> as a server-side application. Tools like <a href="https://annmax1983.com/extensions/localbox2fa.html" target="_blank" rel="noopener">LocalBox2FA</a> keep TOTP secrets local by default — a relational database is a natural fit for organizing accounts, groups, and metadata.</p>
 
 <h2 id="full-text-search">Full-Text Search in the Browser</h2>
 <p>One of SQLite's most powerful features is <strong>FTS5</strong> — a full-text search engine that runs entirely client-side:</p>

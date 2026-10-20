@@ -10,24 +10,24 @@ I started with .NET desktop apps and enterprise Java systems. Moved through Pyth
 
 ## What I Build
 
-I maintain **17 Chrome extensions** — all local-first: no analytics, no tracking, no accounts, and your content never leaves your browser. The only outbound request any of them makes is an optional license check for paid plans:
+I maintain **17 browser extensions** for Chrome and Edge — all local-first: no analytics, no tracking, no accounts. Your content stays in the browser unless you enable LocalBox2FA's optional encrypted cross-device sync (it uses your own browser account); the only other outbound request is an optional license check for paid plans:
 
 - 📸 **PageShot** — Full-page screenshots with annotation
 - 🖼️ **ImageConv** — Image format conversion (PNG/JPG/WEBP/AVIF)
 - 🎨 **StylePatch** — Per-site CSS customization
-- 📦 **ImageGrabber** — Batch image downloader
-- 🔓 **LiteCopy** — Copy experience optimizer
-- 🔐 **LocalBox2FA** — Offline TOTP authenticator
-- 📊 **TableGrab** — HTML table to CSV exporter
+- 📦 **ImageGrabber** — Batch image downloader (30 per batch free)
+- 🔓 **LiteCopy** — Restores text selection and copying on sites that block it (100 copies/day free)
+- 🔐 **LocalBox2FA** — Local-first TOTP authenticator with optional encrypted cross-device sync
+- 📊 **TableGrab** — HTML table to Excel (XLSX) / CSV exporter with preview, column selection and TSV/Markdown copy
 - 🔤 **FontFixer** — Web font optimizer
-- 🎯 **JustFocus** — Site blocker with timed blocks; Surgical Blocking hides Shorts/Reels/For You feeds (unlimited sites free)
+- 🎯 **JustFocus** — Site blocker with timed blocks; Surgical Blocking hides Shorts/Reels/For You feeds (YouTube Shorts free, 11 more sites with a license)
 - 🔄 **RefreshMate** — Auto page refresher
-- 🔗 **LinkHarvest** — Link extractor & scanner
+- 🔗 **LinkHarvest** — Link extractor: copy as URLs, Markdown, HTML or JSON Lines; free TXT/JSON/CSV export; Link Audit flags broken links (100 free, 2,000 with a license)
 - ⏱️ **RetroTime** — Floating timer widget (stopwatch / countdown / Pomodoro)
-- 🌐 **VKT WebHeader** — Tab-isolated HTTP header modifier
+- 🌐 **VKT Header** — Domain-matched HTTP header modifier (rules apply to every tab) with a request tester
 - 📝 **VKT Note** — Markdown note-taking with text selection
 - 📝 **VKT Form** — Form snapshot & auto-fill
-- ⌨️ **VKT Shortcut** — Keyboard shortcut manager
+- ⌨️ **VKT Shortcut** — Page shortcut blocker with per-site presets (20 rules free)
 - 📌 **ItemPin** — Product saver & price history
 
 I also build **VKT PWA** — 9 installable web apps that run offline, installed straight from the browser:

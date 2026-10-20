@@ -229,7 +229,7 @@ async function verifyTOTP(input, secretBytes, {
 <p>The reason to build an authenticator with no network code is not privacy aesthetics — it is that 2FA exists to survive a server-side breach. If your second factor's secrets sync to a cloud account, the second factor collapses back into the first whenever the attacker reaches the sync backend. An authenticator whose manifest contains no network permission at all makes that collapse impossible by construction, and that property is worth designing around:</p>
 <ul>
 <li><strong>Secrets never leave the device</strong> — stored via <code>chrome.storage.local</code> (or a SQLite/OPFS store for larger scale), never synced. <code>chrome.storage.sync</code> is off the table for exactly this reason.</li>
-<li><strong>Honesty about at-rest protection.</strong> Local storage is not encrypted by the app; it is protected by the OS user profile (DPAPI on Windows, Keychain on macOS). Be explicit about that instead of bolting on home-grown "encryption" that stores its own key beside the ciphertext. If you want encryption at rest, derive the key from a user passphrase via PBKDF2 and accept that "I forgot the passphrase" now means "secrets are gone".</li>
+<li><strong>Honesty about at-rest protection.</strong> By default <code>chrome.storage.local</code> is not encrypted by the app — it is protected by the OS user profile (DPAPI on Windows, Keychain on macOS). If that is not enough, add an <em>optional</em> master password: derive a key with PBKDF2-SHA256 (high iteration count plus a random salt) and encrypt only the <code>secret</code> field with AES-GCM. Three rules keep that design honest instead of decorative: the derived key lives in memory only and is never written to storage, there is no "remember me", and there is no recovery path — forgetting the passphrase means erasing the vault. What you must never ship is "encryption" that stores its own key beside the ciphertext.</li>
 <li><strong>Clipboard hygiene is convenience, not security.</strong> Auto-clearing a copied code after ~30 s is polite; it does not stop a hostile process from reading the clipboard in the first second. Codes are one-time anyway — the replay defense above is the actual control.</li>
 <li><strong>Nothing protects against a compromised device.</strong> Malware with profile access reads the secrets regardless of extension design. No client-side scheme fixes that; the mitigation is device hygiene plus recovery codes.</li>
 </ul>
@@ -249,6 +249,7 @@ async function verifyTOTP(input, secretBytes, {
 <li>Feature-detect <code>BarcodeDetector</code>; stop camera tracks on success and on unmount.</li>
 <li>Always offer manual secret entry as the primary import path.</li>
 <li>Ship with no network permission, store secrets locally only, and never log secrets or codes.</li>
+<li>If you offer a master password, derive the key with PBKDF2 (random salt, high iteration count), keep it in memory only, and say plainly that losing it means losing the vault.</li>
 </ol>
 
 <h2 id="references">References</h2>

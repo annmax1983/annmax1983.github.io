@@ -99,12 +99,12 @@ canvas.toBlob(blob => {
   // WebP typically produces 25-35% smaller files than JPEG
   // at equivalent quality
 }, 'image/webp', 0.80);</code></pre>
-<p>AVIF support was added in Chrome 85 and Firefox 93. It produces significantly smaller files than WebP, especially for high-quality images:</p>
-<pre><code>// AVIF — best compression ratio, slower encoding
+<p>AVIF is a different story. Chrome 85 added AVIF <em>decoding</em> and Firefox 93 followed, but <code>canvas.toBlob()</code> and <code>OffscreenCanvas.convertToBlob()</code> still have no AVIF <em>encoder</em> in any browser. The call below does not throw: per spec an unsupported type falls back to <code>image/png</code>, so you get a file that looks fine and is several times larger than expected — a bug that survives code review because nothing errors.</p>
+<pre><code>// AVIF encoding is not available in canvas — this returns PNG
 canvas.toBlob(blob => {
-  // AVIF can be 50% smaller than JPEG at equivalent quality
-  // Encoding is slower but decoding is fast
+  console.log(blob.type); // 'image/png'
 }, 'image/avif', 0.75);</code></pre>
+<p>Real AVIF export means shipping an encoder — a WASM build of libavif or an equivalent — and paying for it in package size and encode time, which runs several times slower than WebP for the same image. That is why tools advertising AVIF output bundle a WASM encoder instead of calling the canvas. AVIF earns its cost on large photos where 30–50% smaller files matter; it is wasted on a 40 KB icon.</p>
 
 <h3>The Quality-Size Tradeoff</h3>
 <p>Different formats have very different compression characteristics:</p>

@@ -194,18 +194,19 @@ await chrome.scripting.removeCSS({
 });</code></pre>
 
 <h3>Checking If Already Injected</h3>
-<p>Double-injection is a common bug that causes duplicate event listeners and memory leaks. Guard against it:</p>
+<p>Double-injection is a common bug that causes duplicate event listeners and memory leaks. Guard against it with a flag set in the extension's isolated world — the same world the content script will run in. Putting the flag in <code>world: 'MAIN'</code> looks equivalent but is not: the page world is a separate JavaScript context, so the content script never sees it and the guard silently does nothing.</p>
 <pre><code>// Use a world-scoped flag to check injection state
 async function safeInject(tabId) {
   try {
     const [{ result: alreadyInjected }] = await chrome.scripting.executeScript({
       target: { tabId },
       func: () => {
+        // Runs in the extension's ISOLATED world by default — the same world
+        // the content script will use, so the flag is actually visible to it.
         if (window.__myExtensionInjected) return true;
         window.__myExtensionInjected = true;
         return false;
-      },
-      world: 'MAIN'  // runs in the page's JS context
+      }
     });
 
     if (alreadyInjected) {

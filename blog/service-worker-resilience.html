@@ -77,7 +77,7 @@ await chrome.storage.session.set({
 });</code></pre>
 
 <h3>chrome.storage.local</h3>
-<p>Persistent data with no size limit (practical: ~5MB). Use for:</p>
+<p>Persistent data, 10 MB by default and unlimited with the <code>unlimitedStorage</code> permission. Use for:</p>
 <ul>
 <li>User configuration (per-site settings, CSS rules)</li>
 <li>Cached data (last-used templates, font lists)</li>
