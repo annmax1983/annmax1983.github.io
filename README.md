@@ -10,7 +10,7 @@ I started with .NET desktop apps and enterprise Java systems. Moved through Pyth
 
 ## What I Build
 
-I maintain **17 browser extensions** for Chrome and Edge — all local-first: no analytics, no tracking, no accounts, and none of them uploads your content to us. A few features make their own network requests: license checks for paid plans, image fetches when you convert or batch-download, Link Audit requests to links you choose, and sync through your browser account (JustFocus by default; Premium sync in LiteCopy, StylePatch, LocalBox2FA and VKT Form):
+I maintain **18 browser extensions** for Chrome and Edge — all local-first: no analytics, no tracking, no accounts, and none of them uploads your content to us. A few features make their own network requests: license checks for paid plans, image fetches when you convert or batch-download, Link Audit requests to links you choose, and sync through your browser account (JustFocus by default; Premium sync in LiteCopy, StylePatch, LocalBox2FA and VKT Form):
 
 - 📸 **PageShot** — Full-page screenshots with annotation
 - 🖼️ **ImageConv** — Image format conversion (PNG/JPG/WEBP/AVIF)
@@ -25,9 +25,10 @@ I maintain **17 browser extensions** for Chrome and Edge — all local-first: no
 - 🔗 **LinkHarvest** — Link extractor: copy as URLs, Markdown, HTML or JSON Lines; free TXT/JSON/CSV export; Link Audit flags broken links (100 free, 2,000 with a license)
 - ⏱️ **RetroTime** — Floating timer widget (stopwatch / countdown / Pomodoro; custom colors with a license)
 - 🌐 **VKT Header** — Domain-matched HTTP header modifier (5 rules free; rules apply to every tab) with a request tester
-- 📝 **VKT Note** — Markdown note-taking with text selection (3 notes/day free)
+- 📝 **VKT Note** — Markdown note-taking with text selection (free with unlimited notes; Premium adds a 30-day Trash and JSON export)
+- 🛒 **VKT Cart Lock** — Hard cooling-off lock for your cart: the first checkout click starts a timer and checkout stays blocked until it ends. Free guard; Pro adds per-product timers, cross-device sync and 12-month reports.
 - 📝 **VKT Form** — Form snapshot & auto-fill (unlimited local snapshots, fills and JSON export/import free; Premium adds cross-device sync)
-- ⌨️ **VKT Shortcut** — Page shortcut blocker with per-site presets (20 rules free)
+- ⌨️ **VKT Shortcut** — Page shortcut blocker and remapper with per-site presets (completely free, unlimited rules)
 - 📌 **ItemPin** — Product saver & price history (50 items free; Premium unlimited, CSV export and comparison charts)
 
 I also build **VKT PWA** — 9 installable web apps that run offline, installed straight from the browser:
