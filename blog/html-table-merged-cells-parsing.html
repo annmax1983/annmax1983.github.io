@@ -54,6 +54,7 @@
     <div id="articleContent">
 
 <h2 id="the-problem">Why Table Scraping Is Always Wrong the First Time</h2>
+<p><em>Scope note: this article is about <strong>normalising the DOM grid</strong> — rowspan/colspan, phantom cells, headers. For the export side (rowspan=0 semantics, pinned-column clones, Excel limits, CSV formula injection), see <a href="./html-table-to-xlsx-edge-cases.html">From HTML Table to XLSX</a>.</em></p>
 <p>Extracting a table looks like a two-line job: grab <code>table.rows</code>, map each row's <code>cells</code> to text. It works on the table you wrote by hand and fails on approximately every table in production. The reason is merged cells:</p>
 <pre><code>&lt;table&gt;
   &lt;tr&gt;&lt;th rowspan="2"&gt;Region&lt;/th&gt;&lt;th colspan="2"&gt;2025&lt;/th&gt;&lt;th colspan="2"&gt;2026&lt;/th&gt;&lt;/tr&gt;

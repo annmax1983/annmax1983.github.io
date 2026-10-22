@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">From HTML Table to XLSX: rowspan=0, Pinned Column Clones and Formula Injection</title>
+  <meta name="description" content="The edge cases that decide whether a table exporter is usable: rowspan=0, phantom rows, Ant Design measure rows, MUI fixed-column clones, AG Grid wrappers, aria-colindex clamping, Excel hard limits and CSV injection.">
+  <meta property="og:title" content="From HTML Table to XLSX: rowspan=0, Pinned Column Clones and Formula Injection">
+  <meta property="og:description" content="Real edge cases from building a table exporter against Ant Design, Element Plus, MUI and AG Grid — and the 57 tests they produced.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/html-table-to-xlsx-edge-cases.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/html-table-to-xlsx-edge-cases.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "From HTML Table to XLSX: rowspan=0, Pinned Column Clones and Formula Injection",
+    "description": "The edge cases that decide whether a table exporter is usable: rowspan=0, phantom rows, measure rows, pinned clones, aria-colindex clamping, Excel limits and CSV injection.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-10-22",
+    "dateModified": "2026-10-22",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/html-table-to-xlsx-edge-cases.html"
+    },
+    "url": "https://annmax1983.github.io/blog/html-table-to-xlsx-edge-cases.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../blog.html" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">From HTML Table to XLSX: rowspan=0, Pinned Column Clones and Formula Injection</h1>
+    <div class="meta" id="articleMeta"><span>October 2026</span><span class="reading-time">12 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="intro">The Easy 80% and the Expensive 20%</h2>
+<p><em>Companion to <a href="./html-table-merged-cells-parsing.html">Parsing HTML Tables with Merged Cells</a>, which covers grid normalisation. This article starts from a normalised grid and covers the export boundary: rowspan=0, pinned clones, Excel limits, and injection.</em></p>
+<p>Reading a simple <code>&lt;table&gt;</code> and writing CSV is a weekend project. Getting the same exporter to survive real dashboards — Ant Design, Element Plus, MUI DataGrid, AG Grid — is weeks of edge cases, because each library encodes the same visual table in a different DOM shape and each one breaks a different assumption.</p>
+<p>This is the catalogue from shipping a table exporter: every item below corresponds to a failing test that now passes, and most of them produced a quiet data corruption rather than an exception.</p>
+
+<h2 id="rowspan-zero">1. <code>rowspan="0"</code> Is Not "No Span"</h2>
+<p>Almost every parser treats <code>rowspan=0</code> as invalid and coerces it to 1. The HTML spec says otherwise: a zero rowspan means <em>span to the end of the row group</em>. In practice this shows up in generated tables (report tools, exported spreadsheets) and the symptom is that every cell below the zero-span cell lands one column to the left.</p>
+<pre><code>function _effectiveRowspan(cell, trs, rowIdx) {
+  const raw = parseInt(_attr(cell, 'rowspan'), 10);
+  if (raw === 0) {
+    // HTML: rowspan=0 spans the rest of the row group.
+    return Math.max(1, trs.length - rowIdx);
+  }
+  return Number.isFinite(raw) &amp;&amp; raw &gt; 0 ? raw : 1;
+}</code></pre>
+<p>One extra branch; without it, an entire exported sheet is shifted.</p>
+
+<h2 id="phantom-rows">2. Phantom Rows Produced by rowspan</h2>
+<p>A <code>rowspan</code> that reaches past the last physical row makes the grid taller than the row count implies. If you allocate the output from the rowspan arithmetic, you emit trailing empty rows — Excel shows a sheet that "has 3 blank rows at the bottom" and the user files a bug about your parser.</p>
+<p>The fix is an explicit trim, with one exception that matters: in a metadata-only mode (headers plus the first N rows), those trailing rows are not phantom — they were never materialised. Trimming unconditionally in that mode silently deletes real data.</p>
+
+<h2 id="header-detection">3. "It Has a TH" Is Not a Header Test</h2>
+<p>Real dashboards use a wide variety of header encodings. A header detector that only checks <code>thead</code> or <code>&lt;th&gt;</code> will produce wrong output on at least four of them:</p>
+<ul>
+<li><code>role="columnheader"</code> without any <code>th</code> element (ARIA grids).</li>
+<li>A single stray <code>&lt;th&gt;</code> in a data row, used for a row label.</li>
+<li><strong>Ant Design's measure row</strong> — a virtual-table spacer row that exists purely to measure column widths. It looks exactly like a header row and contains no user data.</li>
+<li><code>aria-hidden</code> duplicate rows that exist for screen readers or sticky-header cloning.</li>
+</ul>
+<pre><code>const ARIA_NOISE_RE = /\b(?:ant-table-measure-row|ant-table-placeholder|ag-measure|ag-hidden|ag-header-cell-resize|ag-header-row-filter|ag-floating-filter|MuiDataGrid-filler|MuiDataGrid-columnHeader--empty)\b/;</code></pre>
+<p>This regex is the least elegant line in the project and the one that saved the most support tickets.</p>
+
+<h2 id="split-header">4. Element Plus Splits the Table in Two</h2>
+<p>Element Plus renders the header and the body as <em>separate</em> <code>&lt;table&gt;</code> elements (to support fixed headers). The body table alone has no header at all. Exporting the body gives a sheet with a header row of data values.</p>
+<p>The pragmatic fix: when the visible table has no header rows, search the nearest known container for a sibling table and borrow its header — provided the column count matches:</p>
+<pre><code>const HEADER_DONOR_CONTAINERS = [
+  '.el-table', '.ant-table-wrapper', '.ant-table', '.p-datatable',
+  '.k-grid', '.dt-container', '.dataTables_wrapper'
+];
+// findHeaderDonor(tableEl, cols) — returns header rows only when
+// the donor's column span equals the body's column count.</code></pre>
+<p>The column-count check is not optional. Borrowing a 7-column header for a 6-column body produces plausible-looking, completely wrong output.</p>
+
+<h2 id="pinned-clones">5. Fixed Columns Are Whole-Row Clones</h2>
+<p>MUI DataGrid and AG Grid implement pinned columns by rendering the same logical row multiple times: a pinned-left group, a scrolling group, and a pinned-right group. Each has <code>role="row"</code> and its own cells.</p>
+<p>If you iterate <code>role="row"</code> naively, every row is exported three times with a third of its columns each. The correct model is: group physical rows into <em>logical</em> rows by row key, then merge their cells:</p>
+<pre><code>// Fixed-column clone of a row we already collected: merge its cells.
+if (map.has(key)) {
+  map.get(key).cells.push(...cells);
+  continue;
+}</code></pre>
+<p>Two sub-cases break the simple version. Sparse header rows with disjoint columns have no row index at all, so they must be merged by column space overlap instead of by key. And AG Grid 36 wraps each cell in many presentation containers, so cell collection has to descend through layout wrappers while stopping at another row, grid, or native table.</p>
+
+<h2 id="aria-colindex">6. <code>aria-colindex</code> Can Be Pathological</h2>
+<p>ARIA grids may report column positions rather than DOM order — which is exactly what you want with pinned columns. But the attribute is written by application code, and application code can be wrong: zero, negatives, indices far beyond the column count.</p>
+<p>Clamp, then write by position, and skip when the target is already occupied by a merged cell. Without clamps, a single bad attribute allocates a sparse array with thousands of empty columns and the export hangs while serialising them.</p>
+
+<h2 id="limits">7. Excel's Hard Limits Are Your Budget</h2>
+<p>Exporters need caps, and the caps should be Excel's own numbers so truncation is predictable rather than arbitrary:</p>
+<pre><code>const DEFAULT_MAX_CELLS = 500000;
+const DEFAULT_MAX_COLS  = 2000;
+const MAX_MERGES        = 50000;
+const MAX_CELL_CHARS    = 32767; // Excel's hard cell limit</code></pre>
+<p>Two practical details:</p>
+<ul>
+<li>Counting must continue past the cap even when collection stops, so the UI can say "showing 500,000 of 812,441 cells" instead of silently truncating.</li>
+<li><code>MAX_CELL_CHARS</code> matters before export, not after: a single pathological cell (a pasted log, a base64 blob) otherwise dominates every message you pass between content script, worker and UI.</li>
+</ul>
+
+<h2 id="injection">8. Formula Injection, Without Breaking Phone Numbers</h2>
+<p>Any cell beginning with <code>=</code>, <code>+</code>, <code>-</code> or <code>@</code> is a formula when Excel opens the file. A cell containing <code>=HYPERLINK(...)</code> or <code>=cmd|'/c calc'!A0</code> is a genuine attack vector for exported CSVs shared with colleagues.</p>
+<p>The naive guard — prefix everything starting with those characters — corrupts the most common real values in commerce data: <code>-5</code>, <code>+8613800138000</code>, <code>-12.5%</code>. The version that survives contact with real data checks whether anything after the leading character is non-numeric:</p>
+<pre><code>function sanitizeCell(val) {
+  // Prefix a quote only when the payload is not a plain number.
+  if (/^[=+\-@\t\r]/.test(val) &amp;&amp; /[^0-9.,%()\s]/.test(val.slice(1))) return "'" + val;
+  return val;
+}</code></pre>
+<p><code>-5</code> stays <code>-5</code>. <code>+86 138 0013 8000</code> stays a phone number. <code>=cmd|'/c calc'!A0</code> becomes inert text.</p>
+
+<h2 id="bare-cr">9. A Bare CR Desynchronises Excel's Columns</h2>
+<p>CSV quoting usually checks for commas, quotes and newlines. Excel additionally treats a <strong>bare carriage return</strong> (<code>\r</code>) as a row terminator. A field containing <code>\r</code> that is left unquoted splits into a new row mid-record, and every subsequent column shifts.</p>
+<pre><code>if (val.includes('"') || val.includes(',') || /[\r\n]/.test(val)) {
+  val = '"' + val.replace(/"/g, '""') + '"';
+}</code></pre>
+<p>The same normalisation belongs upstream in text cleaning (<code>\r\n?</code> → <code>\n</code>), so this quoting rule only has to protect callers that assemble rows themselves.</p>
+
+<h2 id="testing">10. The Tests Are the Documentation</h2>
+<p>All of the above is encoded in 57 unit tests in one file, and the test names are the real specification:</p>
+<ul>
+<li><code>parseTable treats rowspan=0 as spanning the rest of the row group</code></li>
+<li><code>parseAriaGrid merges pinned fixed-column clones into logical rows</code></li>
+<li><code>tableToCSV quotes a bare CR (Excel line-terminator desync)</code></li>
+<li><code>sanitizeCell keeps negative numbers readable</code></li>
+</ul>
+<p>Two reasons this matters beyond coverage. First, every one of these bugs is invisible in a screenshot — the export "looks fine" until someone opens it in Excel. Second, the DOM shapes differ per library version, so a regression test with a captured fixture is the only cheap way to notice when AG Grid or Ant Design changes its markup.</p>
+
+<h2 id="limits-known">Known Limitations Worth Publishing</h2>
+<p>An exporter's honesty section is part of its API:</p>
+<ul>
+<li>Canvas-rendered grids (some charts and WebGL tables) have no DOM text — nothing to export.</li>
+<li>Virtual scrolling means only the current DOM window exists; "export all rows" is impossible without driving the scroll container.</li>
+<li>Cross-origin iframes cannot be read at all.</li>
+</ul>
+<p>Documenting these prevents the worst kind of ticket: a user who believes they exported 10,000 rows and actually got 40.</p>
+
+<h2 id="checklist">Checklist</h2>
+<ol>
+<li>Implement <code>rowspan=0</code> correctly; it is not an invalid value.</li>
+<li>Trim phantom rows — except in metadata-only mode.</li>
+<li>Detect headers by role and known library markers, not by <code>th</code> presence alone.</li>
+<li>Borrow headers only when column counts match.</li>
+<li>Group physical rows into logical rows before merging pinned clones.</li>
+<li>Clamp <code>aria-colindex</code>, and never trust DOM order in ARIA grids.</li>
+<li>Cap cells, columns, merges and characters at Excel's limits; keep counting past the cap.</li>
+<li>Sanitise formulas without destroying numbers and phone numbers.</li>
+<li>Quote bare <code>\r</code> in CSV, and normalise it upstream too.</li>
+<li>Publish the limitations: canvas grids, virtual scrolling, cross-origin iframes.</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://html.spec.whatwg.org/multipage/tables.html#attr-tdth-rowspan" target="_blank">HTML spec — rowspan and colspan</a></li>
+<li><a href="https://www.w3.org/WAI/ARIA/apg/patterns/grid/" target="_blank">WAI-ARIA Grid Pattern</a></li>
+<li><a href="https://owasp.org/www-community/attacks/CSV_Injection" target="_blank">CSV Injection — OWASP</a></li>
+<li><a href="https://support.microsoft.com/en-us/office/excel-specifications-and-limits-1672b34d-7043-467e-8e27-269d656771c3" target="_blank">Excel specifications and limits — Microsoft</a></li>
+</ul>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./html-table-merged-cells-parsing.html">Parsing HTML Tables with Merged Cells</a></li>
+  <li><a href="./debugging-like-a-senior-engineer.html">Debugging Like a Senior Engineer</a></li>
+  <li><a href="./extension-css-injection-csp.html">world: 'MAIN' Is the One Injection Path CSP Kills</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'From HTML Table to XLSX: rowspan=0, Pinned Column Clones and Formula Injection',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '从 HTML 表格到 XLSX：rowspan=0、固定列克隆与公式注入',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'HTMLテーブルからXLSXへ：rowspan=0、固定列クローン、数式インジェクション',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Von HTML-Tabelle zu XLSX: rowspan=0, fixierte Spaltenklone und Formelinjektion',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'De tabla HTML a XLSX: rowspan=0, clones de columnas fijas e inyección de fórmulas',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'De la table HTML au XLSX : rowspan=0, clones de colonnes fixes et injection de formules',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://annmax.ccwu.cc"></script>
+</body>
+</html>

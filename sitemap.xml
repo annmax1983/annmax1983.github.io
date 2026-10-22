@@ -7,8 +7,33 @@
   </url>
   <url>
     <loc>https://annmax1983.github.io/blog.html</loc>
-    <lastmod>2026-10-14</lastmod>
+    <lastmod>2026-10-22</lastmod>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/full-page-screenshot-geometry-budget.html</loc>
+    <lastmod>2026-10-22</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/license-validation-failure-modes.html</loc>
+    <lastmod>2026-10-22</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/anti-hotlink-image-downloads.html</loc>
+    <lastmod>2026-10-22</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/extension-css-injection-csp.html</loc>
+    <lastmod>2026-10-22</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/html-table-to-xlsx-edge-cases.html</loc>
+    <lastmod>2026-10-22</lastmod>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://annmax1983.github.io/blog/service-worker-resilience.html</loc>

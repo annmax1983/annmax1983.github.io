@@ -31,6 +31,41 @@
     "blogPost": [
       {
         "@type": "BlogPosting",
+        "headline": "80,000 Pixels Tall: Geometry Budgets, Viewport Traps and a Deadlock in MV3 Full-Page Capture",
+        "url": "https://annmax1983.github.io/blog/full-page-screenshot-geometry-budget.html",
+        "datePublished": "2026-10-22",
+        "description": "Why full-page capture dies on infinite feeds, why the viewport trick backfires, and the geometry budget plus timeout guards that made it reliable."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "Six Ways License Validation Fails Silently in Browser Extensions",
+        "url": "https://annmax1983.github.io/blog/license-validation-failure-modes.html",
+        "datePublished": "2026-10-22",
+        "description": "Offline-forever Pro, UI and background disagreeing on expiry, in-flight snapshot races, HTTP 200 with valid:false, and treating offline as revoked."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "Referer You Cannot Set: Anti-Hotlink Image Downloads in MV3",
+        "url": "https://annmax1983.github.io/blog/anti-hotlink-image-downloads.html",
+        "datePublished": "2026-10-22",
+        "description": "Why batch downloads report success and save nothing: CORS failures, DNR rule slots, and the unreachable Referer header."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "world: 'MAIN' Is the One Injection Path CSP Kills",
+        "url": "https://annmax1983.github.io/blog/extension-css-injection-csp.html",
+        "datePublished": "2026-10-22",
+        "description": "A style element created in the page's main world is silently refused by strict style-src CSP. Measured comparison of MAIN, ISOLATED and insertCSS."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "From HTML Table to XLSX: rowspan=0, Pinned Column Clones and Formula Injection",
+        "url": "https://annmax1983.github.io/blog/html-table-to-xlsx-edge-cases.html",
+        "datePublished": "2026-10-22",
+        "description": "rowspan=0 semantics, phantom rows, measure rows, MUI pinned clones, AG Grid wrappers, Excel limits and CSV formula injection."
+      },
+      {
+        "@type": "BlogPosting",
         "headline": "Full-Page Screenshots in Chrome Extensions: Stitching, Fixed Elements and Memory Limits",
         "url": "https://annmax1983.github.io/blog/full-page-screenshot-stitching.html",
         "datePublished": "2026-10-08",
@@ -173,6 +208,46 @@
   </div>
 
   <div class="blog-grid">
+
+    <a href="blog/full-page-screenshot-geometry-budget.html" class="blog-card reveal">
+      <div class="blog-date">2026-10</div>
+      <h3>80,000 Pixels Tall: Geometry Budgets, Viewport Traps and a Deadlock in MV3 Full-Page Capture</h3>
+      <p>An infinite feed at 85,691 px, the viewport trick that captures half a page, a 10 MB storage wall, and a lock that survived until browser restart.</p>
+      <span class="blog-tag">Chrome Extensions</span>
+      <span class="blog-tag">MV3</span>
+    </a>
+
+    <a href="blog/license-validation-failure-modes.html" class="blog-card reveal">
+      <div class="blog-date">2026-10</div>
+      <h3>Six Ways License Validation Fails Silently in Browser Extensions</h3>
+      <p>Offline-forever Pro, UI and background disagreeing on expiry, in-flight snapshot races, HTTP 200 with valid:false, dead code behind a missing export.</p>
+      <span class="blog-tag">Licensing</span>
+      <span class="blog-tag">Security</span>
+    </a>
+
+    <a href="blog/anti-hotlink-image-downloads.html" class="blog-card reveal">
+      <div class="blog-date">2026-10</div>
+      <h3>Referer You Cannot Set: Anti-Hotlink Image Downloads in MV3</h3>
+      <p>"Completed 40 images", zero files saved. Why downloads.download ignores Referer, how DNR rule slots get clobbered, and the blob pipeline MV3 forces you into.</p>
+      <span class="blog-tag">Chrome Extensions</span>
+      <span class="blog-tag">DNR</span>
+    </a>
+
+    <a href="blog/extension-css-injection-csp.html" class="blog-card reveal">
+      <div class="blog-date">2026-10</div>
+      <h3>world: 'MAIN' Is the One Injection Path CSP Kills</h3>
+      <p>Style element present, 632 characters of CSS, no error, no effect. The measured three-way comparison of MAIN, ISOLATED and chrome.scripting.insertCSS.</p>
+      <span class="blog-tag">CSP</span>
+      <span class="blog-tag">Chrome Extensions</span>
+    </a>
+
+    <a href="blog/html-table-to-xlsx-edge-cases.html" class="blog-card reveal">
+      <div class="blog-date">2026-10</div>
+      <h3>From HTML Table to XLSX: rowspan=0, Pinned Column Clones and Formula Injection</h3>
+      <p>Measure rows, split headers, MUI pinned clones, AG Grid wrappers, Excel hard limits, and sanitising formulas without breaking phone numbers.</p>
+      <span class="blog-tag">Data Extraction</span>
+      <span class="blog-tag">Algorithms</span>
+    </a>
 
     <a href="blog/full-page-screenshot-stitching.html" class="blog-card reveal">
       <div class="blog-date">2026-10</div>

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">world: 'MAIN' Is the One Injection Path CSP Kills</title>
+  <meta name="description" content="A <style> element created in the page's main world is silently refused by strict style-src CSP. Measured comparison of MAIN, ISOLATED and chrome.scripting.insertCSS, plus the MutationObserver fallback tests.">
+  <meta property="og:title" content="world: 'MAIN' Is the One Injection Path CSP Kills">
+  <meta property="og:description" content="A style element in the main world gets silently refused by style-src 'self'. Here is the measured three-way comparison and the injection world you should use.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/extension-css-injection-csp.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/extension-css-injection-csp.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "world: 'MAIN' Is the One Injection Path CSP Kills",
+    "description": "A style element created in the page's main world is silently refused by strict style-src CSP. Measured comparison of MAIN, ISOLATED and chrome.scripting.insertCSS.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-10-22",
+    "dateModified": "2026-10-22",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/extension-css-injection-csp.html"
+    },
+    "url": "https://annmax1983.github.io/blog/extension-css-injection-csp.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../blog.html" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">world: 'MAIN' Is the One Injection Path CSP Kills</h1>
+    <div class="meta" id="articleMeta"><span>October 2026</span><span class="reading-time">9 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="symptom">The Injection That Did Nothing</h2>
+<p>A user reports that per-site custom CSS "stopped working on one site". You open DevTools. The <code>&lt;style&gt;</code> element is in the DOM. Its <code>textContent</code> is 632 characters of perfectly valid CSS. There is no console error, no CSP violation warning in the extension's own context, no exception. And <code>getComputedStyle</code> shows the page completely unchanged.</p>
+<p>That combination — element present, content correct, no error, zero effect — is the signature of a silent CSP refusal. It cost me an afternoon because every diagnostic I tried first ("is the CSS valid?", "did the message arrive?", "is the selector right?") returned a green light.</p>
+
+<h2 id="three-paths">Three Ways to Inject CSS, Three Different CSP Outcomes</h2>
+<p>An extension can get CSS into a page three ways, and they are not equivalent under a strict Content Security Policy. I tested all three on Chrome/Edge 154 against pages sending <code>style-src 'self'</code> (no <code>unsafe-inline</code>):</p>
+<table>
+<thead>
+<tr><th>Path</th><th>Strict <code>style-src 'self'</code></th><th>No CSP</th></tr>
+</thead>
+<tbody>
+<tr><td><code>&lt;style&gt;</code> created in <code>world: 'MAIN'</code></td><td><strong>Refused silently</strong></td><td>Works</td></tr>
+<tr><td><code>&lt;style&gt;</code> created in <code>world: 'ISOLATED'</code></td><td><strong>Works</strong></td><td>Works</td></tr>
+<tr><td><code>chrome.scripting.insertCSS</code></td><td><strong>Works</strong></td><td>Works</td></tr>
+</tbody>
+</table>
+<p>The important detail: Blink skips the inline-style CSP check for content scripts running in a non-main world. The style element lands in the same document and applies to the same DOM — it is simply exempt from a check that the main world is subject to.</p>
+<p>Which means the original implementation picked the <em>only</em> one of the three paths that a strict CSP can kill. Not bad luck — a specific wrong choice, and one that produces no error message to point at it.</p>
+
+<h2 id="why-main">Why MAIN Looked Like the Right Choice</h2>
+<p>There are legitimate reasons to use <code>world: 'MAIN'</code>: you need to read page JavaScript state, patch a page function, or observe something that only exists in the page's own realm. The mistake is generalising that requirement to <em>all</em> injections.</p>
+<p>The code shape that caused the bug is common:</p>
+<pre><code>// Before — works on 95% of sites, silently dead on the rest
+await chrome.scripting.executeScript({
+  target: { tabId },
+  world: 'MAIN',
+  func: (css, id) =&gt; {
+    const el = document.createElement('style');
+    el.id = id;
+    el.textContent = css;
+    document.documentElement.appendChild(el);
+  },
+  args: [css, styleId]
+});</code></pre>
+<p>Nothing here is wrong on a page with no CSP. The failure only appears on sites that ship <code>style-src 'self'</code> — which, unfortunately, is exactly the category of high-traffic sites users care most about.</p>
+
+<h2 id="the-fix">The Fix, and the Comment That Keeps It Fixed</h2>
+<pre><code>await chrome.scripting.executeScript({
+  target: { tabId },
+  // ISOLATED, not MAIN: the page's own CSP can refuse a &lt;style&gt; element
+  // created from the main world — see the note by the font proxy above.
+  world: 'ISOLATED',
+  func: (css, id) =&gt; { /* unchanged */ },
+  args: [css, styleId]
+});</code></pre>
+<p>The code change is one word. The durable part is the comment, and the reason is embarrassing: this class of bug gets "fixed" back within a month. Someone sees <code>ISOLATED</code>, assumes it is a permission restriction, and switches to <code>MAIN</code> to "get full access". The repo now also carries a short "Injection world (do not fix)" note in <code>AGENTS.md</code> precisely because the comment alone was not enough.</p>
+
+<h2 id="same-pattern">The Same Bug in Three Other Extensions</h2>
+<p>Once you know the signature, you start finding it elsewhere in the same codebase:</p>
+<ul>
+<li><strong>Note-taking extension</strong> — five separate <code>world: 'MAIN'</code> injections, all removed. None of them actually needed page-realm access; they were copy-pasted from an early prototype.</li>
+<li><strong>Site blocker</strong> — cannot inject a <code>&lt;style&gt;</code> at all on YouTube and TikTok (both send very strict CSP). Its CSS ships in the manifest instead of being injected at runtime.</li>
+<li><strong>Font tool</strong> — fetches Google Fonts CSS, inlines every <code>woff2</code> as a <code>data:</code> URL, then injects plain <code>@font-face</code> rules. The fetch happens in the service worker; only the final injection touches the page, in the isolated world.</li>
+</ul>
+<p>The general lesson is not "always use ISOLATED". It is: <em>pick the weakest world that satisfies the requirement</em>, and treat <code>MAIN</code> as a deliberate escalation you justify in a comment.</p>
+
+<h2 id="fallback-tests">Testing the Fallback Path Properly</h2>
+<p>Moving to the isolated world was not the end of it. The extension also runs a <code>MutationObserver</code> to re-apply styles when a site deletes them (some SPAs wipe <code>&lt;head&gt;</code> on route change). Changing the world changed the observer's environment, so it needed re-testing — and the naive tests were all false positives:</p>
+<ul>
+<li><strong>Observer still fires?</strong> Delete the style element manually, then check <code>getComputedStyle(document.body).backgroundColor</code> — not the presence of the element, which tells you nothing about whether CSP or a race ate it.</li>
+<li><strong>Double-apply does not duplicate observers?</strong> Call apply twice, delete the style once, and assert exactly one re-application. Two observers would produce two re-applications, which is invisible in the DOM but shows up as duplicated work and, in this extension, doubled storage writes.</li>
+<li><strong>No zombie after removal?</strong> Remove the style, delete it again 1.2 s later, and assert nothing comes back. If the observer was never disconnected, the style resurrects and the user believes removal failed.</li>
+</ul>
+<p>Note the pattern across all three: the assertion is on <em>computed style and call counts</em>, never on DOM presence. DOM presence was exactly the false signal that started this investigation.</p>
+
+<h2 id="detect">How to Detect This Class of Bug</h2>
+<ol>
+<li><strong>Assert on effect, not on insertion.</strong> Read <code>getComputedStyle(el).someProperty</code> after injecting. If the extension's success criterion is "the element exists", it will report success forever.</li>
+<li><strong>Log the page's CSP during development.</strong> One line — <code>document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.content</code> plus a look at the response header — tells you whether you are testing the easy path.</li>
+<li><strong>Listen for <code>securitypolicyviolation</code> on the page</strong> (isolated world is enough). A refusal that is "silent" in the console often still fires this event.</li>
+<li><strong>Keep a strict-CSP test page in the repo.</strong> A local HTML file with <code>style-src 'self'</code> turns a 30-minute field diagnosis into a 5-second local check.</li>
+</ol>
+
+<h2 id="checklist">Checklist</h2>
+<ol>
+<li>Default to the isolated world; escalate to <code>MAIN</code> only with a stated reason.</li>
+<li>Prefer <code>chrome.scripting.insertCSS</code> when you do not need dynamic toggling inside the page.</li>
+<li>Never verify injection by DOM presence — verify with <code>getComputedStyle</code>.</li>
+<li>Write the "why" comment next to the world argument; add it to your agent/contributor notes too.</li>
+<li>Re-test any <code>MutationObserver</code> fallback after changing injection world (dedupe + no-zombie assertions).</li>
+<li>Ship a strict-CSP fixture page so the regression is caught locally.</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/scripting" target="_blank">chrome.scripting API — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/develop/concepts/content-scripts" target="_blank">Content scripts and isolated worlds — Chrome Docs</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP" target="_blank">Content Security Policy — MDN</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/SecurityPolicyViolationEvent" target="_blank">SecurityPolicyViolationEvent — MDN</a></li>
+</ul>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./least-privilege-review.html">Least Privilege &amp; Chrome Web Store Review Checklist</a></li>
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience &amp; State Persistence for MV3</a></li>
+  <li><a href="./debugging-like-a-senior-engineer.html">Debugging Like a Senior Engineer</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: "world: 'MAIN' Is the One Injection Path CSP Kills",
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: "world: 'MAIN' 是唯一会被 CSP 掐掉的注入路径",
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: "world: 'MAIN' はCSPに殺される唯一の注入経路",
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: "world: 'MAIN' ist der einzige Injektionsweg, den CSP tötet",
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: "world: 'MAIN' es la única ruta de inyección que CSP elimina",
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: "world: 'MAIN' est la seule voie d'injection que CSP élimine",
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://annmax.ccwu.cc"></script>
+</body>
+</html>

@@ -9,7 +9,63 @@
     <name>AnnMax</name>
     <email>support@annmax1983.com</email>
   </author>
-  <updated>2026-10-08T00:00:00Z</updated>
+  <updated>2026-10-22T00:00:00Z</updated>
+
+  <entry>
+    <title>80,000 Pixels Tall: Geometry Budgets, Viewport Traps and a Deadlock in MV3 Full-Page Capture</title>
+    <link href="https://annmax1983.github.io/blog/full-page-screenshot-geometry-budget.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/full-page-screenshot-geometry-budget.html</id>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <summary>An infinite feed at 85,691 px, the viewport trick that captures half a page, a 10 MB storage wall, and a lock that survived until browser restart.</summary>
+    <category term="Chrome Extensions"/>
+    <category term="MV3"/>
+    <category term="Canvas"/>
+  </entry>
+
+  <entry>
+    <title>Six Ways License Validation Fails Silently in Browser Extensions</title>
+    <link href="https://annmax1983.github.io/blog/license-validation-failure-modes.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/license-validation-failure-modes.html</id>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <summary>Offline-forever Pro, UI and background disagreeing on expiry, in-flight snapshot races, HTTP 200 with valid:false, and treating offline as revoked.</summary>
+    <category term="Licensing"/>
+    <category term="Security"/>
+    <category term="MV3"/>
+  </entry>
+
+  <entry>
+    <title>Referer You Cannot Set: Anti-Hotlink Image Downloads in MV3</title>
+    <link href="https://annmax1983.github.io/blog/anti-hotlink-image-downloads.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/anti-hotlink-image-downloads.html</id>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <summary>Why batch downloads report success and save nothing: CORS failures, DNR rule slots, and the unreachable Referer header.</summary>
+    <category term="Chrome Extensions"/>
+    <category term="DNR"/>
+    <category term="Downloads"/>
+  </entry>
+
+  <entry>
+    <title>world: 'MAIN' Is the One Injection Path CSP Kills</title>
+    <link href="https://annmax1983.github.io/blog/extension-css-injection-csp.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/extension-css-injection-csp.html</id>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <summary>A style element created in the page's main world is silently refused by strict style-src CSP. Measured comparison of MAIN, ISOLATED and insertCSS.</summary>
+    <category term="CSP"/>
+    <category term="Chrome Extensions"/>
+    <category term="Debugging"/>
+  </entry>
+
+  <entry>
+    <title>From HTML Table to XLSX: rowspan=0, Pinned Column Clones and Formula Injection</title>
+    <link href="https://annmax1983.github.io/blog/html-table-to-xlsx-edge-cases.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/html-table-to-xlsx-edge-cases.html</id>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <summary>rowspan=0 semantics, phantom rows, measure rows, MUI pinned clones, AG Grid wrappers, Excel limits and CSV formula injection.</summary>
+    <category term="Data Extraction"/>
+    <category term="Algorithms"/>
+    <category term="CSV"/>
+  </entry>
+
 
   <entry>
     <title>Full-Page Screenshots in Chrome Extensions: Stitching, Fixed Elements and Memory Limits</title>

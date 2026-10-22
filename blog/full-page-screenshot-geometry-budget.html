@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">80,000 Pixels Tall: Geometry Budgets, Viewport Traps and a Deadlock in MV3 Full-Page Capture</title>
+  <meta name="description" content="Debugging full-page screenshots on infinite-scroll pages: why stretching the viewport fails, how to budget capture geometry, and how a missing timeout deadlocked the service worker until browser restart.">
+  <meta property="og:title" content="80,000 Pixels Tall: Geometry Budgets, Viewport Traps and a Deadlock in MV3 Full-Page Capture">
+  <meta property="og:description" content="Why full-page capture dies on infinite feeds, why the viewport trick backfires, and the geometry budget plus timeout guards that made it reliable.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/full-page-screenshot-geometry-budget.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/full-page-screenshot-geometry-budget.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "80,000 Pixels Tall: Geometry Budgets, Viewport Traps and a Deadlock in MV3 Full-Page Capture",
+    "description": "Debugging full-page screenshots on infinite-scroll pages: why stretching the viewport fails, how to budget capture geometry, and how a missing timeout deadlocked the service worker until browser restart.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-10-22",
+    "dateModified": "2026-10-22",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/full-page-screenshot-geometry-budget.html"
+    },
+    "url": "https://annmax1983.github.io/blog/full-page-screenshot-geometry-budget.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../blog.html" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">80,000 Pixels Tall: Geometry Budgets, Viewport Traps and a Deadlock in MV3 Full-Page Capture</h1>
+    <div class="meta" id="articleMeta"><span>October 2026</span><span class="reading-time">13 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="the-crash">The Page That Killed the Renderer</h2>
+<p><em>Companion to <a href="./full-page-screenshot-stitching.html">Full-Page Screenshots in Chrome Extensions: Stitching, Fixed Elements and Memory Limits</a>, which covers the scroll-and-stitch path and canvas limits. This article is about the CDP path, the geometry budget, and the deadlock.</em></p>
+<p>"Full-page screenshot" sounds like a solved problem. Scroll, capture, stitch. Then you point it at an infinite feed and the renderer process dies with an out-of-memory error.</p>
+<p>The concrete case: a CSDN homepage. A 30-screen scroll-and-stitch run left the page at <strong>85,691 px tall, 16,791 DOM nodes and 3,903 images</strong>. Every additional screen of scrolling appended more content, which meant the capture loop never reached a bottom. The renderer eventually exhausted memory and the extension surfaced a generic "exceeded memory" error that told the user nothing actionable.</p>
+<p>What followed was four separate dead ends, each one only obvious after measuring rather than reasoning. This article is the postmortem — the traps, the numbers, and the geometry budget that finally bounded the problem.</p>
+
+<h2 id="dead-end-viewport">Dead End #1: Stretch the Viewport to the Whole Page</h2>
+<p>The classic trick for full-page capture is to call <code>Emulation.setDeviceMetricsOverride</code> with the viewport height set to the full document height, then take a single screenshot. It works beautifully on static article pages, which is why it propagates through every tutorial.</p>
+<p>On an infinite feed it fails in a way that is hard to see. When you enlarge the viewport to the current document height, the "load more" sentinel at the bottom of the feed is pulled back <em>into</em> the visible area. The site loads another batch. The document grows. You are now capturing a viewport that is shorter than the page it was sized for.</p>
+<p>Measured on that same feed: within 300 ms of the override, document height went from 3,954 px to 6,609 px. The resulting screenshot covered roughly the first half of the page and silently stopped — no error, no warning, just a truncated image that looked plausible.</p>
+
+<h2 id="dead-end-scroll">Dead End #2: Scroll Until You Reach the Bottom</h2>
+<p>The obvious fix is to trigger lazy loading first: read <code>scrollHeight</code> once, then scroll from top to bottom in steps so images and cards render.</p>
+<p>The bug is the word "once". Infinite feeds do not have a bottom. Looping from the <em>initial</em> <code>scrollHeight</code> still appends content at every step, so the loop keeps extending its own target. In the CSDN case the reachable height after 30 screens was already 85,691 px — and the page was still growing when the renderer ran out of memory.</p>
+<p>The fix is not a bigger loop, it is a hard stop:</p>
+<pre><code>const LAZY_LOAD_MAX_MS = 12000;
+const LAZY_LOAD_MAX_STEPS = 40;
+
+// Stop on whichever comes first: wall clock or step count.
+// An infinite feed has no natural bottom — impose one.
+while (steps &lt; LAZY_LOAD_MAX_STEPS &amp;&amp; Date.now() - startedAt &lt; LAZY_LOAD_MAX_MS) {
+  window.scrollBy(0, viewportHeight);
+  await nextFrame();
+  steps++;
+}</code></pre>
+<p>A bounded lazy-load pass is not just a performance guard. It is the difference between "the capture stops early and says so" and "the tab dies".</p>
+
+<h2 id="geometry-budget">The Geometry Budget</h2>
+<p>Once scrolling is bounded, the remaining risk is asking Chrome for a bitmap it cannot allocate. A 30,000 px tall page at device pixel ratio 2 is a 60,000 px wide-by-tall allocation before any encoding — hundreds of megabytes in one shot.</p>
+<p>So the capture requests are constrained by two constants and one pure function:</p>
+<pre><code>const MAX_CAPTURE_SIDE = 16000;   // physical px per side
+const MAX_CAPTURE_AREA = 50e6;    // physical px total
+
+function computeCaptureGeometry(cssWidth, dpr) {
+  const width = Math.max(1, Math.round(cssWidth || 1));
+  // Shrink the scale if the page is wider than the side cap allows
+  const scale = Math.max(0.1, Math.min(dpr || 1, MAX_CAPTURE_SIDE / width));
+  const maxCssHeight = Math.floor(
+    Math.min(MAX_CAPTURE_SIDE, Math.floor(MAX_CAPTURE_AREA / (width * scale))) / scale
+  );
+  return { scale, maxCssHeight };
+}</code></pre>
+<p>Two things are easy to get wrong here:</p>
+<ul>
+<li><strong>Scale, not just height.</strong> A 4,000 px wide page at DPR 2 exceeds the side cap even at a modest height. Down-scaling is the only option that keeps the aspect ratio and the memory bound simultaneously.</li>
+<li><strong>Budget in physical pixels.</strong> DPR 1 and DPR 2 pages need different limits for the same CSS height. Budgeting in CSS pixels quietly allows 4× the memory on a retina display.</li>
+</ul>
+<p>When the document exceeds <code>maxCssHeight</code>, the extension captures the top portion and reports <code>captureTruncated</code> with the actual cutoff. A truncated screenshot the user knows about is strictly better than a failed capture or a dead tab.</p>
+
+<h2 id="cdp-path">The Capture Path That Does Not Touch the Viewport</h2>
+<p>For normal documents the fix removes the viewport override entirely:</p>
+<pre><code>await sendCDP(debuggee, 'Page.captureScreenshot', {
+  format: 'png',
+  captureBeyondViewport: true,
+  clip: { x: 0, y: 0, width, height: captureHeight, scale: captureScale }
+});</code></pre>
+<p><code>captureBeyondViewport</code> renders beyond the visible area without resizing it, so the infinite-feed sentinel never gets pulled into view. But there is an exception worth knowing: pages whose scrolling happens in an inner container (GitHub-style layouts) do not respond to <code>captureBeyondViewport</code> correctly — the document itself is viewport-sized and the tall part lives inside a nested scroller.</p>
+<p>The heuristic that worked: if the measured content height exceeds the document height by more than ~10 px, the tall content is inside a nested scroller, so keep the viewport-stretch path for that tab. Otherwise use the clip path.</p>
+
+<h2 id="measure-too-early">"It Captured One Screen Short"</h2>
+<p>After switching to the clip path, captures came back about 2,600 px short on lazy-loaded pages. The cause was measurement timing: the last batch of lazy-loaded content had been requested but not laid out, so <code>scrollHeight</code> was read one screen behind reality.</p>
+<p>Fixed sleeps are the wrong answer — too short on slow pages, wasted time on fast ones. The reliable signal is stability:</p>
+<pre><code>// PS_FULL_WAIT_STABLE: resolve when scrollHeight (and image count)
+// has not changed for `quiet` ms, or `timeout` elapses.
+{ type: 'PS_FULL_WAIT_STABLE', quiet: 250, timeout: 1500 }</code></pre>
+<p>250 ms of quiet is enough to catch a settled layout; the 1.5 s cap prevents a page with a constantly animating counter from blocking the capture forever.</p>
+
+<h2 id="the-deadlock">The Deadlock That Required a Browser Restart</h2>
+<p>The worst bug in the whole sequence was not about memory. It was a lock that never released.</p>
+<p>The flow was: take an <code>isCapturing</code> lock, ask the content script to wait for a render frame, then capture. The wait used <code>requestAnimationFrame</code>. When the tab is backgrounded — or the window is minimised, or the user switches tabs during a long capture — <strong>rAF callbacks do not fire</strong>. The message never resolves. And <code>chrome.tabs.sendMessage</code> has no default timeout, so the promise simply hangs.</p>
+<p>Now add the keep-alive: a 20-second interval touching <code>chrome.storage</code> so the service worker is not recycled mid-capture. That keep-alive keeps the <em>stuck</em> worker alive. The result is a permanent lock: every subsequent capture request sees <code>isCapturing === true</code>, returns "busy", and the only recovery is restarting the browser.</p>
+<p>Three guards fix it, and each one is necessary:</p>
+<pre><code>const SEND_TO_TAB_TIMEOUT = 8000;    // hard cap per content-script round trip
+const CAPTURE_LOCK_TIMEOUT = 120000; // treat a lock older than 2 min as stale
+
+let isCapturing = false;
+let captureStartedAt = 0;
+let captureToken = 0;
+
+// 1. Every message is raced against a timeout
+function sendToTab(tabId, msg) {
+  return Promise.race([
+    chrome.tabs.sendMessage(tabId, msg),
+    new Promise((_, reject) =&gt; setTimeout(() =&gt; reject(new Error('PS_TIMEOUT')), SEND_TO_TAB_TIMEOUT))
+  ]);
+}
+
+// 2. A lock with a timestamp can go stale
+function isLocked() {
+  return isCapturing &amp;&amp; Date.now() - captureStartedAt &lt; CAPTURE_LOCK_TIMEOUT;
+}
+
+// 3. A superseded capture must not release the current one's lock
+const token = ++captureToken;
+try { /* ... */ } finally {
+  if (captureToken === token) { isCapturing = false; stopKeepalive(); }
+}</code></pre>
+<p>The token matters more than it looks. Without it, an abandoned capture's <code>finally</code> block releases the lock held by the capture that superseded it, which reopens the door to two concurrent captures writing to the same storage key.</p>
+
+<h2 id="storage">The 10 MB Wall</h2>
+<p><code>chrome.storage.session</code> is capped at 10 MB. A full-page PNG at 16,000 px does not fit, so the old implementation stored the image, got evicted, retried, evicted again — an eviction loop that spun until the service worker was recycled.</p>
+<p>The fix was to move captured images to IndexedDB (a small <code>db.js</code> module) and keep only metadata in session storage. Eviction became explicit: keep the five most recent captures, iterate with <code>openKeyCursor</code> and delete the oldest. Annotations followed the same principle — mosaic regions are stored as rectangles, not as mutated <code>ImageData</code>. A 20-rectangle annotation is bytes; a mutated full-page bitmap is megabytes.</p>
+
+<h2 id="checklist">Checklist</h2>
+<ol>
+<li>Bound lazy-load scrolling by time <em>and</em> step count — infinite feeds have no bottom.</li>
+<li>Never size the viewport to the document on a feed; use <code>captureBeyondViewport</code> + <code>clip</code>.</li>
+<li>Detect inner-scroller pages (<code>contentHeight &gt; docHeight + 10</code>) and keep a separate path for them.</li>
+<li>Budget capture in <em>physical</em> pixels: side cap plus area cap, and down-scale the width when needed.</li>
+<li>Truncate deliberately and tell the user, instead of allocating a bitmap that will fail.</li>
+<li>Wait for layout stability (quiet window + timeout), never for a fixed sleep.</li>
+<li>Race every cross-context message against a timeout; assume rAF never fires in a hidden tab.</li>
+<li>Timestamp your locks, expire them, and guard release with a token.</li>
+<li>Keep large binaries out of <code>storage.session</code>; IndexedDB plus explicit eviction.</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/debugger" target="_blank">chrome.debugger API — Chrome Docs</a></li>
+<li><a href="https://chromedevtools.github.io/devtools-protocol/tot/Page/#method-captureScreenshot" target="_blank">Page.captureScreenshot — CDP Reference</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/storage" target="_blank">chrome.storage API Reference</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/develop/concepts/service-workers/lifecycle" target="_blank">Service Worker Lifecycle — Chrome Docs</a></li>
+</ul>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./full-page-screenshot-stitching.html">Full-Page Screenshots: Stitching, Fixed Elements and Memory Limits</a></li>
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience &amp; State Persistence for MV3</a></li>
+  <li><a href="./anti-hotlink-image-downloads.html">Referer You Cannot Set: Anti-Hotlink Image Downloads</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: '80,000 Pixels Tall: Geometry Budgets, Viewport Traps and a Deadlock in MV3 Full-Page Capture',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '80000 像素高的页面：MV3 整页截图的几何预算、视口陷阱与死锁',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: '80000ピクセルのページ：MV3全ページキャプチャのジオメトリ予算・ビューポートの罠・デッドロック',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: '80.000 Pixel hoch: Geometrie-Budgets, Viewport-Fallen und ein Deadlock bei MV3-Ganzseiten-Screenshots',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: '80000 píxeles de alto: presupuestos de geometría, trampas del viewport y un bloqueo en la captura de página completa',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: '80 000 pixels de haut : budgets de géométrie, pièges du viewport et interblocage en capture pleine page',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://annmax.ccwu.cc"></script>
+</body>
+</html>

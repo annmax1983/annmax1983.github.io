@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Referer You Cannot Set: Anti-Hotlink Image Downloads in MV3</title>
+  <meta name="description" content="Why batch image downloads report success and save nothing: crossOrigin failures, DNR rule slots, chrome.downloads.download ignoring Referer, and the blob pipeline MV3 forces you into.">
+  <meta property="og:title" content="Referer You Cannot Set: Anti-Hotlink Image Downloads in MV3">
+  <meta property="og:description" content="A downloader that says it finished while zero files exist. The DNR boundaries, the unreachable Referer header, and the fix.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/anti-hotlink-image-downloads.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/anti-hotlink-image-downloads.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Referer You Cannot Set: Anti-Hotlink Image Downloads in MV3",
+    "description": "Why batch image downloads report success and save nothing: crossOrigin failures, DNR rule slots, chrome.downloads.download ignoring Referer, and the blob pipeline MV3 forces you into.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-10-22",
+    "dateModified": "2026-10-22",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/anti-hotlink-image-downloads.html"
+    },
+    "url": "https://annmax1983.github.io/blog/anti-hotlink-image-downloads.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../blog.html" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Referer You Cannot Set: Anti-Hotlink Image Downloads in MV3</h1>
+    <div class="meta" id="articleMeta"><span>October 2026</span><span class="reading-time">10 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="symptom">"Completed 40 Images" — Zero Files</h2>
+<p>A user batch-downloads from an image-heavy site, gets a cheerful toast — "Completed 40" — opens the Downloads folder, and finds nothing. Not a partial failure: nothing at all, while the UI insists everything succeeded.</p>
+<p>That combination of confident success reporting and total absence of output is worth taking seriously, because it usually means the code is counting intentions instead of results. It did here, and behind it were four separate layers of wrongness.</p>
+
+<h2 id="layer1">Layer 1: The Count Was a Lie</h2>
+<p>The batch pipeline mapped over the selected images with a <code>try/catch</code> per image and incremented a counter before attempting the work:</p>
+<pre><code>// Before: `total` is "images we planned to process"
+return { total: images.length, message: `Completed ${total}` };</code></pre>
+<p>Every per-image failure was swallowed, so the reported number was the size of the input list. A downloader must report four distinct outcomes:</p>
+<pre><code>return {
+  total,
+  succeeded: succeeded.length,
+  failed: failed.length,
+  downgraded,   // requested conversion, delivered original format instead
+  deduped: enablePHash ? images.length - processed.length : 0
+};</code></pre>
+<p><code>downgraded</code> is the field users never ask for and always need: it distinguishes "your AVIF request was delivered as PNG because this CDN cannot be re-encoded" from "silently gave you something else".</p>
+
+<h2 id="layer2">Layer 2: <code>crossOrigin='anonymous'</code> Killed the Pipeline on CDNs</h2>
+<p>Conversion and perceptual hashing both need pixel access, which requires a non-tainted canvas, which requires:</p>
+<pre><code>img.crossOrigin = 'anonymous';</code></pre>
+<p>On a CDN that does not return <code>Access-Control-Allow-Origin</code>, that attribute turns a perfectly loadable image into an <code>onerror</code>. The image is visible on the page — the page loaded it fine — but the extension's <em>own</em> request for it fails the CORS check, and the entire downstream chain (convert → compress → pHash → download) fails with it.</p>
+<p>The fix is not to drop CORS and accept tainted canvases. It is to make conversion optional per image and degrade instead of dying:</p>
+<ul>
+<li>Try the processed path; on any failure, fall back to the original bytes with the original extension.</li>
+<li>Count that as <code>downgraded</code>, not as a failure.</li>
+<li>Never let pHash dedup silently remove an image the user explicitly selected.</li>
+</ul>
+
+<h2 id="layer3">Layer 3: The Thumbnails Were the Real Casualties</h2>
+<p>A subtler symptom appeared alongside: on anti-hotlink sites, cards vanished from the grid as soon as they rendered. Users could not even select the images they wanted.</p>
+<p>The grid rendered <code>&lt;img src="https://cdn.example/...&gt;</code> from the side panel. That request is issued by the extension UI, not by the page, so it carries no page <code>Referer</code>. The CDN answered 403, the <code>error</code> handler removed the card, and the UI dutifully deleted the evidence.</p>
+<p>This is where declarativeNetRequest looked like the answer — and where its boundaries start to matter.</p>
+
+<h2 id="layer4">Layer 4: <code>chrome.downloads.download</code> Does Not Accept a Referer</h2>
+<p>The plan was: add a DNR rule that appends the correct <code>Referer</code> to requests matching the CDN, then download normally. It works for the thumbnails. It does not work for the download itself, for three reasons that are all documented behaviour once you find them:</p>
+<ol>
+<li><strong>The download request originates in the browser process, not the renderer.</strong> Passing <code>headers: [{name: 'Referer', ...}]</code> to <code>chrome.downloads.download</code> throws <code>Unsafe request header name</code>.</li>
+<li><strong><code>downloads.download</code> does not reject on HTTP 403.</strong> The call resolves with an id; the failure shows up only in <code>onChanged</code>. Without polling the item to completion, you will keep reporting success.</li>
+<li><strong>An MV3 service worker has no <code>URL.createObjectURL</code>.</strong> The usual escape hatch — fetch the bytes, wrap in a Blob, download the blob URL — cannot run in the worker at all.</li>
+</ol>
+<pre><code>// Required, because the promise resolving only means "download started"
+const dlId = await chrome.downloads.download({ url: payloadUrl, filename });
+if (!(await C.waitDownloadDone(dlId))) throw new Error('download interrupted');</code></pre>
+<p>So the working architecture is: fetch in a UI context (side panel / tab), convert there if needed, create the blob URL there, and hand that URL to the downloads API. The service worker orchestrates rule registration and bookkeeping; it never owns the bytes.</p>
+
+<h2 id="dnr-slots">DNR Rules Are a Shared, Finite Resource</h2>
+<p>Once DNR is in play, the real hazard is not capability but coordination. Two features need <code>Referer</code> rewrites — thumbnail rendering and downloading — and each tab may need a different value. Rules are global, ids are unique, and a naive writer replaces "its" rule wholesale, which silently removes the domains another feature depended on. The result is 403s that appear only after some unrelated action.</p>
+<p>Two rules of thumb fixed it:</p>
+<pre><code>// Per-tab rule ids derived from the tab id: no in-memory map to lose
+// when the service worker restarts, and cleanup is always possible.
+const REFERER_RULE_BASE = 100000;
+const refererRuleId = (tabId) =&gt; REFERER_RULE_BASE + (Number(tabId) || 0);
+
+// Temporary rules (short-lived per-request work) get a disjoint range
+// so the two families can never overwrite each other.
+const TEMP_RULE_BASE = 1000; // TEMP_RULE_BASE + seq</code></pre>
+<ul>
+<li><strong>Derive ids, do not remember them.</strong> A worker restart wipes any <code>Map</code> you were using to find your rules later; <code>100000 + tabId</code> survives because it is a function.</li>
+<li><strong>Write the union, not the replacement.</strong> Collect every domain any active feature needs, diff against what is installed, and skip the write entirely when the domain set is unchanged.</li>
+<li><strong>Send domain arrays, not URLs.</strong> A page with 400 images usually has 3 CDN hostnames. Passing hostnames keeps the rule small, stable, and cheap to compare.</li>
+</ul>
+
+<h2 id="what-it-feels-like">What the Fix Looks Like From the Outside</h2>
+<ul>
+<li>An honest summary: "32 downloaded, 6 saved as original format, 2 failed".</li>
+<li>Thumbnails that do not disappear — the grid shows a placeholder on 403 instead of removing the card.</li>
+<li>Downloads that either succeed or say why, because the pipeline polls <code>waitDownloadDone</code> instead of trusting a resolved promise.</li>
+<li>No cross-feature regressions: adding a download rule never breaks a thumbnail that was already working.</li>
+</ul>
+
+<h2 id="debugging">How to Diagnose This Class of Bug</h2>
+<ol>
+<li><strong>Log what the browser actually did.</strong> For downloads, listen to <code>chrome.downloads.onChanged</code> and record <code>state</code> plus <code>error</code>; "resolved" is not "saved".</li>
+<li><strong>Treat a status count as a contract.</strong> If the function returns a number of files, every failure path must decrement it. Add a test with a URL that 403s.</li>
+<li><strong>Check <code>document.location</code> versus request origin.</strong> Any request your extension makes on the page's behalf is missing the page's <code>Referer</code>; that is not a bug in the site.</li>
+<li><strong>Audit DNR rule ids</strong> with <code>getDynamicRules()</code> after each feature runs — if the count drops, someone replaced a shared rule.</li>
+<li><strong>Remember the context boundaries:</strong> worker (no DOM, no object URLs), UI page (full DOM, blob URLs), browser process (downloads, immutable headers).</li>
+</ol>
+
+<h2 id="checklist">Checklist</h2>
+<ol>
+<li>Report <code>succeeded / failed / downgraded / deduped</code>; never a planned-count.</li>
+<li>Make conversion and hashing optional per image; degrade to original bytes on CORS failure.</li>
+<li>Show a placeholder for 403 thumbnails instead of removing the card.</li>
+<li>Never try to set <code>Referer</code> via <code>downloads.download</code>; fetch bytes in a UI context and download a blob URL.</li>
+<li>Always verify completion with <code>waitDownloadDone</code>.</li>
+<li>Derive DNR rule ids from stable inputs and write unions of domains.</li>
+<li>Keep per-feature rule id ranges disjoint.</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/declarativeNetRequest" target="_blank">declarativeNetRequest API — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/downloads" target="_blank">chrome.downloads API — Chrome Docs</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/URL/createObjectURL_static" target="_blank">URL.createObjectURL — MDN</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTML/CORS_enabled_image" target="_blank">Allowing cross-origin use of images and canvas — MDN</a></li>
+</ul>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./perceptual-hash-image-dedup.html">Perceptual Hashing in the Browser</a></li>
+  <li><a href="./full-page-screenshot-geometry-budget.html">80,000 Pixels Tall: Geometry Budgets and Deadlocks</a></li>
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience &amp; State Persistence for MV3</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Referer You Cannot Set: Anti-Hotlink Image Downloads in MV3',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '设不了的 Referer：MV3 下的防盗链图片批量下载',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: '設定できないReferer：MV3でのホットリンク対策画像ダウンロード',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Ein Referer, den man nicht setzen kann: Bild-Downloads gegen Hotlink-Schutz in MV3',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Un Referer que no puedes establecer: descargas de imágenes con anti-hotlink en MV3',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: "Un Referer impossible à définir : téléchargement d'images anti-hotlink en MV3",
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://annmax.ccwu.cc"></script>
+</body>
+</html>

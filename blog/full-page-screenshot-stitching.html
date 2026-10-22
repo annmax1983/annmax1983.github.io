@@ -53,6 +53,8 @@
     <nav class="toc" id="toc"></nav>
     <div id="articleContent">
 
+<p><em>Scope note: this article covers the <strong>scroll-and-stitch</strong> approach and its constraints (capture quota, fixed elements, canvas limits). For the CDP path, the geometry budget, and the service-worker deadlock that stalled real captures, see <a href="./full-page-screenshot-geometry-budget.html">80,000 Pixels Tall: Geometry Budgets, Viewport Traps and a Deadlock in MV3 Full-Page Capture</a>.</em></p>
+
 <h2 id="why-not-html2canvas">Why Not Just Use html2canvas</h2>
 <p>The obvious approach to "capture the whole page" is a DOM-to-canvas library. It re-renders the page you describe into a canvas. It is also, for screenshot purposes, the wrong tool: it approximates the browser's rendering rather than recording it. Cross-origin images taint or fail, shadow DOM and iframes are inconsistent, web fonts and CSS features drift, and anything drawn via <code>&lt;canvas&gt;</code>, WebGL, or video is either missed or captured blank.</p>
 <p>The alternative used by every serious screenshot extension is embarrassingly simple: take real screenshots of the real viewport, scroll, and stitch. The pixels come from the compositor, so fidelity is not an approximation — it is the page. What makes it hard is not the idea; it is five practical constraints that this article walks through one by one:</p>

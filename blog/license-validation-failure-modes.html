@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Six Ways License Validation Fails Silently in Browser Extensions</title>
+  <meta name="description" content="Offline-forever Pro, UI and background disagreeing on expiry, in-flight snapshot races, HTTP 200 with valid:false, dead code behind a missing export, and treating offline as revoked.">
+  <meta property="og:title" content="Six Ways License Validation Fails Silently in Browser Extensions">
+  <meta property="og:description" content="Real failure modes from shipping paid features in MV3 extensions — and the guard for each one.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/license-validation-failure-modes.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/license-validation-failure-modes.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Six Ways License Validation Fails Silently in Browser Extensions",
+    "description": "Offline-forever Pro, UI and background disagreeing on expiry, in-flight snapshot races, HTTP 200 with valid:false, dead code behind a missing export, and treating offline as revoked.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-10-22",
+    "dateModified": "2026-10-22",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/license-validation-failure-modes.html"
+    },
+    "url": "https://annmax1983.github.io/blog/license-validation-failure-modes.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../blog.html" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Six Ways License Validation Fails Silently in Browser Extensions</h1>
+    <div class="meta" id="articleMeta"><span>October 2026</span><span class="reading-time">11 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="why">Why Licensing Is the Buggiest Part of a Paid Extension</h2>
+<p>A license check has an unusual property: <em>every</em> failure mode is silent. The network fails quietly, the server answers 200 with a rejection inside the body, the cache goes stale, the UI reads a different helper than the background does. Nothing throws. Nothing logs. The extension just keeps working — for free — or stops working for someone who paid.</p>
+<p>Across four extensions sharing one licensing stack, these are the six failure modes that actually shipped and had to be fixed. Each one has the same shape: a plausible local implementation that is wrong only in combination with the rest of the system.</p>
+
+<h2 id="offline-forever">1. Offline-Forever Pro</h2>
+<p><strong>Symptom:</strong> a revoked or expired license keeps working indefinitely.</p>
+<p><strong>Cause:</strong> validation was wired into <code>validateOnOpen()</code> — a function called when the user opens the popup or the side panel. That is a reasonable-sounding design ("check when the user looks at it") with one fatal property: if the user never opens the UI, no check ever runs. Plenty of users install, activate, and then only use the context menu for months.</p>
+<p><strong>Fix:</strong> move validation into the service worker and drive it with an alarm, so it runs whether or not any UI exists:</p>
+<pre><code>const LICENSE_VALIDATE_ALARM = 'jf_license_validate';
+const LICENSE_VALIDATE_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2h
+
+// Created idempotently on install AND on startup —
+// a service worker restart must not lose the schedule.
+chrome.alarms.create(LICENSE_VALIDATE_ALARM, {
+  delayInMinutes: 120,
+  periodInMinutes: 120
+});
+
+chrome.alarms.onAlarm.addListener(async (alarm) =&gt; {
+  if (alarm.name === LICENSE_VALIDATE_ALARM) await runLicenseValidation();
+});</code></pre>
+<p>Two details matter. First, the same throttle key is shared by page-side and worker-side validation, so opening the UI does not trigger a second request. Second, the alarm must be created on both <code>onInstalled</code> and <code>onStartup</code> — alarms survive worker restarts but not always profile-level events.</p>
+
+<h2 id="ui-vs-bg">2. The UI and the Background Disagree</h2>
+<p><strong>Symptom:</strong> the popup shows "Premium" while premium features are already gone. Or the reverse: the user paid and the UI still shows the free tier.</p>
+<p><strong>Cause:</strong> two different definitions of "licensed". The UI used a permissive cached check that only looked at <code>status === 'active'</code>. The background used a strict check that also required the expiry to be in the future. Between the moment a license expires and the next successful validation (up to two hours later), the two disagreed.</p>
+<pre><code>// Too weak — claims Premium for up to VALIDATE_INTERVAL_MS after expiry
+const licensed = stored.status === 'active';
+
+// Must mirror the background's definition exactly
+function licenseEffectivelyActive(lic) {
+  if (!lic || lic.status !== 'active') return false;
+  if (lic.expiresAt &amp;&amp; new Date(lic.expiresAt).getTime() &lt;= Date.now()) return false;
+  return true;
+}</code></pre>
+<p>The fix is not "make the UI stricter" in isolation — it is to have exactly one definition and call it from both sides. The comment left in <code>license.js</code> says this explicitly, because a future refactor will otherwise reintroduce a local shortcut.</p>
+
+<h2 id="race">3. The In-Flight Snapshot Race</h2>
+<p><strong>Symptom:</strong> a license the user removed comes back. Or a freshly activated license is silently replaced by an older record.</p>
+<p><strong>Cause:</strong> validation reads the stored record at the start, awaits a network round trip, then writes back a record built from that stale snapshot. Anything the user did during those 300–800 ms — remove, re-activate, switch accounts — is overwritten.</p>
+<pre><code>const markStale = async () =&gt; {
+  // Re-read before writing: the user may have removed or re-activated the
+  // license while the request was in flight. Writing our snapshot back would
+  // resurrect a removed license or clobber a freshly activated one. Also
+  // skip the write entirely when staleSince is already set — an
+  // unconditional write-back widens that same race for no benefit.
+  const fresh = await _getStorage(LICENSE_KEY);
+  if (!fresh || fresh.staleSince) return;
+  fresh.staleSince = Date.now();
+  await _setStorage({ [LICENSE_KEY]: fresh });
+};</code></pre>
+<p>The success path needs the same treatment, plus an identity check — if the key changed mid-flight, the response belongs to a license the user no longer has:</p>
+<pre><code>const fresh = await _getStorage(LICENSE_KEY);
+if (!fresh || fresh.key !== stored.key) return { ok: false, error: 'no_license' };
+// ...apply valid/plugin_allowed onto `fresh`, never onto `stored`</code></pre>
+
+<h2 id="http-200">4. The Server Says 200 and Means "No"</h2>
+<p><strong>Symptom:</strong> revoked licenses are labelled <code>plugin_not_allowed</code>, so support tickets say "my license is blocked" instead of "my license expired".</p>
+<p><strong>Cause:</strong> the API contract returns <strong>HTTP 200 with <code>{valid: false, plugin_allowed: false}</code></strong> for every rejection — expiry, revocation, wrong plugin, malformed key. A client that checks <code>plugin_allowed</code> first maps all of them to the "plugin not allowed" branch.</p>
+<pre><code>// Test `valid` FIRST. A revoked or expired license comes back as
+// HTTP 200 with valid:false AND plugin_allowed:false.
+if (!data.valid) {
+  fresh.status = 'invalid';
+} else if (data.plugin_allowed === false) {
+  fresh.status = 'plugin_not_allowed';
+} else {
+  fresh.status = 'active';
+}</code></pre>
+<p>The same contract has a second trap: a 200 response whose body is not JSON (a captive portal, a proxy error page, an HTML maintenance page). That is a <em>transport</em> failure, not a revocation — it must go down the "keep the cached license, mark it stale" path, not the "invalidate" path.</p>
+
+<h2 id="dead-code">5. Dead Code Behind a Missing Export</h2>
+<p><strong>Symptom:</strong> none. That is the point. Throttled validation "exists" in the source and never runs.</p>
+<p><strong>Cause:</strong> a module-private function was used through the public object:</p>
+<pre><code>// license.js — function defined, but omitted from the returned object
+async function validateOnOpen() { /* ... */ }
+
+return {
+  // validateOnOpen,   &lt;-- missing
+  getStoredLicense,
+  FREE_MAX_CONFIGS
+};
+
+// config.js — always false, so the whole 2h throttle below it is dead
+if (LicenseManager.validateOnOpen) { ... }</code></pre>
+<p>A conditional call site makes this invisible: no <code>TypeError</code>, no lint error, no test failure. The guard that catches it is structural, not behavioural — assert the public surface:</p>
+<pre><code>// contract check — runs in CI
+for (const fn of ['getStoredLicense', 'hasCachedLicense', 'validateOnOpen', 'isLicenseStale']) {
+  assert.equal(typeof LicenseManager[fn], 'function', `LicenseManager.${fn} missing`);
+}</code></pre>
+
+<h2 id="offline-not-revoked">6. Treating "Offline" as "Revoked"</h2>
+<p><strong>Symptom:</strong> paying users lose premium features on a plane, on hotel Wi-Fi, or behind a corporate proxy that blocks the license host.</p>
+<p><strong>Cause:</strong> the failure branch of the fetch was written as <code>status = 'invalid'</code>. Any network error therefore behaved like a server rejection.</p>
+<p>The correct semantics: a transport failure means <em>unknown</em>, not <em>denied</em>. Keep the cached entitlement, mark it stale, and retry later:</p>
+<pre><code>} catch (e) {
+  await markStale();                       // note the timestamp, keep the record
+  return { ok: true, license: stored, offline: true };
+}
+// Only an explicit {"valid": false} from the server flips to invalid.</code></pre>
+<p>If your product needs a hard offline cap (say 30 days), implement it as an explicit <code>staleSince</code> policy with a visible message — not as an accidental side effect of poor connectivity.</p>
+
+<h2 id="honesty">The Non-Technical Failure: Docs That Outrun the Code</h2>
+<p>One of these extensions advertises "no network requests, ever" while its license code validates on popup open after 24 hours. Another's privacy policy described the storage medium and the device-identity fields inaccurately. Both were documentation bugs, not code bugs — and both are worse than a code bug, because they are the part a reviewer and a paying user actually read.</p>
+<p>The practical rule I now apply: <strong>the privacy policy is a test fixture</strong>. Any claim it makes about network calls, permissions or stored fields must map to a grep-able fact in the manifest and the license module. If the wording and the code disagree, one of them ships as a lie.</p>
+
+<h2 id="checklist">Checklist</h2>
+<ol>
+<li>Validate from the service worker on an alarm; never rely on the user opening the UI.</li>
+<li>One definition of "licensed", imported by both UI and background.</li>
+<li>Re-read storage after every await, and verify the license key still matches.</li>
+<li>Test <code>valid</code> before <code>plugin_allowed</code>; treat non-JSON 200 as transport failure.</li>
+<li>Contract-test the public API surface so a missing export cannot silence a throttle.</li>
+<li>Offline means unknown: keep entitlement, mark stale, retry.</li>
+<li>Make the privacy policy's claims grep-able against manifest and code.</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/alarms" target="_blank">chrome.alarms API — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/develop/concepts/service-workers/lifecycle" target="_blank">Service Worker Lifecycle — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/webstore/program-policies/policies" target="_blank">Chrome Web Store Program Policies</a></li>
+</ul>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience &amp; State Persistence for MV3</a></li>
+  <li><a href="./least-privilege-review.html">Least Privilege &amp; Chrome Web Store Review Checklist</a></li>
+  <li><a href="./extension-css-injection-csp.html">world: 'MAIN' Is the One Injection Path CSP Kills</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Six Ways License Validation Fails Silently in Browser Extensions',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '浏览器扩展授权校验的六种静默失效',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'ブラウザ拡張のライセンス検証が静かに壊れる6つのパターン',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Sechs stille Fehlerarten bei der Lizenzprüfung in Browser-Erweiterungen',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Seis formas en que la validación de licencias falla en silencio',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Six façons dont la validation de licence échoue silencieusement',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://annmax.ccwu.cc"></script>
+</body>
+</html>
