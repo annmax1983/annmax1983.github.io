@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Locking the Buy Button: Building a Checkout Guard in MV3</title>
+  <meta name="description" content="A DOM-only checkout guard for MV3: document_start injection in all frames, capture-phase click and submit interception, a Shadow DOM overlay, stored deadlines with alarms, and the cost of shipping no skip button.">
+  <meta property="og:title" content="Locking the Buy Button: Building a Checkout Guard in MV3">
+  <meta property="og:description" content="Why the buy button is the only honest interception point, and what document_start, capture-phase events, a Shadow DOM modal and a stored deadline actually cost.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/checkout-guard-mv3.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="keywords" content="MV3 checkout guard, content script document_start, capture phase click interception, Shadow DOM overlay, chrome.alarms, payment host denylist, Chrome extension cart lock, event.preventDefault">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/checkout-guard-mv3.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Locking the Buy Button: Building a Checkout Guard in MV3",
+    "description": "A DOM-only checkout guard for MV3: document_start injection in all frames, capture-phase click and submit interception, a Shadow DOM overlay, stored deadlines with alarms, and the cost of shipping no skip button.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-10-23",
+    "dateModified": "2026-10-23",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/checkout-guard-mv3.html"
+    },
+    "url": "https://annmax1983.github.io/blog/checkout-guard-mv3.html",
+    "keywords": "MV3 checkout guard, content script document_start, capture phase click interception, Shadow DOM overlay, chrome.alarms, payment host denylist, Chrome extension cart lock, event.preventDefault"
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://annmax1983.github.io/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Blog",
+        "item": "https://annmax1983.github.io/blog.html"
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": "Locking the Buy Button: Building a Checkout Guard in MV3",
+        "item": "https://annmax1983.github.io/blog/checkout-guard-mv3.html"
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Locking the Buy Button: Building a Checkout Guard in MV3</h1>
+    <div class="meta" id="articleMeta"><span>October 2026</span><span class="reading-time">~9 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="why-the-button">The Last Moment a Page Can Still Say No</h2>
+<p>A cart lock has one job: put time between "I want this" and "the order exists". Placement decides what gets interrupted: add to cart interrupts browsing, the cart page misses "Buy now", and a block after the request leaves is theatre.</p>
+<p>The buy button is the last point where purchase intent, a cancelable DOM event and observability coincide. <code>src/guard.js</code> opens with the layers it implements — L1 click, L2 checkout link, L3 form submit, L4 checkout-page takeover — and with the constraint that shapes everything else: "DOM only. Never hooks fetch/XHR, never touches real payment pages."</p>
+<p>The constraint is structural. A content script runs in an isolated world: it can read and mutate the DOM, but cannot wrap the page's <code>fetch</code> or <code>XMLHttpRequest</code>; that needs main-world injection, where the page can replace the hook. The guarantee is narrower: no order started from a visible page control completes while the timer is active. Background sync, native apps and scripted <code>form.submit()</code> sit outside it.</p>
+
+<h2 id="injection">document_start, all_frames, and the Cost of Being Early</h2>
+<p>The content script declaration in <code>manifest.json</code> matters most:</p>
+<pre><code>"content_scripts": [{
+  "matches": ["&lt;all_urls&gt;"],
+  "js": ["src/checkout-rules.js", "src/core.js", "src/message-packs.js", "src/guard.js"],
+  "run_at": "document_start",
+  "all_frames": true
+}]</code></pre>
+<p><code>document_start</code> is about ordering, not speed. A framework that delegates clicks at the page root registers its listener during hydration; a capture-phase listener installed earlier gets the first look. At <code>document_idle</code>, a page listener could call <code>stopImmediatePropagation()</code> first and the guard would never run.</p>
+<p><code>all_frames</code> is about event boundaries. A click inside a frame never reaches the top document, so a top-only guard is blind to framed checkouts. Every frame gets its own host and decision; <code>window.__VKT_CART_LOCK_GUARD__</code> prevents a second copy.</p>
+<p>The cost of <code>&lt;all_urls&gt;</code> is paid on every load, and the guard bails before spending it: missing modules, a second injection or a payment host returns before listeners and storage reads. Being early also means existing before the state does: <code>loadState()</code> sets <code>stateReady</code> asynchronously, and until then clicks pass. Blocking on state would freeze unrelated clicks, so the code takes the miss.</p>
+
+<h2 id="capture">Capture, Not Bubble: Clicks, Submits and the Keys Around Them</h2>
+<p>All checkout interception is wired in five lines:</p>
+<pre><code>window.addEventListener('click', onCheckoutClick, true);
+document.addEventListener('click', onCheckoutClick, true);
+window.addEventListener('auxclick', onCheckoutClick, true);
+document.addEventListener('submit', onSubmit, true);
+window.addEventListener('submit', onSubmit, true);</code></pre>
+<p>The third argument is the point: capture runs from window to target before any bubble handler on the button, form or app root. <code>auxclick</code> covers middle-click. The window and document registrations are redundant in propagation; <code>e.__vktHandled</code> makes them harmless.</p>
+<p>The handler starts from <code>e.composedPath()[0] || e.target</code> because the clicked element may live inside the site's shadow root. It returns if the path contains the overlay; while the overlay is shown, every page click is blocked. On a match, <code>handleCheckout()</code> cancels the event with <code>preventDefault()</code>, <code>stopPropagation()</code> and <code>stopImmediatePropagation()</code> before any state mutation. A canceled event cannot be resumed, which is why confirm synthesizes a click.</p>
+<p>The submit path is separate: find the form's submit button and match it; if that fails, ask whether the form looks like checkout — an <code>action</code> URL matching the checkout patterns, or card fields such as <code>input[autocomplete="cc-number"]</code> and a CVC input. Enter in a field can fire <code>submit</code> with no click. Caveat: <code>HTMLFormElement.submit()</code> fires no submit event, so script-driven submission bypasses L3; <code>requestSubmit()</code> is caught.</p>
+<p><code>keydown</code> is not a fourth detection channel: it is installed only while the overlay is visible, to consume Escape and Enter and trap Tab. Enter on a focused checkout button still produces a click.</p>
+
+<h2 id="overlay">A Modal in a Page That Wants It Gone</h2>
+<p>The overlay is one host element appended to <code>document.body</code>, with an open shadow root and a constructed stylesheet:</p>
+<pre><code>const hostEl = document.createElement('div');
+hostEl.id = 'vkt-cart-lock-overlay';
+hostEl.style.cssText = 'all: initial; position: fixed; inset: 0; z-index: 2147483647;';
+const root = hostEl.attachShadow({ mode: 'open' });
+let sheet = null;
+try {
+  sheet = new CSSStyleSheet();
+  sheet.replaceSync(OVERLAY_CSS);
+  root.adoptedStyleSheets = [sheet];
+} catch (e) { /* fallback: a style element in the shadow root */ }</code></pre>
+<p><code>all: initial</code> on the host cuts inherited properties, and <code>:host { all: initial; }</code> does the same for the shadow root. Without them, a store's global typography leaks into the countdown. The host's inline positioning beats ordinary page rules; an author <code>!important</code> rule can still override it, so the backdrop is also <code>position: fixed</code>.</p>
+<p>Visual isolation is not a security boundary: the root is open, the id guessable, and page script can reach both. Page CSS must not deform the dialog.</p>
+<p>The page behind is blurred by walking <code>document.body.children</code> and setting <code>pointer-events: none</code>, <code>filter: blur(6px)</code> and <code>user-select: none</code>. A <code>MutationObserver</code> covers nodes added later, and a <code>Map</code> stores each node's previous inline value and priority for <code>restoreBlur()</code>. The trade: <code>childList</code> is observed, not attributes, so a page inline change made while the modal is open loses to the saved value.</p>
+<p>The card carries <code>role="dialog"</code>, <code>aria-modal</code> and <code>aria-labelledby</code>; focus moves to the return button 30 ms after it appears, and Tab is trapped. It is not a native <code>&lt;dialog&gt;</code>: no top layer, no inert background, no managed focus restoration.</p>
+<p>For a same-origin checkout frame, <code>notifyTop()</code> posts the timer to <code>window.top</code>, which accepts it only when <code>e.origin === location.origin</code>, so the user sees one modal. For a cross-origin frame the check rejects the message: the overlay stays inside that frame and the rest of the page stays interactive. A DOM-only extension cannot paint over it from the parent.</p>
+
+<h2 id="deadline">A Deadline in Storage, Not a Ticking Counter</h2>
+<p>Timers live in <code>chrome.storage.local</code> under <code>vkt_cl_timers</code>, keyed by host or <code>host::itemId</code>. <code>createTimer()</code> in <code>src/core.js</code> sets <code>expiresAt = now + cooldownMinutes * 60000</code>; nothing rewrites it as time passes. The overlay's one-second interval recomputes <code>expiresAt - Date.now()</code> for display only; the badge recomputes on tab activation and the popup on open. A browser restart re-reads a deadline; it does not resume a countdown. <code>chrome.storage.onChanged</code> propagates it to other tabs.</p>
+<p>The one-minute <code>vkt_cl_tick</code> alarm is housekeeping, not countdown. <code>runHousekeeping()</code> deletes timers past <code>graceEnd()</code> — <code>expiresAt</code> plus one more cooldown — prunes stats, revalidates the license at most every six hours, and refreshes the badge. <code>ensureAlarm()</code> runs at top level, on install and startup. Alarms survive service worker termination but arrive approximately: right for maintenance, wrong as the clock.</p>
+<p>The trade is a wall-clock deadline: an NTP correction or manual clock change moves the remaining time. No monotonic counter survives a restart; no anti-tamper exists. Concurrent writes go through <code>S.withLock()</code> (<code>navigator.locks</code> or a promise chain); when contexts disagree, the later <code>expiresAt</code> wins and the higher <code>blockedCount</code> is preserved — the sync merge's "later expiresAt always wins."</p>
+
+<h2 id="relock">Payment Domains Fail Open; Success Pages Re-Lock</h2>
+<p>The payment-host check is a hard stop in three places. In <code>guard.js</code> it runs before listeners are attached: <code>if (!HOST || R.isPaymentHost(HOST)) return;</code>. <code>handleStartLock()</code> refuses with <code>bad_host</code>, and <code>isCheckoutPage()</code> returns false for a payment host even when the URL looks like checkout. The list is 21 regular expressions covering Stripe, PayPal, Adyen, Braintree, Square, Klarna, Affirm, Afterpay and others.</p>
+<p>Fail-open is operational: a missing host, unparseable URL, failed storage read or unknown state all block nothing; <code>loadState()</code> sets <code>stateReady</code> with defaults in its <code>catch</code>. Interrupting a payment is worse than missing one block.</p>
+<p>But a denylist is only as good as its contents: PayU, Mercado Pago, YooKassa and iyzico are absent, as is a payment step on the merchant's own domain. <code>isCheckoutUrl()</code> includes <code>/payment</code> and <code>isCheckoutPage()</code> accepts card fields, so that step is in scope. "Never touches real payment pages" is precise only for the processors in <code>PAYMENT_HOSTS</code>; card values are never read.</p>
+<p>Purchases move in the opposite direction. When the URL matches <code>SUCCESS_URL_RE</code>, the guard reports <code>VKT_PURCHASE</code> once per URL. The background requires an existing timer, records the purchase, deletes every host timer, and creates a fresh site-scoped one now:</p>
+<pre><code>const fresh = C.createTimer({
+  key: host, host: host, itemId: null, settings: state.settings, now: now,
+  cart: { total: 0, currency: '', items: 0 }, scope: 'site', source: 'purchase'
+});
+state.timers[host] = fresh;</code></pre>
+<p>Buying does not unlock; it restarts the lock. Duplicate orders and upsells happen after the first payment, not before it. With no prior timer, <code>handlePurchase()</code> returns <code>no_timer</code> and creates nothing.</p>
+<p>Detection is URL-based: a single-page checkout that swaps to a success view without changing the URL does not report, and a marketing path like <code>/order-confirmation</code> can report a purchase that never happened, though it needs an active timer. <code>reportPurchaseUrl</code> prevents duplicates while the URL is unchanged.</p>
+
+<h2 id="no-skip">What Removing the Skip Button Does to the Code</h2>
+<p>The overlay offers a return button, an optional confirm after expiry, and emotion chips. There is no close icon and no backdrop handler. While it is shown, every click is blocked, Escape and outside-Enter are consumed, and the page behind is non-interactive.</p>
+<p>The lifecycle changes. A dismissible modal is closed by the user, so its teardown lives in the close handler; this one is closed by state. <code>closeOverlay()</code> has five routes: a storage change that leaves no applicable timer, a <code>pass</code> or <code>exempt</code> decision in <code>checkPage()</code>, a success URL, the 2.2-second "released" message after expiry, and the return or confirm button.</p>
+<pre><code>if (e.key === 'Escape') {
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  return;
+}
+if (e.key === 'Enter' && !inside) {
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  return;
+}</code></pre>
+<p>The whitelist follows the same logic. <code>decideCheckout()</code> checks for an active timer before <code>isWhitelisted()</code>, so adding a site to the allowlist never shortens a running lock. The popup says it directly: "An active timer must still finish. Adding a site here never unlocks it." A misclassification has no in-page remedy.</p>
+<p>The only voluntary unlock is confirm-after-expiry, gated on Pro, the <code>confirmAfterExpiry</code> setting, <code>remaining &lt;= 0</code>, the grace window and no prior confirmation. It records <code>confirmedAt</code>, closes, and replays <code>node.click()</code> after 120 ms if that node is connected — the only way to resume an intent <code>preventDefault()</code> canceled. The form-only path records no node, so there is no reliable replay.</p>
+<p>Closing sets <code>suppressUntil = Date.now() + 2500</code>. Without it, a mutation on the still-open checkout page can reopen the overlay before navigation completes — a debt paid to a takeover layer triggered by DOM changes, not gestures.</p>
+<p>A modal that cannot be dismissed is hostile by default; focus management, dialog semantics, a route back and explanatory copy make it bearable, not benign. It is defensible only if matching rarely false-positives — the subject of <a href="./checkout-selector-drift.html">Selector Drift Across 24 Checkout Flows</a>. The extension is <a href="https://annmax1983.com/extensions/vkt-cart-lock" target="_blank" rel="noopener">VKT Cart Lock</a>.</p>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./checkout-selector-drift.html">Selector Drift Across 24 Checkout Flows: Building an Adapter Layer That Checks Itself</a></li>
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience &amp; State Persistence Patterns for MV3 Extensions</a></li>
+  <li><a href="./license-validation-failure-modes.html">Six Ways License Validation Fails Silently in Browser Extensions</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Locking the Buy Button: Building a Checkout Guard in MV3',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '锁住购买按钮：在 MV3 中构建结账守卫',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: '購入ボタンをロックする：MV3で作るチェックアウトガード',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Den Kaufen-Button sperren: Ein Checkout-Guard in MV3',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Bloquear el botón de compra: un guardián de checkout en MV3',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Verrouiller le bouton d\'achat : un garde de checkout en MV3',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://api.annmax.ccwu.cc"></script>
+</body>
+</html>

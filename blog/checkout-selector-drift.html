@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Selector Drift Across 24 Checkout Flows: Building an Adapter Layer That Checks Itself</title>
+  <meta name="description" content="Why 24 site presets and a generic fallback must coexist, how multilingual button text and dual URL/DOM signals are matched, and how a passive self-check detects selector drift without scanning whole sites.">
+  <meta property="og:title" content="Selector Drift Across 24 Checkout Flows: Building an Adapter Layer That Checks Itself">
+  <meta property="og:description" content="Site presets, generic fallbacks, multilingual text rules, payment-host boundaries, self-check windows and a test matrix for checkout selector drift.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/checkout-selector-drift.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="keywords" content="checkout selector drift, site presets, checkout button selector, multilingual button text, checkout URL detection, payment host denylist, selector self-check, browser extension adapter layer">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/checkout-selector-drift.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Selector Drift Across 24 Checkout Flows: Building an Adapter Layer That Checks Itself",
+    "description": "Why 24 site presets and a generic fallback must coexist, how multilingual button text and dual URL/DOM signals are matched, and how a passive self-check detects selector drift without scanning whole sites.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-10-23",
+    "dateModified": "2026-10-23",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/checkout-selector-drift.html"
+    },
+    "url": "https://annmax1983.github.io/blog/checkout-selector-drift.html",
+    "keywords": "checkout selector drift, site presets, checkout button selector, multilingual button text, checkout URL detection, payment host denylist, selector self-check, browser extension adapter layer"
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://annmax1983.github.io/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Blog",
+        "item": "https://annmax1983.github.io/blog.html"
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": "Selector Drift Across 24 Checkout Flows: Building an Adapter Layer That Checks Itself",
+        "item": "https://annmax1983.github.io/blog/checkout-selector-drift.html"
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Selector Drift Across 24 Checkout Flows: Building an Adapter Layer That Checks Itself</h1>
+    <div class="meta" id="articleMeta"><span>October 2026</span><span class="reading-time">~9 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="two-regimes">Presets and the Generic Fallback Are Both Necessary</h2>
+<p><code>SITE_PRESETS</code> in <code>src/checkout-rules.js</code> has 24 keys: Amazon, eBay, Etsy, Walmart, Target, Best Buy, Home Depot, Lowe's and sixteen more. Each carries a host regex, selectors, URL patterns, an item pattern and <code>cartTotal</code> selectors:</p>
+<pre><code>target: {
+  host: /(^|\.)target\.com$/,
+  checkout: ['[data-testid="checkout-button"]', 'button[data-testid*="checkout"]', 'a[href*="/checkout"]'],
+  checkoutUrl: /\/(checkout|cart\/checkout)/i,
+  cartUrl: '/cart',
+  itemFromUrl: /\/A-(\d{6,})/,
+  cartTotal: ['[data-testid="cart-summary-total"]', '[data-testid="order-summary-total"]']
+}</code></pre>
+<p>Generic alone fails both ways. Amazon's primary control, <code>input[name="proceedToRetailCheckout"]</code>, contains no token the generic list knows; icon-only buttons labeled only by <code>aria-label</code> are invisible to it. It also over-matches: a help-center link ending in <code>/checkout</code> matches the generic list.</p>
+<p>Presets only fail on the long tail: new storefronts, regional domains and one-off Shopify installs never have one. The generic list covers day one; the preset makes it accurate later.</p>
+<p><code>matchCheckoutElement()</code> resolves the tension with a fixed order: presets first, then generic selectors, then the anchor's resolved <code>href</code>, then the form's action, and finally the button text. First match wins, so the order is a confidence ranking, not a union:</p>
+<pre><code>const presetKeys = matchSiteKeys(host);
+for (const k of presetKeys) {
+  if (matchesAny(node, SITE_PRESETS[k].checkout)) {
+    return { node: node, reason: 'preset:' + k, text: textOf(node) };
+  }
+}
+if (matchesAny(node, GENERIC_CHECKOUT_SELECTORS)) {
+  return { node: node, reason: 'generic', text: textOf(node) };
+}</code></pre>
+<p>Most presets include an <code>a[href*="/checkout"]</code> entry that duplicates the generic list, so a preset hit proves site-specific knowledge, not uniqueness. The <code>reason</code> string, <code>preset:target</code> versus <code>generic</code>, surfaces in the mis-block report.</p>
+
+<h2 id="text">Button Text Is a Localization Problem Disguised as a Selector</h2>
+<p>Text is last because it is the least stable signal. <code>CHECKOUT_TEXT_RE</code> covers English, Chinese, Japanese, German, French and Spanish — <code>checkout</code>, <code>place order</code>, <code>buy now</code>, <code>zur kasse</code>, <code>paiement</code>, <code>finalizar compra</code>. <code>CHECKOUT_EXCLUDE_RE</code> then removes navigation labels: continue shopping, view cart, add to cart, <code>返回購物車</code>, <code>カートを見る</code>, <code>voir le panier</code>. A button reading "Checkout · View cart" matches both and is rejected; plain "Checkout" passes.</p>
+<p><code>textOf()</code> reads <code>innerText</code>, falls back to <code>textContent</code>, then an input's <code>value</code>, then <code>aria-label</code> or <code>title</code>, and collapses whitespace. Matching is case-insensitive, capped at 120 characters for checkout and 80 for add-to-cart, which handles "CHECKOUT" and extra whitespace.</p>
+<p>It does not handle a label split across spans without a space, an A/B test renaming "Buy now", or a locale the regex does not know: there is no Dutch <code>afrekenen</code>, Polish <code>do kasy</code> or <code>zapłać</code>, Italian <code>paga ora</code>, or Turkish <code>ödeme</code>. Allegro and bol.com therefore depend on presets and URL patterns, not text. Locale coverage is a list someone maintains.</p>
+<p>Strict mode is the escape hatch: hosts in <code>strictSites</code> use <code>STRICT_TEXT_RE</code>, which adds bare <code>pay</code>, <code>buy</code>, <code>submit</code> and <code>purchase</code>. It catches more real buttons and also "Pay bill", hence opt-in per host.</p>
+
+<h2 id="two-signals">URL and DOM: Two Signals with Different Failure Modes</h2>
+<p>The URL layer is a path test. <code>pathOf()</code> lowercases <code>pathname + search + hash</code>, and <code>isCheckoutUrl()</code> matches <code>/checkout</code>, <code>/cart/checkout</code>, <code>/kasse</code>, <code>/paiement</code>, <code>/payment</code>, <code>/finalizar</code> and <code>/go-to-checkout</code>. <code>isSuccessUrl()</code> runs first, so <code>/checkout/success</code> is never a checkout page.</p>
+<p>Including the query string has a known cost: <code>/login?return=/checkout</code> matches. A path-only test would miss query-routed checkouts; a full parse still would not know which parameter is a redirect. The code picks the broader match and relies on the DOM layer for the consequences.</p>
+<p><code>isCheckoutPage()</code> returns true if the URL matches <em>or</em> the document contains card fields (<code>input[autocomplete="cc-number"]</code>, a card-number input, a CVC input) <em>or</em> a <code>[data-testid*="payment-form"]</code> container. Payment hosts and success URLs return false before any of that. The OR is intentional: a client-side checkout can keep the cart URL while rendering card fields, and a server-rendered one is recognized before hydration.</p>
+<p><code>hasCheckoutSignal()</code> is a different question. It does not look at the URL; it asks whether any preset selector, any generic selector or any add-to-cart selector currently exists in the document:</p>
+<pre><code>for (const sel of GENERIC_CHECKOUT_SELECTORS) {
+  try { if (doc.querySelector(sel)) { result.genericHit = true; break; } } catch (e) { /* ignore */ }
+}
+result.anyHit = result.presetHit || result.genericHit || result.addToCartHit;</code></pre>
+<p>That flag blocks nothing. It feeds the health check below, which is why it can be a presence test without visibility or clickability.</p>
+
+<h2 id="payment-boundary">Payment Hosts Are a Different Boundary</h2>
+<p><code>PAYMENT_HOSTS</code> is 21 regular expressions: Stripe, PayPal and its object CDN, Adyen, Checkout.com, Braintree, Square, Klarna, Affirm, Afterpay, Authorize.net, 2Checkout, Worldpay, Mollie, Razorpay, Amazon Pay, Google Pay and Apple's payment gateway. <code>isPaymentHost()</code> is checked in three places: <code>guard.js</code> returns before attaching any listener, <code>handleStartLock()</code> rejects with <code>bad_host</code>, and <code>isCheckoutPage()</code> returns false.</p>
+<p>Fail-open is deliberate: on a listed processor there are no listeners, overlay or storage reads; a missing host or parse failure also blocks nothing. Interrupting a payment is worse than missing one block; card values are never read.</p>
+<p>The boundary is as wide as the list. PayU, Mercado Pago, YooKassa and iyzico are absent. A payment step on the merchant's own domain is not excluded: <code>isCheckoutUrl()</code> includes <code>/payment</code> and <code>isCheckoutPage()</code> accepts card fields, so an active timer takes over that page. A cross-origin payment iframe on an unlisted host gets its own guard; on a listed host, nothing. "Never touches payment pages" holds for the listed processors, not the category.</p>
+
+<h2 id="self-check">A Rule Set That Notices Its Own Decay</h2>
+<p>A preset that silently stops matching is worse than none: the generic fallback may still find the button and hide the regression. 1.8 seconds after state loads, <code>reportSelfCheck()</code> runs, but only when the host has a preset key and the URL is a cart or checkout URL. It sends <code>presetHit</code>, <code>genericHit</code> and the URL.</p>
+<p>The background validates that the claimed <code>presetKey</code> resolves to the sending host, then stores one entry per preset with <code>okAt</code>, <code>misses</code> and <code>genericAt</code>. A preset hit clears the misses; a miss is retained 14 days, capped at 20. The warning is narrow:</p>
+<pre><code>if (misses.length >= SELFCHECK_MISS_LIMIT && now - (entry.okAt || 0) > SELFCHECK_MISS_WINDOW) {
+  return { host: host, presetKey: presetKey, misses: misses.length, lastUrl: entry.lastUrl || '' };
+}</code></pre>
+<p>Three misses inside seven days <em>and</em> no preset hit for seven days. That suppresses noise from one-off DOM states at the cost of latency: a preset that breaks the day after a good visit will not warn until day seven. Entries with no success for 90 days are dropped.</p>
+<p>Two blind spots: <code>hasCheckoutSignal()</code> uses <code>querySelector</code> without a visibility check, so a hidden legacy button still counts as a preset hit and resets <code>okAt</code>: the preset looks healthy while the visible control changed. And the check only runs on cart and checkout URLs; <code>addToCartHit</code> is computed but never sent, so a preset broken on a product page produces no signal.</p>
+<p>The mis-block report is the other half. On a blocked click, <code>rememberBlock()</code> records a <code>cssPath()</code> selector and the element text; <code>VKT_PAGE_INFO</code> returns both to the popup. The path stops at a shadow root and classes are often hashed. More importantly, exclusions are consulted only in <code>matchCheckoutElement()</code> and <code>matchAddToCartElement()</code>. <code>checkPage()</code> does not read them, so an L4 false positive cannot be fixed with a selector exclusion — only by allowlisting the host, which still does not clear an active timer.</p>
+
+<h2 id="scan-budget">Scan Less: Budgets Instead of Site-Wide Sweeps</h2>
+<p>Running on every URL, the matching layer treats DOM reads as expensive. <code>checkPage()</code> is scheduled, not continuous: 80 ms after state load, on a 1.2-second mutation throttle, a 1.2-second URL poll, and on <code>popstate</code>, <code>hashchange</code>, <code>pageshow</code> and visibility changes. Hidden tabs return immediately; a closed overlay sets <code>suppressUntil</code> for 2.5 seconds.</p>
+<p>Amount reading is ordered and capped. <code>cartTotalSelectors(host)</code> puts preset selectors first, then generic, deduplicating in order:</p>
+<pre><code>const out = [];
+for (const k of matchSiteKeys(host)) {
+  for (const sel of SITE_PRESETS[k].cartTotal || []) if (out.indexOf(sel) === -1) out.push(sel);
+}
+for (const sel of GENERIC_CART_TOTAL_SELECTORS) if (out.indexOf(sel) === -1) out.push(sel);
+return out;</code></pre>
+<p><code>readCartInfo()</code> tries six nodes per selector, stops once it has eight or more, and otherwise tries the broad fallback (<code>[aria-label*="total" i], [class*="total" i], [id*="total" i]</code>), capped at 80 nodes. <code>BAD_AMOUNT_RE</code> rejects savings, discounts, shipping, tax, points and translations; the largest remaining amount wins. <code>readProductPrice()</code> caps each selector at eight nodes. The click path sweeps nothing: it uses <code>closest()</code>, then at most three class-based ancestors, and reads one element's text.</p>
+<p>This is not just hygiene. The parsed amount feeds the exemption rule: a total below the configured minimum passes without a lock, so a low misread silently exempts a purchase and a high one blocks it. The item-scoped timer key has the same dependency: <code>itemIdFromUrl()</code> tries preset patterns, then query keys such as <code>variant</code>, <code>sku</code> and <code>product_id</code>, then a generic <code>/product/</code> path; a miss changes which timer a checkout matches.</p>
+
+<h2 id="test-matrix">The Matrix You Have to Run Before Adding Preset 25</h2>
+<p>Selector drift is a family, not one bug. The matrix has seven dimensions:</p>
+<ul>
+<li><strong>Matching regime:</strong> preset selector, generic test id, anchor with only a checkout <code>href</code>, form action, text-only label, add-to-cart start.</li>
+<li><strong>URL class:</strong> cart, checkout, success, payment host, product page, and a non-checkout page carrying <code>?return=/checkout</code>.</li>
+<li><strong>Timer state:</strong> none, active, expired inside the grace window, expired past grace, confirmed after expiry.</li>
+<li><strong>Frame:</strong> top document, same-origin iframe, cross-origin iframe, payment iframe.</li>
+<li><strong>Locale:</strong> English, Chinese, Japanese, German, French, Spanish, plus an unsupported language.</li>
+<li><strong>DOM timing:</strong> server-rendered, hydrated late, hidden desktop/mobile duplicates, button inside a shadow root, label split across spans.</li>
+<li><strong>Injected drift:</strong> rename the test id, remove the href, change the label to an unsupported locale, move the button into a shadow root.</li>
+</ul>
+<p>For each row, four assertions: no block where none is expected; the overlay appears where one is expected; the self-check reports <code>presetHit</code> or <code>genericHit</code> accordingly; and <code>lastBlocked</code> contains a selector a human can act on. The last is easy to skip and most useful in production.</p>
+<p>The seven-day window cannot be exercised in normal QA: seed <code>vkt_cl_selfcheck</code> with old timestamps rather than waiting, and do not ship altered constants — <code>SELFCHECK_MISS_WINDOW</code> and <code>SELFCHECK_MISS_LIMIT</code> are product behavior, not test knobs. Run two profiles with sync enabled: the later <code>expiresAt</code> wins, so a stale lock must never shorten the other device's.</p>
+<p>Adding preset 25 is then a checklist: walk a real cart and checkout, record only selectors that resolve to a visible element, add the URLs, total selector and item pattern, run the matrix, and watch the self-check for a week. The guard that consumes these rules — capture-phase clicks, the Shadow DOM overlay, the stored deadline, no skip button — is covered in <a href="./checkout-guard-mv3.html">Locking the Buy Button: Building a Checkout Guard in MV3</a>. The extension is <a href="https://annmax1983.com/extensions/vkt-cart-lock" target="_blank" rel="noopener">VKT Cart Lock</a>.</p>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./checkout-guard-mv3.html">Locking the Buy Button: Building a Checkout Guard in MV3</a></li>
+  <li><a href="./extension-css-injection-csp.html">world: 'MAIN' Is the One Injection Path CSP Kills</a></li>
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience &amp; State Persistence Patterns for MV3 Extensions</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Selector Drift Across 24 Checkout Flows: Building an Adapter Layer That Checks Itself',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '24 个结账流程中的选择器漂移：构建会自检的适配层',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: '24のチェックアウトフローにおけるセレクタドリフト：自己検査するアダプタ層',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Selector-Drift über 24 Checkout-Flows: Eine Adapterschicht, die sich selbst prüft',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Deriva de selectores en 24 flujos de pago: una capa adaptadora que se autocomprueba',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Dérive des sélecteurs sur 24 parcours de paiement : une couche d\'adaptation qui s\'auto-contrôle',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://api.annmax.ccwu.cc"></script>
+</body>
+</html>

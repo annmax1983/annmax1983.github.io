@@ -9,7 +9,29 @@
     <name>AnnMax</name>
     <email>support@annmax1983.com</email>
   </author>
-  <updated>2026-10-22T00:00:00Z</updated>
+  <updated>2026-10-23T00:00:00Z</updated>
+
+  <entry>
+    <title>Locking the Buy Button: Building a Checkout Guard in MV3</title>
+    <link href="https://annmax1983.github.io/blog/checkout-guard-mv3.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/checkout-guard-mv3.html</id>
+    <updated>2026-10-23T00:00:00Z</updated>
+    <summary>document_start in all frames, capture-phase click and submit interception, a Shadow DOM overlay, stored deadlines with alarms, and the cost of shipping no skip button.</summary>
+    <category term="Chrome Extensions"/>
+    <category term="MV3"/>
+    <category term="DOM"/>
+  </entry>
+
+  <entry>
+    <title>Selector Drift Across 24 Checkout Flows: Building an Adapter Layer That Checks Itself</title>
+    <link href="https://annmax1983.github.io/blog/checkout-selector-drift.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/checkout-selector-drift.html</id>
+    <updated>2026-10-23T00:00:00Z</updated>
+    <summary>Why 24 site presets and a generic fallback must coexist, how multilingual button text and dual URL/DOM signals are matched, and how a passive self-check detects selector drift.</summary>
+    <category term="Chrome Extensions"/>
+    <category term="MV3"/>
+    <category term="Selectors"/>
+  </entry>
 
   <entry>
     <title>80,000 Pixels Tall: Geometry Budgets, Viewport Traps and a Deadlock in MV3 Full-Page Capture</title>
