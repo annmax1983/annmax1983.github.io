@@ -10,7 +10,7 @@ I started with .NET desktop apps and enterprise Java systems. Moved through Pyth
 
 ## What I Build
 
-I maintain **18 browser extensions** for Chrome and Edge — all local-first: no analytics, no tracking, no accounts, and none of them uploads your content to us. A few features make their own network requests: license checks for paid plans, image fetches when you convert or batch-download, Link Audit requests to links you choose, and sync through your browser account (JustFocus by default; Premium sync in LiteCopy, StylePatch, LocalBox2FA and VKT Form):
+I maintain **20 browser extensions** for Chrome and Edge — all local-first: no analytics, no tracking, no accounts, and none of them uploads your content to us. A few features make their own network requests: license checks for paid plans, image fetches when you convert or batch-download, Link Audit requests to links you choose, and sync through your browser account (JustFocus by default; Premium sync in LiteCopy, StylePatch, LocalBox2FA and VKT Form):
 
 - 📸 **PageShot** — Full-page screenshots with annotation
 - 🖼️ **ImageConv** — Image format conversion (PNG/JPG/WEBP/AVIF)
@@ -30,6 +30,8 @@ I maintain **18 browser extensions** for Chrome and Edge — all local-first: no
 - 📝 **VKT Form** — Form snapshot & auto-fill (unlimited local snapshots, fills and JSON export/import free; Premium adds cross-device sync)
 - ⌨️ **VKT Shortcut** — Page shortcut blocker and remapper with per-site presets (completely free, unlimited rules)
 - 📌 **ItemPin** — Product saver & price history (50 items free; Premium unlimited, CSV export and comparison charts)
+- 🕶️ **VeilMate** — One-click privacy curtain over every window, lossless (nothing reloads, no form is cleared), PBKDF2 password unlock, idle auto-lock and 10 exempt domains free. Pro adds focus-loss lock, the inverse "cover only…" scope, biometric unlock and the privacy curtain
+- 🧹 **VKT CleanMate** — Preview-first browsing data cleaner: see sites, history entries and cookies before deleting. Free targeted mode only touches the domains you list; Pro adds full mode with a protected list and a focus footprint
 
 I also build **VKT PWA** — 9 installable web apps that run offline, installed straight from the browser:
 

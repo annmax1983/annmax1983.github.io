@@ -1,1 +1,22 @@
+# Claude Code
+CLAUDE.md
+.claude/
+
+# RTK
+.rtk/
+
+# OS
+.DS_Store
+Thumbs.db
+/.codegraph
 /.workbuddy
+
+## ignore tool/deps artifacts
+.codegraph/
+.workbuddy/
+.github/
+node_modules/
+publish/
+AGENTS.md
+
+package-lock.json
