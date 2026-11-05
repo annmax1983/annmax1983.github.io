@@ -465,8 +465,10 @@ section {
 }
 .store-btn.chrome::before { background: #4285f4; }
 .store-btn.edge::before { background: #0f7dc2; }
+.store-btn.firefox::before { background: #ff7139; }
 .store-btn.chrome:hover { color: var(--text-primary); border-color: #4285f4; background: rgba(66,133,244,0.14); }
 .store-btn.edge:hover { color: var(--text-primary); border-color: #0f7dc2; background: rgba(15,125,194,0.14); }
+.store-btn.firefox:hover { color: var(--text-primary); border-color: #ff7139; background: rgba(255,113,57,0.14); }
 .store-btn.soon {
   color: var(--text-muted); cursor: default;
   border-style: dashed;
@@ -823,7 +825,7 @@ footer p { margin-bottom: 0.5rem; }
   background: linear-gradient(135deg, rgba(59,130,246,0.03), rgba(168,85,247,0.03));
   border-radius: 24px;
   padding: 4rem 2rem;
-  margin: 4rem 0;
+  margin: 4rem auto;
 }
 .feedback-content {
   max-width: 800px;
@@ -880,7 +882,7 @@ footer p { margin-bottom: 0.5rem; }
 }
 @media (max-width: 768px) {
   .feedback-cards { grid-template-columns: 1fr; }
-  #feedback { padding: 2.5rem 1rem; margin: 2rem 0; }
+  #feedback { padding: 2.5rem 1rem; margin: 2rem auto; }
 }
 
 /* Products section */

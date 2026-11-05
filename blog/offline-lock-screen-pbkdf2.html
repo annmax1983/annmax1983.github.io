@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">A Lock Screen Inside a Browser: PBKDF2, Surviving Restarts, and Honest Throttles</title>
+  <meta name="description" content="How VKT VeilMate builds a lock screen inside a browser extension: PBKDF2-SHA256 at 310,000 iterations, lock state that survives a restart, cooldowns computed from deadlines instead of ticks, and alarms that outlive the service worker.">
+  <meta property="og:title" content="A Lock Screen Inside a Browser: PBKDF2, Surviving Restarts, and Honest Throttles">
+  <meta property="og:description" content="State persistence, local-only keys and reliable throttles: the real engineering behind a lock screen that lives in an MV3 extension.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/offline-lock-screen-pbkdf2.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/offline-lock-screen-pbkdf2.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "A Lock Screen Inside a Browser: PBKDF2, Surviving Restarts, and Honest Throttles",
+    "description": "How VKT VeilMate builds a lock screen inside a browser extension: PBKDF2-SHA256 at 310,000 iterations, lock state that survives a restart, cooldowns computed from deadlines instead of ticks, and alarms that outlive the service worker.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-11-03",
+    "dateModified": "2026-11-03",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/offline-lock-screen-pbkdf2.html"
+    },
+    "url": "https://annmax1983.github.io/blog/offline-lock-screen-pbkdf2.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../blog.html" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">A Lock Screen Inside a Browser: PBKDF2, Surviving Restarts, and Honest Throttles</h1>
+    <div class="meta" id="articleMeta"><span><a href="../#about" style="color:inherit;border-bottom:1px dotted currentColor;text-decoration:none;">AnnMax</a> · November 3, 2026</span><span class="reading-time">14 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="brief">The Constraint Set</h2>
+<p>VKT VeilMate covers your browser: one click and every tab in every window goes dark behind a curtain, and unlocking puts every page back exactly where it was. It is sold as a privacy curtain for the person who steps away for coffee — not an OS screen lock. That distinction is the whole engineering brief, because an extension gets none of the primitives a real lock screen assumes. What you get is a service worker Chrome recycles after roughly 30 seconds of quiet, a content script running inside the very page it is supposed to hide, and a sync channel capped at 8 KB per item.</p>
+<p>Three properties I refused to negotiate:</p>
+<ul>
+<li><strong>State is durable</strong> — closing the browser does not unlock; the lock is still there next start until the password is typed.</li>
+<li><strong>Keys are local</strong> — PBKDF2-SHA256 at 310,000 iterations, only the derived value on disk, the password never leaves the device and never enters sync.</li>
+<li><strong>The throttle is reliable</strong> — the escalating cooldown survives worker death and gates every path that can answer "is this password right?".</li>
+</ul>
+<p>Here is how each works, with the real source. Repo comments are Chinese; I translated the ones I quote. Where the code is weaker than the marketing, I say so.</p>
+
+<h2 id="state-overlay">1. The Lock Is State Plus a Projection, Not a Page</h2>
+<p>The naive design is a lock page: navigate every tab to <code>lock.html</code>, navigate back on unlock. Simpler, and wrong — navigation destroys exactly what the user wants kept: a half-written email, a video at 14:32, a SPA with four screens of unsaved state. So the lock is a boolean in <code>storage.local</code>, and what you see is a projection of it:</p>
+<pre><code>// background.js:112-119 — single writer
+async function setState(next) {
+  stateCache = next;
+  try {
+    await chrome.storage.local.set({ [STATE_KEY]: next });
+  } catch {
+    /* ignore */
+  }
+}</code></pre>
+<p>For http/https tabs the projection is a shadow-DOM overlay injected in place — no reload, nothing to restore. It has to survive a hostile page, so critical host properties are written with <code>!important</code> and a <code>MutationObserver</code> repairs them:</p>
+<pre><code>// content/veil.js:533-542 (translated, trimmed)
+observer = new MutationObserver(() =&gt; {
+  if (!locked || !host) return;
+  if (!host.isConnected) {
+    (document.body || document.documentElement).appendChild(host);
+    assertHostStyles(host);
+    return;
+  }
+  if (hostHidden(host)) assertHostStyles(host);
+});
+observer.observe(document.documentElement, { childList: true, subtree: true });</code></pre>
+<p>Both halves matter: watching only <code>documentElement</code>'s direct children means a page that deletes the host never triggers a repair, and a site rule like <code>#veilmate-veil-root{display:none!important}</code> outranks a plain inline declaration — so "still connected" is not "still visible."</p>
+<p>Overlays exist only where a content script can run. For <code>chrome://</code>, <code>file://</code>, local PDFs and other extensions' pages, the fallback genuinely is "swap the page" — and that ledger hid my best bug of the year.</p>
+
+<h2 id="pbkdf2">2. PBKDF2-SHA256 at 310,000 Iterations</h2>
+<p>The entire cryptography is fifteen lines, and it is deliberately the slowest thing on the unlock path:</p>
+<pre><code>// background.js:57-76 — the whole verifier
+async function derive(secret, saltHex, iter = ITER) {
+  const key = await crypto.subtle.importKey('raw', enc.encode(secret), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: fromHex(saltHex), iterations: iter, hash: 'SHA-256' },
+    key,
+    256
+  );
+  return toHex(bits);
+}
+
+async function makeHash(secret) {
+  const salt = toHex(crypto.getRandomValues(new Uint8Array(16)));
+  return { salt, iter: ITER, hash: await derive(secret, salt) };
+}
+
+async function verifySecret(secret, record) {
+  if (!record || !record.salt) return false;
+  const h = await derive(secret, record.salt, record.iter || ITER);
+  return timingSafeEqual(h, record.hash);
+}</code></pre>
+<p><strong>Parameters.</strong> PBKDF2 instead of Argon2id is a platform decision, not taste: the only memory-hard KDF available in an extension is one you ship as WASM, and I am not putting a 100 KB blob between a user and their own browser. SHA-256 because WebCrypto hands it to us; 16 fresh salt bytes per password; <code>extractable: false</code> with <code>deriveBits</code> as the only usage, so the material can never be re-read as a key. The record carries its own <code>iter</code>, which turns raising the cost later into a migration instead of a forced password reset. The 310,000 itself is not benchmarked onto a curve — it is where derivation costs a visible fraction of a second on a laptop and stays trivial for someone who types a password once an hour. What matters is that a guesser pays it every try.</p>
+<p><strong>Comparison.</strong> <code>timingSafeEqual</code> (background.js:50-55, XOR-accumulating two hex strings) is honest theatre: the practical risk against a 310,000-iteration KDF is nil, and I kept it because <code>===</code> would read as a smell in the next audit. That is a documentation-grade reason, and I am flagging it as one.</p>
+<pre><code>// common/store.js:19-22 — everything that is on disk
+/**
+ * PBKDF2: { salt, hash, iter } — only the derived value is stored, never the
+ * plaintext. No recovery code, no reset entry: forget the password and you
+ * uninstall the extension.
+ */
+password: null,</code></pre>
+<p><strong>Missing feature.</strong> No recovery path, deliberately: a recovery code is a second key, and a second key is a backdoor with better UX. The only exit from a forgotten password is <code>chrome://extensions</code> → Remove, which wipes everything, and the lock screen says so instead of hiding it. That decision is more load-bearing than the iteration count — and it generates the angriest email.</p>
+
+<h2 id="restart">3. Surviving the Restart: Ordering, and a Ledger That Corrupted the Flag</h2>
+<p>"It survives a browser restart" sounds like a storage choice. It is mostly a message-ordering problem: in a new session the worker boots, tabs restore, and content scripts start asking questions — and the worker can be killed and reborn mid-answer. The session hook repaints the world from disk:</p>
+<pre><code>// background.js:578-588 (translated, trimmed)
+// A new session does not inherit the password-free window: after a browser
+// restart, the first lock still costs a password.
+const st0 = await getState();
+if (st0.graceUntil) await setState({ ...st0, graceUntil: 0 }).catch(() =&gt; {});
+
+const st = await getState();
+if (st.locked) {
+  // A lock left behind is not cleared by closing the browser: the first act of
+  // the new session is to cover every tab again.
+  setBadge(true);
+  updateContextMenus(true);
+  await paintTabs();
+  return;
+}</code></pre>
+<p>A second hook is subtler: the file's top level runs on <em>every</em> worker wake, not just at browser start, so badge, menus, idle interval and schedule alarm are re-derived from disk each time. Chrome replays a one-shot alarm that came due while the browser was shut — if state lived only in memory, the badge would lie.</p>
+<p>Now the bug. The page-swap ledger originally lived in the same object as <code>locked</code>, so recording "tab 412's original URL is this" wrote the entire state blob back:</p>
+<pre><code>// background.js:121-127 (translated)
+/**
+ * The "page-swap" ledger has its own key now. When it lived inside veilState,
+ * writing the ledger wrote the whole state back — and in the milliseconds where
+ * lock and unlock interleave, one such write could flip locked:false to true:
+ * screen already cleared, badge still lit, new tabs still blocked. Split apart,
+ * only lock() and unlock() ever write locked.
+ */
+const REPLACED_KEY = 'veilReplaced';</code></pre>
+<p>The rule I took from it: <strong>re-read before every write that follows an await</strong>. <code>paintTabs()</code> iterates tabs, awaits a scope check per tab, then records and swaps — during which the user may have typed their password:</p>
+<pre><code>// background.js:256-263 (translated)
+/** Re-read before writing: the lock may have been released during the awaits
+ *  inside this loop. */
+const recordAndSwap = async (tabId, url) =&gt; {
+  const cur = await getState();
+  if (!cur.locked) return false;
+  await rememberReplaced(tabId, url).catch(() =&gt; {});
+  chrome.tabs.update(tabId, { url: page }).catch(() =&gt; {});
+  return true;
+};</code></pre>
+<p>One more timing detail: a window opened by <code>Ctrl+N</code> or session restore can exist for a few hundred milliseconds with no tab in it, so <code>guardWindow()</code> runs twice, at 300 ms and 1200 ms, and creates a lock tab if it is still empty.</p>
+
+<h2 id="throttle">4. A Throttle That Does Not Count Ticks</h2>
+<p>Five wrong passwords, then wait. The trap: the natural implementation is a worker-side <code>setTimeout</code> that re-enables the input — which dies whenever Chrome recycles the worker, exactly while a guessing loop would be running. So nothing about the cooldown is a timer. It is arithmetic over persisted timestamps:</p>
+<pre><code>// background.js:33-37 and 365-383 — a log, not a counter
+const MAX_FAILS = 5;
+/** After the 5th failure: 30s -&gt; 2m -&gt; 10m -&gt; 30m -&gt; 1h, capped at 1h */
+const COOLDOWN_STEPS = [30000, 2 * 60000, 10 * 60000, 30 * 60000, 60 * 60000];
+
+function failStreak(list) {
+  let n = 0;
+  for (const a of list || []) {
+    if (a.ok) break;
+    n += 1;
+  }
+  return n;
+}
+
+function cooldownLeftMs(s) {
+  const list = s.attempts || [];
+  const fails = failStreak(list);
+  if (fails &lt; MAX_FAILS) return 0;
+  const step = Math.min(fails - MAX_FAILS, COOLDOWN_STEPS.length - 1);
+  const wait = COOLDOWN_STEPS[step];
+  const last = Number(list[0]?.at) || 0;
+  return Math.max(0, wait - (Date.now() - last));
+}</code></pre>
+<p>Three properties, in order. The <strong>deadline comes from the wall clock</strong>, so the worker can die and wake an hour later and still report the truth — no ticks, no drift. The <strong>"counter" is a log</strong> capped at 50 entries where any success breaks the streak, and that same log is the Pro activity history: one dataset serving a security mechanism and a paid feature. And the <strong>ladder is a single array</strong>, so no UI gets to invent its own numbers.</p>
+<p>Enforcement is where the real bug was. Two call sites could answer "is this password correct?" — the unlock form and the change-password form — and the second called <code>verifySecret()</code> directly, making it an unthrottled oracle that also skipped the log:</p>
+<pre><code>// background.js:392-408 (translated) — the only password door
+/**
+ * THE single password-verification entry point: cooldown, check, logging and
+ * unlock all live here. Everything that can learn whether a password is right
+ * must go through it. The change-password path bypassed both the cooldown and
+ * the log — an unthrottled oracle that also defeated the "5 failures, wait 30
+ * seconds" claim I was selling.
+ */
+async function attemptPassword(secret, method = 'password') {
+  const cd = await checkCooldown();
+  if (cd.blocked) return { ok: false, error: 'cooldown', retryIn: cd.retryIn };
+
+  const s = await getSettings();
+  if (!s.hasPassword) return { ok: false, error: 'no_password' };
+
+  const ok = await verifySecret(String(secret ?? ''), s.password);
+  await pushAttempt({ at: Date.now(), ok, method });
+  return ok ? { ok: true } : { ok: false, error: 'wrong_password' };
+}</code></pre>
+<p>The countdown on the lock screen is cosmetic (<code>lock/lock.js:109-131</code> just decrements a number for the human). "May I submit yet?" is always answered by <code>cooldownLeftMs()</code> in the worker, so a faked-out UI buys an attacker nothing.</p>
+
+<h2 id="alarms">5. Auto-Lock: the 30-Second Floor and a Daylight-Saving Bug</h2>
+<p>Idle auto-lock is free and costs almost no code: <code>chrome.idle.setDetectionInterval(minutes * 60)</code> plus an <code>onStateChanged</code> handler that locks on <code>'idle'</code> when the toggle is on, 10 minutes by default. The same callback hands me the OS screen-lock hook for free — <code>chrome.idle</code> reports <code>'locked'</code> when the machine's own session locks, the one case where this extension is genuinely downstream of the operating system. Pro ties that to its own toggle.</p>
+<p>Focus-loss lock (Pro) is where MV3 bites. Chrome 120+ floors one-shot alarms at 30 seconds, so a 10-second delay cannot be an alarm — and a long one cannot be a <code>setTimeout</code> either:</p>
+<pre><code>// background.js:423-453 (translated, trimmed)
+/**
+ * Short delays use setTimeout (after a focus event the worker has at least 30
+ * seconds of life, which is enough). Anything 30s or longer must be an alarm,
+ * or MV3 recycling deletes the pending timer and the focus-loss lock never
+ * fires.
+ */
+const ALARM_ONE_SHOT_FLOOR_MS = 30000;
+
+function scheduleBlurLock(sec) {
+  cancelBlurLock();
+  const ms = Math.max(1, sec) * 1000;
+  if (ms &lt; ALARM_ONE_SHOT_FLOOR_MS) {
+    blurTimer = setTimeout(() =&gt; {
+      blurTimer = null;
+      lock('blur').catch(() =&gt; {});
+    }, ms);
+  } else {
+    chrome.alarms.create(BLUR_ALARM, { when: Date.now() + ms });
+  }
+}</code></pre>
+<p>Scheduled lock nearly shipped as <code>periodInMinutes: 1440</code>. Wrong twice: a 24-hour <em>interval</em> slides across a daylight-saving change, and a periodic alarm cannot be re-armed against the wall clock. So it is a one-shot computed from a local-time <code>Date</code>, re-armed after each fire, with one mercy clause:</p>
+<pre><code>// background.js:512-526 (translated, trimmed)
+chrome.alarms.onAlarm.addListener(async (alarm) =&gt; {
+  // The worker may have restarted: trust only what is on disk.
+  const s = await getSettings();
+  if (alarm.name === SCHEDULE_ALARM) {
+    const cfg = s.autoLock.schedule || {};
+    // An alarm missed while the browser was closed is replayed on launch —
+    // being locked at 09:00 because you missed 18:00 yesterday is nonsense.
+    // More than 5 minutes late: re-arm only, do not lock.
+    const late = alarm.scheduledTime ? Date.now() - alarm.scheduledTime : 0;
+    if (cfg.enabled &amp;&amp; late &lt; 5 * 60000 &amp;&amp; (await isPro())) {
+      const st = await getState();
+      if (!st.locked) await lock('schedule').catch(() =&gt; {});
+    }
+    await applySchedule(s);
+  }
+});</code></pre>
+<p><code>alarm.scheduledTime</code> against <code>Date.now()</code> is the same discipline as the cooldown: compare deadlines, never count ticks.</p>
+
+<h2 id="quick-unlock">6. Quick-Unlock: Selling Back the Convenience I Locked Away</h2>
+<p>Pro's quick-unlock window says: for N minutes after a real unlock, locking again can be undone without typing. It is the most commercially sensible and least secure feature in the product, so it gets three clamps:</p>
+<pre><code>// background.js:304-311 (translated)
+/** Only a verified unlock (password / biometric) starts the window; the
+ *  no-password button itself does not, or it would extend itself forever. */
+function graceUntilFor(s, st, reason) {
+  const verified = reason === 'password' || reason === 'biometric';
+  if (!verified) return Number(st.graceUntil) || 0;
+  if (!s.quickUnlock?.enabled) return 0;
+  const mins = Math.min(60, Math.max(1, Number(s.quickUnlock.minutes) || 5));
+  return Date.now() + mins * 60000;
+}</code></pre>
+<p>It never extends itself, it is capped at 60 minutes, and it is zeroed on <code>onStartup</code>: reopening the browser always costs a password, because a grace period that survives a restart is just a lock you forgot about. Changing the password invalidates it, and every no-password unlock writes a <code>quick</code> entry to the activity log, so the audit trail has no holes shaped like convenience.</p>
+<p>The framing on the settings page: this turns "nobody at your desk can read your tabs" into "nobody at your desk can read your tabs for about five minutes." Fair for lock-then-grab-the-printer; wrong on a shared machine, and the product should say that instead of letting the toggle look free.</p>
+
+<h2 id="biometric">7. WebAuthn Is in the Product, and It Is Not a Security Boundary</h2>
+<p>I checked the source before writing this, because the tempting story is "no biometrics here." There are: Pro registers a platform authenticator — Windows Hello, Touch ID, an Android fingerprint — in <code>common/webauthn.js</code>, with <code>authenticatorAttachment: 'platform'</code> and <code>userVerification: 'required'</code>. The awkward part is the relying-party ID, since the "site" is an extension origin:</p>
+<pre><code>// common/webauthn.js:61-71 (translated, trimmed)
+// Declare rp.id as the extension origin's hostname first; a few environments
+// reject that origin, so fall back to the browser default.
+for (const publicKey of [{ ...base, rp: { id: location.hostname, name: 'VKT VeilMate' } }, { ...base, rp: { name: 'VKT VeilMate' } }]) {
+  try {
+    const cred = await navigator.credentials.create({ publicKey });
+    if (cred?.rawId) return b64urlEncode(cred.rawId);
+  } catch {
+    /* try the other rp declaration */
+  }
+}</code></pre>
+<p>The unlock side looks like a proper challenge-response, and against replay it is one: the worker mints a nonce with a 60-second TTL, consumed exactly once, and the credential never syncs because it is bound to one device's authenticator:</p>
+<pre><code>// background.js:1065-1077 (translated)
+case 'veil:biometric-ok':
+  if (!(await isPro())) return { ok: false, error: 'pro_required' };
+  // Must carry a valid, unconsumed nonce — this closes the "any message opens
+  // the lock" back door.
+  if (!consumeBioChallenge(m.nonce)) return { ok: false, error: 'bad_nonce' };
+  // Same throttle for both unlock doors: biometrics used to skip the attempt log
+  // and the cooldown entirely, so five wrong passwords were still a five-second
+  // unlock for anyone holding a fingerprint-shaped message.
+  {
+    const cd = await checkCooldown();
+    if (cd.blocked) return { ok: false, error: 'cooldown', retryIn: cd.retryIn };
+  }
+  await pushAttempt({ at: Date.now(), ok: true, method: 'biometric' });
+  await unlock('biometric');
+  return { ok: true };</code></pre>
+<p>What the nonce does <em>not</em> do is prove a finger was scanned. The assertion is verified in the lock page; the worker checks the nonce, not a signature. Anyone who can open DevTools on an extension page can request a nonce and post <code>veil:biometric-ok</code> without touching a sensor — the same class of attacker as "can disable the extension," namely someone who already controls the machine. Real enforcement means storing the credential's public key and running <code>crypto.subtle.verify</code> over <code>authenticatorData + clientDataJSON + signature</code> in the worker. I shipped the honest label first and owe the signature: the README and store listing call biometrics "less typing, not more security," and the password remains the boundary. A claim I cannot enforce is a claim I will not print.</p>
+
+<h2 id="sync">8. 8 KB per Item Decides What Travels</h2>
+<p>Cross-device sync (Pro) rides the browser's own account sync, so there is no "my sync backend is down" outage for me to own. The per-item quota is what shapes the feature list:</p>
+<pre><code>// common/store.js:188-219 (translated, trimmed)
+/**
+ * Deliberately excluded:
+ *   1. password — a shared hash turns "forgot it on one machine" into
+ *      "every device locked forever". Per-device passwords are strictly safer.
+ *   2. biometric — a WebAuthn credential is bound to one device's authenticator.
+ *   3. attempts — unlock history is this device's forensic data; it must not roam.
+ */
+const SYNC_FIELDS = ['clock', 'autoLock', 'quickUnlock', 'hideDetails'];
+
+/**
+ * sync's cap is 8KB per item, 100KB total. An uploaded wallpaper is 200KB-1.6MB
+ * even after compression, so custom images (data:image/...) never enter the
+ * channel: only built-in gradients (preset:xxx) travel.
+ */
+export function pickSyncable(s) {
+  const src = s || {};
+  const out = { v: SYNC_VERSION };
+  for (const k of SYNC_FIELDS) out[k] = src[k] === undefined ? null : src[k];
+  const wp = typeof src.appearance?.wallpaper === 'string' ? src.appearance.wallpaper : '';
+  out.appearance = {
+    style: normalizeStyle(src.appearance?.style),
+    wallpaper: wp.startsWith('preset:') ? wp : '',
+    message: String(src.appearance?.message || '').slice(0, 60)
+  };
+  // The domain list is core config and must follow the user; slicing it keeps
+  // one item clear of the 8KB quota.
+  const scope = normalizeScope(src.scope);
+  out.scope = { mode: scope.mode, list: scope.list.slice(0, SCOPE_SYNC_LIMIT) };
+  return out;
+}</code></pre>
+<p>So: four preference fields, a stripped appearance object (style, preset-only wallpaper, message cut to 60 characters), and the allowlist truncated at 200 domains. The password is the interesting exclusion — the one field where syncing would be a genuine usability win, still refused, because its failure mode is total. The push also measures its own payload, because a quota exception on a 9 KB object is otherwise silent: <code>background.js:872-873</code> returns <code>too_large</code> above 8000 bytes.</p>
+<p>The pull is timestamp- and licence-gated, because "follow the cloud" and "Pro expired" interact badly: <code>sync.enabled</code> is a leftover of a paid period, and applying remote fields blindly lands focus-loss and scheduled lock as <em>shown on, never executed</em>. The remote write is dropped when <code>isPro()</code> is false, and every push sits behind a 1500 ms debounce so the two directions cannot ping-pong.</p>
+
+<h2 id="permissions">9. Permissions, and Why There Is No Keyboard Shortcut</h2>
+<pre><code>// manifest.json:35-42
+"permissions": [
+  "storage",
+  "idle",
+  "tabs",
+  "windows",
+  "alarms",
+  "contextMenus"
+],</code></pre>
+<p>How I justify each, in the order reviewers ask: <code>storage</code> holds the PBKDF2 record, the durable lock state and Pro's sync payload; <code>idle</code> is the idle auto-lock and nothing else — I subscribe to state transitions, I never read activity times; <code>tabs</code> covers tabs and catches tabs created or navigated while locked; <code>windows</code> is the focus-loss trigger; <code>alarms</code> is the timer that survives worker recycling; <code>contextMenus</code> is the right-click lock and scope actions. The one outbound host is the licence endpoint. There is no <code>webNavigation</code>: the <code>pushState</code> gap is cheaper than the permission, and I wrote that limitation into the "what it cannot do" table instead of leaving it an undocumented hole.</p>
+<p>No <code>commands</code> entry exists either. A registered shortcut competes with the page's own bindings — those keys belong to the user's editor, mail composer and video player — and it only earns that conflict if you lock twenty times a day. The cost is real: the fastest "someone is walking over" reaction is one click slower than a hotkey. I took that deal.</p>
+
+<h2 id="boundaries">10. What I Print on the Settings Page</h2>
+<ul>
+<li><strong>It hides your tabs from people</strong> — the shoulder glance, the colleague clicking around, new tabs, new windows, typed URLs.</li>
+<li><strong>It cannot stop itself being disabled.</strong> An extension cannot prevent its own removal and store policy forbids trying. The escape hatch is deliberate: while locked, <code>chrome://extensions</code> is the one built-in page let through — bare, or with this extension's own <code>?id=</code> — and other extensions' detail pages stay covered, because a curtain with no exit is a hostage situation.</li>
+<li><strong>It does not defend the person who controls the machine.</strong> Another profile, another OS user, a kill from the task manager, DevTools on an extension page — all outside what an extension can reach, my biometric path included.</li>
+<li><strong>It is not encryption.</strong> Nothing at rest is encrypted beyond a password hash; the overlay covers the browser, not the monitor, and it does not survive a screenshot tool.</li>
+</ul>
+<p>The threat model is the coworker, not the adversary. Saying so costs conversions and buys trust in equal measure, and for a one-person product the second is the durable asset.</p>
+
+<h2 id="checklist">Checklist</h2>
+<ol>
+<li>Model a lock as persisted state plus a projection; one boolean, one key — a ledger sharing that blob will corrupt the flag under interleaving.</li>
+<li>PBKDF2-SHA256, fresh 16-byte salt, <code>deriveBits</code> only, <code>extractable: false</code>, and keep <code>iter</code> beside the hash so cost can rise without a reset.</li>
+<li>Every path that can answer "is this password right?" goes through one function: cooldown, verify, log. An oracle outside it defeats the throttle you advertise.</li>
+<li>Compute cooldowns from stored timestamps against <code>Date.now()</code>. Never count ticks in a worker that can die.</li>
+<li>Short delays on <code>setTimeout</code>, 30 s and up on <code>chrome.alarms</code>; wall-clock times need a one-shot re-armed each fire, with a grace clause for late replays.</li>
+<li>Re-read state after every await before writing, and bail if the user already unlocked.</li>
+<li>Let the 8 KB per-item quota make your sync decisions, and never sync the password.</li>
+<li>Label convenience as convenience: quick-unlock and biometrics save typing and weaken the curtain.</li>
+<li>Publish what the extension cannot do beside what it can, in the same table.</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/alarms" target="_blank">chrome.alarms API — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/idle" target="_blank">chrome.idle API — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/storage" target="_blank">chrome.storage API — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/develop/concepts/service-workers/lifecycle" target="_blank">Service Worker Lifecycle — Chrome Docs</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/PBKDF2" target="_blank">PBKDF2 — MDN Web Docs</a></li>
+<li><a href="https://owasp.org/www-project-password-storage-cheat-sheet/" target="_blank">OWASP Password Storage Cheat Sheet</a></li>
+</ul>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience &amp; State Persistence for MV3</a></li>
+  <li><a href="./license-validation-failure-modes.html">Six Ways License Validation Fails Silently in Browser Extensions</a></li>
+  <li><a href="./least-privilege-review.html">Least Privilege &amp; Chrome Web Store Review Checklist</a></li>
+  <li><a href="./totp-web-crypto-implementation.html">WebCrypto, TOTP and the Details That Bite</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'A Lock Screen Inside a Browser: PBKDF2, Surviving Restarts, and Honest Throttles',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '在浏览器里做一把锁：PBKDF2、重启不失效、诚实的限流',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'ブラウザの中に鍵をかける：PBKDF2、再起動に耐える状態、正直なスロットリング',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Ein Sperrbildschirm im Browser: PBKDF2, Neustarts überstehen und ehrliche Drosselung',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Un bloqueo dentro del navegador: PBKDF2, reinicios y limitación honesta',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Un verrouillage dans le navigateur : PBKDF2, redémarrages et limitation honnête',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://annmax.ccwu.cc"></script>
+</body>
+</html>

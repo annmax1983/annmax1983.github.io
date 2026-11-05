@@ -9,13 +9,67 @@
     <name>AnnMax</name>
     <email>support@annmax1983.com</email>
   </author>
-  <updated>2026-10-23T00:00:00Z</updated>
+  <updated>2026-11-05T00:00:00Z</updated>
+
+  <entry>
+    <title>Tesseract in the Zip: What "100% Local OCR" Costs in an MV3 Extension</title>
+    <link href="https://annmax1983.github.io/blog/tesseract-offline-ocr-in-extension.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/tesseract-offline-ocr-in-extension.html</id>
+    <updated>2026-11-05T00:00:00Z</updated>
+    <summary>What the no-upload promise forces you to write: the engine as packaged bytes, a viewport capture cropped at device resolution, a handoff through chrome.storage.local, and a counter that resets on the user's calendar.</summary>
+    <category term="Chrome Extensions"/>
+    <category term="MV3"/>
+    <category term="WebAssembly"/>
+  </entry>
+
+  <entry>
+    <title>A Fee Table That Updates Itself: Hot-Reloading Amazon's Numbers in an MV3 Extension</title>
+    <link href="https://annmax1983.github.io/blog/amazon-fee-table-hot-reload.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/amazon-fee-table-hot-reload.html</id>
+    <updated>2026-11-05T00:00:00Z</updated>
+    <summary>One authored JS module, one exported JSON copy, a daily alarm, two validation guards, and a calculator that never learns where its inputs came from — plus the version-string trap and the day the endpoint silently 404s.</summary>
+    <category term="Chrome Extensions"/>
+    <category term="MV3"/>
+    <category term="Data Pipelines"/>
+  </entry>
+  <entry>
+    <title>A Lock Screen Inside a Browser: PBKDF2, Surviving Restarts, and Honest Throttles</title>
+    <link href="https://annmax1983.github.io/blog/offline-lock-screen-pbkdf2.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/offline-lock-screen-pbkdf2.html</id>
+    <updated>2026-11-03T00:00:00Z</updated>
+    <summary>PBKDF2-SHA256 at 310,000 iterations, lock state that survives a restart, cooldowns computed from deadlines instead of ticks, and alarms that outlive the service worker.</summary>
+    <category term="Chrome Extensions"/>
+    <category term="MV3"/>
+    <category term="Web Crypto"/>
+  </entry>
+
+  <entry>
+    <title>Covering Every Tab Without Navigating: A Closed Shadow-DOM Veil in MV3</title>
+    <link href="https://annmax1983.github.io/blog/shadow-dom-overlay-tab-privacy.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/shadow-dom-overlay-tab-privacy.html</id>
+    <updated>2026-11-04T00:00:00Z</updated>
+    <summary>Why VKT VeilMate hides browser tabs with a closed shadow-DOM overlay instead of navigating pages away: event interception, self-healing host elements, and lossless unlock.</summary>
+    <category term="Chrome Extensions"/>
+    <category term="MV3"/>
+    <category term="Shadow DOM"/>
+  </entry>
+
+  <entry>
+    <title>browsingData Ignores Your Origin List for Four of Nine Data Types</title>
+    <link href="https://annmax1983.github.io/blog/browsingdata-origin-scoping.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/browsingdata-origin-scoping.html</id>
+    <updated>2026-11-01T00:00:00Z</updated>
+    <summary>chrome.browsingData.remove quietly applies origins to only some data types. Downloads, form data, passwords and history ignore it entirely — how VKT CleanMate routes around it.</summary>
+    <category term="Chrome Extensions"/>
+    <category term="MV3"/>
+    <category term="Privacy"/>
+  </entry>
 
   <entry>
     <title>Locking the Buy Button: Building a Checkout Guard in MV3</title>
     <link href="https://annmax1983.github.io/blog/checkout-guard-mv3.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/checkout-guard-mv3.html</id>
-    <updated>2026-10-23T00:00:00Z</updated>
+    <updated>2026-10-29T00:00:00Z</updated>
     <summary>document_start in all frames, capture-phase click and submit interception, a Shadow DOM overlay, stored deadlines with alarms, and the cost of shipping no skip button.</summary>
     <category term="Chrome Extensions"/>
     <category term="MV3"/>
@@ -26,7 +80,7 @@
     <title>Selector Drift Across 24 Checkout Flows: Building an Adapter Layer That Checks Itself</title>
     <link href="https://annmax1983.github.io/blog/checkout-selector-drift.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/checkout-selector-drift.html</id>
-    <updated>2026-10-23T00:00:00Z</updated>
+    <updated>2026-10-31T00:00:00Z</updated>
     <summary>Why 24 site presets and a generic fallback must coexist, how multilingual button text and dual URL/DOM signals are matched, and how a passive self-check detects selector drift.</summary>
     <category term="Chrome Extensions"/>
     <category term="MV3"/>
@@ -37,7 +91,7 @@
     <title>80,000 Pixels Tall: Geometry Budgets, Viewport Traps and a Deadlock in MV3 Full-Page Capture</title>
     <link href="https://annmax1983.github.io/blog/full-page-screenshot-geometry-budget.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/full-page-screenshot-geometry-budget.html</id>
-    <updated>2026-10-22T00:00:00Z</updated>
+    <updated>2026-10-21T00:00:00Z</updated>
     <summary>An infinite feed at 85,691 px, the viewport trick that captures half a page, a 10 MB storage wall, and a lock that survived until browser restart.</summary>
     <category term="Chrome Extensions"/>
     <category term="MV3"/>
@@ -48,7 +102,7 @@
     <title>Six Ways License Validation Fails Silently in Browser Extensions</title>
     <link href="https://annmax1983.github.io/blog/license-validation-failure-modes.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/license-validation-failure-modes.html</id>
-    <updated>2026-10-22T00:00:00Z</updated>
+    <updated>2026-10-26T00:00:00Z</updated>
     <summary>Offline-forever Pro, UI and background disagreeing on expiry, in-flight snapshot races, HTTP 200 with valid:false, and treating offline as revoked.</summary>
     <category term="Licensing"/>
     <category term="Security"/>
@@ -59,7 +113,7 @@
     <title>Referer You Cannot Set: Anti-Hotlink Image Downloads in MV3</title>
     <link href="https://annmax1983.github.io/blog/anti-hotlink-image-downloads.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/anti-hotlink-image-downloads.html</id>
-    <updated>2026-10-22T00:00:00Z</updated>
+    <updated>2026-10-16T00:00:00Z</updated>
     <summary>Why batch downloads report success and save nothing: CORS failures, DNR rule slots, and the unreachable Referer header.</summary>
     <category term="Chrome Extensions"/>
     <category term="DNR"/>
@@ -70,7 +124,7 @@
     <title>world: 'MAIN' Is the One Injection Path CSP Kills</title>
     <link href="https://annmax1983.github.io/blog/extension-css-injection-csp.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/extension-css-injection-csp.html</id>
-    <updated>2026-10-22T00:00:00Z</updated>
+    <updated>2026-10-19T00:00:00Z</updated>
     <summary>A style element created in the page's main world is silently refused by strict style-src CSP. Measured comparison of MAIN, ISOLATED and insertCSS.</summary>
     <category term="CSP"/>
     <category term="Chrome Extensions"/>
@@ -81,7 +135,7 @@
     <title>From HTML Table to XLSX: rowspan=0, Pinned Column Clones and Formula Injection</title>
     <link href="https://annmax1983.github.io/blog/html-table-to-xlsx-edge-cases.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/html-table-to-xlsx-edge-cases.html</id>
-    <updated>2026-10-22T00:00:00Z</updated>
+    <updated>2026-10-23T00:00:00Z</updated>
     <summary>rowspan=0 semantics, phantom rows, measure rows, MUI pinned clones, AG Grid wrappers, Excel limits and CSV formula injection.</summary>
     <category term="Data Extraction"/>
     <category term="Algorithms"/>
@@ -93,7 +147,7 @@
     <title>Full-Page Screenshots in Chrome Extensions: Stitching, Fixed Elements and Memory Limits</title>
     <link href="https://annmax1983.github.io/blog/full-page-screenshot-stitching.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/full-page-screenshot-stitching.html</id>
-    <updated>2026-10-08T00:00:00Z</updated>
+    <updated>2026-10-13T00:00:00Z</updated>
     <summary>captureVisibleTab quota pacing, scroll-and-stitch with devicePixelRatio, hiding fixed headers, canvas size limits, and the CDP captureBeyondViewport alternative.</summary>
     <category term="Chrome Extensions"/>
     <category term="Canvas"/>
@@ -104,7 +158,7 @@
     <title>TOTP from Scratch: Building an Offline 2FA Authenticator with Web Crypto</title>
     <link href="https://annmax1983.github.io/blog/totp-web-crypto-implementation.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/totp-web-crypto-implementation.html</id>
-    <updated>2026-10-07T00:00:00Z</updated>
+    <updated>2026-10-11T00:00:00Z</updated>
     <summary>Implement RFC 6238 in the browser with zero dependencies: Base32, HMAC via Web Crypto, dynamic truncation, otpauth URIs, and RFC test vectors.</summary>
     <category term="Security"/>
     <category term="Web Crypto"/>
@@ -115,7 +169,7 @@
     <title>Perceptual Hashing in the Browser: Near-Duplicate Image Detection</title>
     <link href="https://annmax1983.github.io/blog/perceptual-hash-image-dedup.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/perceptual-hash-image-dedup.html</id>
-    <updated>2026-10-05T00:00:00Z</updated>
+    <updated>2026-10-09T00:00:00Z</updated>
     <summary>DCT-based pHash in pure JavaScript: grayscale downscale, bit packing, Hamming distance, and banded indexing for whole image libraries.</summary>
     <category term="Image Processing"/>
     <category term="Algorithms"/>
@@ -126,7 +180,7 @@
     <title>Parsing HTML Tables with Merged Cells: A Grid Normalization Algorithm</title>
     <link href="https://annmax1983.github.io/blog/html-table-merged-cells-parsing.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/html-table-merged-cells-parsing.html</id>
-    <updated>2026-10-03T00:00:00Z</updated>
+    <updated>2026-10-06T00:00:00Z</updated>
     <summary>A grid normalization algorithm for rowspan/colspan tables, multi-row header flattening, text extraction, and CSV export that opens safely.</summary>
     <category term="Algorithms"/>
     <category term="Data Extraction"/>
@@ -137,7 +191,7 @@
     <title>PWA Install and Offline Caching: What Actually Works in 2026</title>
     <link href="https://annmax1983.github.io/blog/pwa-install-offline-caching.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/pwa-install-offline-caching.html</id>
-    <updated>2026-10-02T00:00:00Z</updated>
+    <updated>2026-10-03T00:00:00Z</updated>
     <summary>Install criteria, the beforeinstallprompt dance, iOS Safari's separate rules, versioned service worker caches, and storage persistence.</summary>
     <category term="PWA"/>
     <category term="ServiceWorker"/>
@@ -159,7 +213,7 @@
     <title>Git Beyond Commit and Push: Reflog, Bisect, Worktree and Interactive Rebase</title>
     <link href="https://annmax1983.github.io/blog/git-beyond-commit-and-push.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/git-beyond-commit-and-push.html</id>
-    <updated>2026-09-16T00:00:00Z</updated>
+    <updated>2026-09-23T00:00:00Z</updated>
     <summary>Practical Git that saves hours: recover deleted work with reflog, find the commit that broke production with bisect, and work two branches at once with worktree.</summary>
     <category term="Git"/>
     <category term="Tooling"/>
@@ -170,7 +224,7 @@
     <title>Modern CSS You Probably Missed: :has(), Container Queries, @layer and Native Nesting</title>
     <link href="https://annmax1983.github.io/blog/modern-css-you-probably-missed.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/modern-css-you-probably-missed.html</id>
-    <updated>2026-09-16T00:00:00Z</updated>
+    <updated>2026-09-30T00:00:00Z</updated>
     <summary>Seven CSS features that replace JavaScript and preprocessor workarounds - with real examples you can ship today.</summary>
     <category term="CSS"/>
     <category term="Frontend"/>
@@ -181,7 +235,7 @@
     <title>Debugging Like a Senior Engineer: A Systematic Method That Actually Works</title>
     <link href="https://annmax1983.github.io/blog/debugging-like-a-senior-engineer.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/debugging-like-a-senior-engineer.html</id>
-    <updated>2026-09-16T00:00:00Z</updated>
+    <updated>2026-09-15T00:00:00Z</updated>
     <summary>Reproduce deterministically, read the whole error, cut the search space in half, work outside in, change one thing at a time, lock it in with a test.</summary>
     <category term="Debugging"/>
     <category term="Methodology"/>
@@ -192,7 +246,7 @@
     <title>SQLite in the Browser: Building a Local-First Database with OPFS</title>
     <link href="https://annmax1983.github.io/blog/sqlite-opfs-local-first-database.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/sqlite-opfs-local-first-database.html</id>
-    <updated>2026-09-15T00:00:00Z</updated>
+    <updated>2026-09-08T00:00:00Z</updated>
     <summary>Run a full SQLite database in the browser using WebAssembly and OPFS. Persistent, fast, and completely offline. No server required.</summary>
     <category term="SQLite"/>
     <category term="OPFS"/>
@@ -204,7 +258,7 @@
     <title>WebGPU in 2026: Running AI Inference and Parallel Computing Directly in Your Browser</title>
     <link href="https://annmax1983.github.io/blog/webgpu-browser-ai-inference.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/webgpu-browser-ai-inference.html</id>
-    <updated>2026-09-10T00:00:00Z</updated>
+    <updated>2026-09-01T00:00:00Z</updated>
     <summary>WebGPU brings GPU-accelerated computing to the browser. Run AI models, process images, and perform parallel computation entirely client-side with WebGPU and WGSL shaders.</summary>
     <category term="WebGPU"/>
     <category term="AI"/>
@@ -215,7 +269,7 @@
     <title>WebAssembly Image Processing in the Browser: From Pixels to Formats</title>
     <link href="https://annmax1983.github.io/blog/webassembly-image-processing.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/webassembly-image-processing.html</id>
-    <updated>2026-08-20T00:00:00Z</updated>
+    <updated>2026-08-31T00:00:00Z</updated>
     <summary>How to use WebAssembly and Canvas API to build high-performance, zero-network image processing pipelines entirely in the browser. Covers PNG, JPEG, WebP, AVIF conversion with real code examples.</summary>
     <category term="WebAssembly"/>
     <category term="Image Processing"/>
@@ -226,7 +280,7 @@
     <title>Browser Fingerprinting Explained: 30 Ways You're Being Tracked Online</title>
     <link href="https://annmax1983.github.io/blog/browser-fingerprinting-privacy.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/browser-fingerprinting-privacy.html</id>
-    <updated>2026-08-15T00:00:00Z</updated>
+    <updated>2026-08-01T00:00:00Z</updated>
     <summary>A deep dive into browser fingerprinting techniques — Canvas, WebGL, AudioContext, font enumeration, and more. Learn how websites track you without cookies and how to defend your privacy.</summary>
     <category term="Privacy"/>
     <category term="Browser Fingerprinting"/>

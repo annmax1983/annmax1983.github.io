@@ -27,12 +27,12 @@
     "author": {
       "@type": "Person",
       "name": "AnnMax",
-      "url": "https://annmax1983.github.io/"
+      "url": "https://annmax1983.github.io/#about"
     },
     "publisher": {
       "@type": "Person",
       "name": "AnnMax",
-      "url": "https://annmax1983.github.io/"
+      "url": "https://annmax1983.github.io/#about"
     },
     "mainEntityOfPage": {
       "@type": "WebPage",
@@ -47,7 +47,7 @@
   <div class="article">
     <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
     <h1 id="articleTitle">Least Privilege Implementation & Chrome Web Store Review Checklist</h1>
-    <div class="meta" id="articleMeta"><span>June 2026</span><span class="reading-time">15 min read</span></div>
+    <div class="meta" id="articleMeta"><span><a href="../#about" style="color:inherit;border-bottom:1px dotted currentColor;text-decoration:none;">AnnMax</a> · June 1, 2026</span><span class="reading-time">15 min read</span></div>
     <nav class="toc" id="toc"></nav>
     <div id="articleContent">
 
@@ -231,7 +231,7 @@ async function safeInject(tabId) {
   // First, check if the tab is injectable
   const tab = await chrome.tabs.get(tabId);
   const blockedPrefixes = ['chrome://', 'edge://', 'chrome-extension://',
-    'about:', 'chrome.google.com/webstore'];
+    'about:', 'chromewebstore.google.com'];
 
   if (blockedPrefixes.some(p => tab.url?.startsWith(p))) {
     return { error: 'blocked', message: 'Cannot inject into this page type' };
@@ -419,8 +419,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 <p>Edge is Chromium-based and supports nearly identical permissions. The key difference: Edge uses <code>edge://</code> URLs instead of <code>chrome://</code>. Check for both:</p>
 <pre><code>const blockedPrefixes = [
   'chrome://', 'edge://', 'chrome-extension://',
-  'moz-extension://', 'about:', 'chrome.google.com/webstore',
-  'microsoftedge.microsoftaddons.com'
+  'moz-extension://', 'about:', 'chromewebstore.google.com',
+  'microsoftedge.microsoft.com/addons'
 ];
 
 function isInjectable(url) {
@@ -444,10 +444,10 @@ function isInjectable(url) {
 <p>Key Firefox differences:</p>
 <ul>
 <li><code>activeTab</code> works the same way but grants access to <code>tabs</code> API properties on the active tab</li>
-<li>No <code>chrome.runtime.getContexts()</code> — use <code>browser.runtime.getContexts()</code> (MV3 polyfill handles this)</li>
-<li><code>offscreen</code> API not available in Firefox — use a hidden tab as a fallback</li>
+<li>No <code>runtime.getContexts()</code> at all — it is a Chrome 116+ method and Firefox has no equivalent, so track your own offscreen state with a module-level flag or a <code>storage.session</code> key. The polyfill cannot invent it.</li>
+<li><code>offscreen</code> API not available in Firefox — use a hidden tab or the sidebar as a fallback</li>
 <li><code>declarativeNetRequest</code> exists but has different rule limits</li>
-<li><code>storage.session</code> requires the <code>storage</code> permission in Firefox (Chrome does not)</li>
+<li><code>storage.session</code> needs the <code>storage</code> permission in both engines; Firefox only shipped it in 115, so older ESR builds fall back to <code>storage.local</code></li>
 </ul>
 
 <h3>Polyfill Strategy</h3>
@@ -467,18 +467,26 @@ await browser.storage.local.set({ key: 'value' });
 const { key } = await browser.storage.local.get('key');</code></pre>
 <p>For manifest differences, maintain separate manifest files and use a build script to merge them:</p>
 <pre><code>// build.js
+const fs = require('fs');
 const baseManifest = require('./manifest.base.json');
-const chromeManifest = { ...baseManifest };
+
+// Spread is shallow: copy the array, or pushing into the Firefox build
+// will also mutate the Chrome one.
+const chromeManifest = { ...baseManifest, permissions: [...baseManifest.permissions] };
+
 const firefoxManifest = {
   ...baseManifest,
+  permissions: [...baseManifest.permissions],
   browser_specific_settings: {
-    gecko: { id: 'myext@example.com', strict_min_version: '109.0' }
+    gecko: { id: 'myext@example.com', strict_min_version: '115.0' }
   }
 };
 
-// Chrome uses storage.session without declaring "storage" permission
-// Firefox requires it
-firefoxManifest.permissions.push('storage');
+// Both engines need the "storage" permission for storage.session.
+// Firefox only got storage.session in 115, so keep it explicit here.
+if (!firefoxManifest.permissions.includes('storage')) {
+  firefoxManifest.permissions.push('storage');
+}
 
 fs.writeFileSync('./dist/chrome/manifest.json', JSON.stringify(chromeManifest, null, 2));
 fs.writeFileSync('./dist/firefox/manifest.json', JSON.stringify(firefoxManifest, null, 2));</code></pre>

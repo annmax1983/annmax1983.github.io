@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Covering Every Tab Without Navigating: A Closed Shadow-DOM Veil in MV3</title>
+  <meta name="description" content="Why VKT VeilMate hides browser tabs with a closed shadow-DOM overlay instead of navigating pages away: event interception, self-healing host elements, and lossless unlock in Manifest V3.">
+  <meta property="og:title" content="Covering Every Tab Without Navigating: A Closed Shadow-DOM Veil in MV3">
+  <meta property="og:description" content="Overlay instead of navigation: closed shadow roots, capture-phase event blocking, self-healing host styles and lossless unlock in an MV3 privacy extension.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/shadow-dom-overlay-tab-privacy.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/shadow-dom-overlay-tab-privacy.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Covering Every Tab Without Navigating: A Closed Shadow-DOM Veil in MV3",
+    "description": "Why VKT VeilMate hides browser tabs with a closed shadow-DOM overlay instead of navigating pages away: event interception, self-healing host elements, and lossless unlock in Manifest V3.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-11-04",
+    "dateModified": "2026-11-04",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/shadow-dom-overlay-tab-privacy.html"
+    },
+    "url": "https://annmax1983.github.io/blog/shadow-dom-overlay-tab-privacy.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Covering Every Tab Without Navigating: A Closed Shadow-DOM Veil in MV3</h1>
+    <div class="meta" id="articleMeta"><span><a href="../#about" style="color:inherit;border-bottom:1px dotted currentColor;text-decoration:none;">AnnMax</a> · November 4, 2026</span><span class="reading-time">13 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="two-ways">Two Ways to Hide a Browser</h2>
+<p>When you build a "lock my browser while I step away" extension, there are exactly two architectures, and every product on the store picks one of them:</p>
+<ul>
+<li><strong>Navigate away</strong> — send every tab to a lock page. Simple, looks airtight, and destroys everything: the half-typed email is gone, the video restarts from zero, and single-page apps come back on the wrong route because their in-memory state evaporated with the document.</li>
+<li><strong>Cover in place</strong> — leave every document loaded and paint a veil on top of it. Unlocking is just removing the veil, so the page never notices anything happened.</li>
+</ul>
+<p>VKT VeilMate, my tab-privacy extension, is the second kind. The header comment of its content script (<code>content/veil.js</code>) is the whole design brief in four lines:</p>
+<pre><code> * 1. Only block — never host the password field: it is typed on the
+ *    extension's own page, so no page script can sniff it.
+ * 2. Never destroy a page: mount a shadow-DOM overlay; unlock removes it;
+ *    forms, video and SPA state survive untouched.
+ * 3. Self-heal: if the site deletes the overlay, put it back.
+ * 4. Cosmetic layer (wallpaper / big clock / message) is painted AFTER
+ *    blocking — cover first, decorate second.</code></pre>
+<p>"Cover first, decorate second" sounds obvious until you watch the fetch for the user's wallpaper delay the veil by a frame. The overlay attaches synchronously; everything pretty loads afterwards.</p>
+
+<h2 id="closed-root">The Veil Is a Closed Shadow Root</h2>
+<p>The overlay is one <code>div</code> with a closed shadow root hung at <code>z-index: 2147483647</code>. From <code>content/veil.js</code>:</p>
+<pre><code>function buildNode(kind, style) {
+  const node = document.createElement('div');
+  node.id = HOST_ID;               // 'veilmate-veil-root'
+  node.tabIndex = -1;
+  assertHostStyles(node);
+  shadow = node.attachShadow({ mode: 'closed' });</code></pre>
+<p><code>mode: 'closed'</code> buys two things. The page cannot call <code>host.shadowRoot</code> to walk inside the tree — it gets <code>null</code> — and the page's stylesheet cannot select anything behind the boundary, because shadow DOM is a real encapsulation border, not a convention. The styles live inside the root itself:</p>
+<pre><code>:host { all: initial; }
+.veil {
+  position: fixed; inset: 0; z-index: 2147483647;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(1200px 760px at 50% 16%, #2a2350 0%, #14122b 55%, #0b0a18 100%);
+  color: #ece9ff;
+  user-select: none; cursor: default;
+}</code></pre>
+<p>The <code>:host { all: initial }</code> line matters more than it looks: it kills anything the document would otherwise pass down the tree (inherited fonts, letter-spacing, directions), so the veil renders identically on a site that sets <code>html { direction: rtl }</code> and one that doesn't.</p>
+<p>Here is the honest part: <em>closed does not mean invisible</em>. The host element is a plain div with a guessable id, sitting in the page's DOM, visible to every <code>querySelector</code>. A site script can call <code>host.remove()</code>, or hide it with CSS. Closed only protects the inside. The outside needs its own defense, and I initially got that wrong.</p>
+
+<h2 id="host-guard">The Host Element Is the Leak</h2>
+<p>The first version set the host's position and size as ordinary inline styles. A site only needed one rule in its author stylesheet — <code>#veilmate-veil-root { display: none !important }</code> — and an author-level <code>!important</code> beats a non-important inline declaration. The veil was gone, and the self-heal didn't fire, because the self-heal only watched <code>isConnected</code>, and a hidden node is still connected.</p>
+<p>The fix is belt-and-braces in three layers. First, every load-bearing property is written as important (<code>HOST_STYLE</code> in <code>content/veil.js</code>, trimmed):</p>
+<pre><code>const HOST_STYLE = {
+  all: 'initial',        // first: wipe inherited junk
+  display: 'block',
+  position: 'fixed',
+  top: '0px', right: '0px', bottom: '0px', left: '0px',
+  width: '100%', height: '100%',
+  'z-index': '2147483647',
+  visibility: 'visible',
+  opacity: '1',
+  'pointer-events': 'auto',
+  transform: 'none', filter: 'none', 'clip-path': 'none',
+  /* …and the min/max/overflow siblings */
+};
+
+function assertHostStyles(node) {
+  if (!node) return;
+  for (const [prop, value] of Object.entries(HOST_STYLE)) {
+    try {
+      if (node.style.getPropertyValue(prop) === value &amp;&amp;
+          node.style.getPropertyPriority(prop) === 'important') continue;
+      node.style.setProperty(prop, value, 'important');
+    } catch { /* ignore */ }
+  }
+}</code></pre>
+<p>Second, healing checks visibility, not just presence:</p>
+<pre><code>function hostHidden(node) {
+  try {
+    const cs = getComputedStyle(node);
+    return (
+      cs.display === 'none' ||
+      cs.visibility === 'hidden' ||
+      cs.opacity === '0' ||
+      cs.pointerEvents === 'none'
+    );
+  } catch {
+    return false;
+  }
+}</code></pre>
+<p>Third, a <code>MutationObserver</code> plus a one-second ticker put things back:</p>
+<pre><code>observer = new MutationObserver(() =&gt; {
+  if (!locked || !host) return;
+  if (!host.isConnected) {
+    (document.body || document.documentElement).appendChild(host);
+    assertHostStyles(host);
+    return;
+  }
+  if (hostHidden(host)) assertHostStyles(host);
+});
+observer.observe(document.documentElement, { childList: true, subtree: true });</code></pre>
+<p>Note the <code>subtree: true</code>. The earlier version observed only direct children of <code>&lt;html&gt;</code> — so when a site replaced its <code>&lt;body&gt;</code> wholesale, the observer never fired and "self-healing" was decorative. The ticker exists for the same reason: SPAs rename <code>document.title</code> from inside route transitions, and a locked tab whose title still reads "Inbox — Alice's secret project" defeats the point. The title is re-forced to a neutral string every second, and the ticker runs even when the user turns the big clock off, because its real job is re-asserting title and host styles.</p>
+
+<h2 id="eating-events">Eating Every Event Before the Page Sees One</h2>
+<p>An overlay that only <em>looks</em> like it covers is a screensaver. If a click passes through gaps or a keystroke lands in a focused input underneath, the page behind the veil is still live. The guard set from <code>content/veil.js</code>:</p>
+<pre><code>const BLOCKED = [
+  'keydown', 'keyup', 'keypress', 'mousedown', 'mouseup', 'click', 'dblclick',
+  'contextmenu', 'wheel', 'touchstart', 'touchmove', 'touchend',
+  'pointerdown', 'pointerup', 'dragstart', 'selectstart', 'copy', 'cut', 'paste'
+];
+
+function attachGuards() {
+  if (guardsAttached) return;   // attach once; lock/unlock cycles don't stack
+  guardsAttached = true;
+  for (const type of BLOCKED) {
+    window.addEventListener(type, block, { capture: true, passive: false });
+  }
+  window.addEventListener('focusin', stealFocus, true);
+  window.addEventListener('focus', stealFocus, true);
+}</code></pre>
+<p>Four deliberate details:</p>
+<ul>
+<li><strong>Capture phase</strong> on <code>window</code> — the guard sees every event before any page listener or React root does, and <code>stopImmediatePropagation()</code> plus <code>preventDefault()</code> means nothing below ever fires.</li>
+<li><strong><code>passive: false</code></strong> — <code>wheel</code> and <code>touchmove</code> default to passive on window in modern Chrome, where <code>preventDefault()</code> is ignored. Without this, the page behind the veil would still scroll.</li>
+<li><strong>The veil itself must work</strong> — the unlock button lives inside the shadow tree, so <code>block()</code> lets events through when the host is on their path: <code>if (e.composedPath().includes(host)) return;</code>. Events from a closed root still compose outward to the window, which is exactly why this check is needed.</li>
+<li><strong>Scroll is a document property, not an event</strong> — cancelling <code>wheel</code> doesn't stop a keyboard user or a programmatic scroll, so locking also pins the document: <code>document.documentElement.style.overflow = 'hidden'</code>, with the previous value saved and restored on unlock.</li>
+</ul>
+<p>Keyboard has one more hole: a canvas, iframe or rich-text editor that already holds focus dispatches keystrokes into <em>its own</em> document, where the top window's capture listener never sees them — the typing lands on the page behind the curtain. The fix is to not let anything else keep focus:</p>
+<pre><code>function stealFocus(e) {
+  if (!locked || !host) return;
+  if (typeof e.composedPath === 'function' &amp;&amp; e.composedPath().includes(host)) return;
+  try {
+    if (e.target &amp;&amp; typeof e.target.blur === 'function') e.target.blur();
+  } catch { /* ignore */ }
+  try {
+    host.focus({ preventScroll: true });
+  } catch { /* ignore */ }
+}</code></pre>
+<p>The host has <code>tabIndex = -1</code> precisely so it can hold focus as a sink. Combined with <code>user-select: none</code> on the veil and <code>copy</code>/<code>cut</code>/<code>paste</code> in the blocked set, a covered page is inert: clicks, scroll, typing, drag and text selection all stop at the veil. Nothing is encrypted or paused — the video behind the curtain keeps buffering — but nothing the passer-by does reaches the page.</p>
+
+<h2 id="injection">Injection Timing and the One Percent the Veil Cannot Reach</h2>
+<p>The content script is cheap and always on:</p>
+<pre><code>"content_scripts": [{
+  "matches": ["http://*/*", "https://*/*"],
+  "js": ["content/veil.js"],
+  "run_at": "document_start",
+  "all_frames": false
+}]</code></pre>
+<p><code>document_start</code> matters for reloads: refresh a covered page while locked and the script boots before the site's own JS, asks the background for state, and re-covers immediately:</p>
+<pre><code>chrome.runtime
+  .sendMessage({ type: 'veil:state', url: location.href })
+  .then((r) =&gt; {
+    if (r &amp;&amp; r.cover) show('lock', r.style);
+  })
+  .catch(() =&gt; {});</code></pre>
+<p>The <code>pageshow</code> listener repeats the question when a tab returns from bfcache. The background answers with the top-level URL it read from the sender — the page's self-reported URL is only a fallback — and a per-domain exempt list decides whether that tab gets covered at all.</p>
+<p><code>all_frames: false</code> is deliberate: the veil is one full-viewport fixed layer, so pointer input aimed at any embedded frame hits the veil instead of the frame; a per-frame overlay would multiply injection cost for no extra coverage. One click can also blur a focused frame because <code>host.focus()</code> takes focus across the frame boundary.</p>
+<p>The genuine blind spots are pages a content script cannot exist on: <code>chrome://</code>, <code>edge://</code>, <code>about:</code>, <code>file://</code>, other extensions' pages, and tabs that were already open before the extension was installed. For exactly those, the background falls back to the ugly-but-correct strategy it refuses to use on normal pages — replace the page, remember the URL, restore on unlock (<code>background.js</code>, <code>guardTab</code>/<code>unlock</code>):</p>
+<pre><code>await rememberReplaced(tab.id, url).catch(() =&gt; {});
+chrome.tabs.update(tab.id, { url: page }).catch(() =&gt; {
+  if (windowId) chrome.tabs.create({ windowId, url: page, active: true }).catch(() =&gt; {});
+});
+
+// …and in unlock(), per tab:
+if (isLockPage &amp;&amp; original) {
+  chrome.tabs.update(tab.id, { url: original }).catch(() =&gt; {});   // restore in place
+} else if (isLockPage) {
+  chrome.tabs.remove(tab.id).catch(() =&gt; {});                       // pure lock tab: close
+} else {
+  chrome.tabs.sendMessage(tab.id, { type: 'veil:unlock' }).catch(() =&gt; {});
+}</code></pre>
+<p>Yes — a replaced tab reloads, and its form state is gone. That's the honest trade: navigation is only used where overlay is impossible, so the loss is confined to pages that were never live documents to begin with (a <code>chrome://</code> settings page has nothing to lose). The one page that must never be replaced or covered is the extensions management page for this extension itself — it is the exit path if the user forgets the password, since there is no recovery code and no reset endpoint. <code>isEscapeUrl</code> allows only <code>chrome://extensions</code> filtered to the extension's own id; other extensions' pages stay behind the lock.</p>
+
+<h2 id="one-click">One Click, Every Window, Everything New</h2>
+<p>Locking is a single broadcast in <code>background.js</code>. <code>chrome.tabs.query({})</code> — no filter — returns every tab in every window, http or not:</p>
+<pre><code>async function paintTabs() {
+  const tabs = await chrome.tabs.query({});
+  const st = await getState();
+  if (!st.locked) return;
+  const style = await currentLockStyle();
+
+  for (const tab of tabs) {
+    /* …skip the lock page itself and the escape url… */
+    if (/^https?:/i.test(url)) {
+      sendLock(tab.id, style).catch(() =&gt; recordAndSwap(tab.id, url));
+    } else {
+      await recordAndSwap(tab.id, url);
+    }
+  }
+}</code></pre>
+<p>The toolbar button, the right-click menu and every auto-lock trigger funnel into this. There is no <code>commands</code> block in the manifest and no keyboard shortcut is registered anywhere — a deliberate small decision: shortcut collisions with sites and the browser are guaranteed, and a lock you trigger by accident while a popup is open is worse than two clicks.</p>
+<p>While <code>locked</code> is true, three listeners make sure nothing new slips past the lock screen: <code>tabs.onCreated</code> (a fresh tab), <code>tabs.onUpdated</code> filtered to <code>info.url</code> changes only (a typed address — title and favicon updates are ignored on purpose so a chatty YouTube tab doesn't turn the callback into a hot path), and <code>windows.onCreated</code> with two delayed sweeps at 300 ms and 1200 ms, because a brand-new window may not have a tab yet. That includes private windows — the manifest declares <code>"incognito": "spanning"</code>, so if the user enables it, a new incognito window opens onto the lock page too.</p>
+<p>The lock state itself lives in <code>chrome.storage.local</code>, which means closing the browser does not unlock: <code>onStartup</code> reads the persisted state and calls <code>paintTabs()</code> as the first act of the new session. Auto-lock defaults to the browser's own idle detection at 10 minutes. The lock screen shows a big clock with an optional date — six language locales ship with it, so "浏览器已锁定" is "Browser locked" in English, 中文, 日本語, Deutsch, Español and Français.</p>
+
+<h2 id="unlock">Unlock Removes; It Does Not Rebuild</h2>
+<p>The veil's unlock button does not contain a password field — fields inside injected pages are sniffable in principle, so the button only asks the background to focus the extension's own lock page:</p>
+<pre><code>function requestUnlockPage() {
+  try {
+    chrome.runtime.sendMessage({ type: 'veil:unlock-request' });
+  } catch { /* ignore */ }
+}</code></pre>
+<p>The lock page verifies the password in the extension context: PBKDF2-SHA256 with 310,000 iterations and a random salt, stored as <code>{ salt, iter, hash }</code>, compared in constant time. The password itself is never written to storage, never synced, never leaves the device — the only outbound request in the whole extension is license activation. After unlock, <code>remove()</code> in each page is the mirror image of mount: node out, observer disconnected, overflow restored, saved title restored. No reload, no restore protocol, nothing to checkpoint.</p>
+<p>The two Pro features built on the same plumbing are worth a paragraph each. The <strong>privacy curtain</strong> reuses the overlay in a non-locking mode — right-click any page to blur it with <code>backdrop-filter: blur(26px)</code> and a one-line label; a click lifts it. The browser is not locked, nothing is recorded, and it is the polite version of "close this tab" when a colleague walks over. <strong>Scheduled lock</strong> is a one-shot <code>chrome.alarms</code> re-armed after every fire (a periodic 1440-minute alarm drifts across daylight saving), with a five-minute lateness cutoff so a missed alarm from a closed browser doesn't lock you out at boot.</p>
+
+<h2 id="limits">What This Does Not Protect You From</h2>
+<p>The README's one-sentence product statement, which is also printed inside the settings page: <em>VeilMate hides your tabs from people. It is not encryption, and it does not defend against someone who controls the machine.</em> Concretely:</p>
+<ul>
+<li>A person who can disable or remove the extension can see everything. No extension can prevent that, and store policy forbids trying.</li>
+<li>Another browser profile, another OS user, or a task-manager kill bypasses everything — all outside the extension's reach.</li>
+<li>DevTools on an extension page can send the extension's own runtime messages. That's the same class of attacker as "can disable the extension", and the countermeasures (attempt counter, escalating cooldown, locked-state guards) all live in the background script so that path is no faster than guessing at the lock screen.</li>
+<li>An SPA that swaps the URL via <code>pushState</code> is not a navigation Chrome reports, so the exempt list is re-checked on real navigations and reloads, not mid-app. Fixing that needs <code>webNavigation</code> — a permission I chose not to ask for.</li>
+<li>The page content behind the veil is still in memory, unencrypted, and keeps running. This is a curtain, not a safe.</li>
+</ul>
+<p>Saying these out loud costs installs among people who wanted a safe. It buys reviews from people who understood what they bought — the table above is the difference between "browser lock" as a category and a tool with a claim you can actually keep.</p>
+
+<h2 id="costs">The Performance Bill</h2>
+<p>Small and honest. The veil is one fixed-position div with a gradient background: layout cost is one full-viewport paint, no canvas, no animation; the clock ticker rewrites two <code>textContent</code> values per second. The real costs are subtler: setting <code>overflow: hidden</code> on the document removes the scrollbar, which reflows the page's layout once at lock and once at unlock (content that used to be 100% wide becomes 15px wider) — harmless visually because the veil covers the transition. The observer on <code>subtree: true</code> fires callbacks on every DOM mutation site apps make constantly; React-style apps under the veil do pay a few observer invocations per second, and this is why the handler is two cheap checks and nothing else. <code>backdrop-filter: blur(26px)</code> in curtain mode is the one genuinely expensive primitive here — a full-viewport blur per frame on large displays — which is fine for a feature that covers one page and is removed on click.</p>
+
+<h2 id="takeaways">If You Build the Same Thing</h2>
+<ol>
+<li>Decide early between cover and navigate — mixing them is fine, but only as primary and fallback, never as equals.</li>
+<li>Closed shadow DOM protects the inside; the host element is still page-visible and needs important inline styles, a visibility-aware <code>MutationObserver</code> observing the whole subtree, and a slow timer as final backstop.</li>
+<li>Block at capture with <code>passive: false</code>, or wheel/touch prevention is silently ignored; whitelist your own overlay via <code>composedPath()</code>.</li>
+<li>Focus is a side channel: blur whatever holds it and park focus on the host, or keystrokes land behind the curtain.</li>
+<li>Persist lock state in <code>storage.local</code>; "closing the browser unlocks" is a feature bug wearing a disguise.</li>
+<li>Leave exactly one escape hatch (your own extension-management page), or a forgotten password becomes a hostage situation.</li>
+<li>Publish what the tool cannot defend against — it is the cheapest trust you can buy.</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/develop/concepts/content-scripts" target="_blank">Content scripts — Chrome Docs</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM" target="_blank" rel="noopener">Using the Shadow DOM — MDN</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Event/stopImmediatePropagation" target="_blank" rel="noopener">Event.stopImmediatePropagation — MDN</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/idle" target="_blank">chrome.idle API Reference</a></li>
+</ul>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience &amp; State Persistence Patterns for MV3</a></li>
+  <li><a href="./least-privilege-review.html">Least Privilege &amp; Chrome Web Store Review Checklist</a></li>
+  <li><a href="./browser-fingerprinting-privacy.html">Browser Fingerprinting Explained: 30 Ways You're Being Tracked Online</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Covering Every Tab Without Navigating: A Closed Shadow-DOM Veil in MV3',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '不导航、不重载：用闭合 Shadow DOM 遮罩盖住每一个标签页',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'ナビゲーションせず全タブを覆う：MV3 におけるクローズド Shadow DOM のヴェール',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Alle Tabs abdecken ohne Navigation: Ein Closed Shadow-DOM-Schleier in MV3',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Cubrir todas las pestañas sin navegar: Un velo de Shadow DOM cerrado en MV3',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Couvrir tous les onglets sans naviguer : Un voile Shadow DOM fermé dans MV3',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    // Language detection
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      // Update TOC title
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    // Build TOC
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      // Scroll spy
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    // Copy button for code blocks
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://api.annmax.ccwu.cc"></script>
+</body>
+</html>

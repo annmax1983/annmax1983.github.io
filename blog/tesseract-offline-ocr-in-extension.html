@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Tesseract in the Zip: What "100% Local OCR" Costs in an MV3 Extension — AnnMax</title>
+  <meta name="description" content="Shipping Tesseract.js inside a Manifest V3 extension: a whitelisted build, one host permission, CSS-pixel to physical-pixel cropping, an image handoff through chrome.storage.local, a quota that only bills successful runs, and the single network path that is not your pixels.">
+  <meta property="og:title" content="Tesseract in the Zip: What &quot;100% Local OCR&quot; Costs in an MV3 Extension">
+  <meta property="og:description" content="What the promise forces in code: the engine as packaged bytes, a viewport capture cropped at device resolution, a handoff through storage, and a counter that resets on your calendar, not UTC.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/tesseract-offline-ocr-in-extension.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/tesseract-offline-ocr-in-extension.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Tesseract in the Zip: What \"100% Local OCR\" Costs in an MV3 Extension",
+    "description": "Shipping Tesseract.js inside a Manifest V3 extension: a whitelisted build, one host permission, CSS-pixel to physical-pixel cropping, an image handoff through chrome.storage.local, a quota that only bills successful runs, and the single network path that is not your pixels.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-11-05",
+    "dateModified": "2026-11-05",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/tesseract-offline-ocr-in-extension.html"
+    },
+    "url": "https://annmax1983.github.io/blog/tesseract-offline-ocr-in-extension.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../blog.html" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Tesseract in the Zip: What "100% Local OCR" Costs in an MV3 Extension</h1>
+    <div class="meta" id="articleMeta"><span><a href="../#about" style="color:inherit;border-bottom:1px dotted currentColor;text-decoration:none;">AnnMax</a> · November 5, 2026</span><span class="reading-time">11 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="the-promise-and-what-it-forbids">The Promise, and What It Forbids</h2>
+<p><em>This is the story behind <strong>VKT SnapOCR</strong>, a screenshot-to-text extension I ship for Chrome and Edge. The store line is "100% local OCR — screenshots never leave your machine". This post is about what that sentence forces you to write in the manifest, the build script, and the crop math.</em></p>
+<p>"No upload" is mostly a sentence about what does <em>not</em> happen, which is why it is so easy to say and so easy to half-implement. Concretely, three things disappear from the design: there is no server to build or pay for, no API key to protect, and no queue where a user's screenshot sits in somebody else's storage. What replaces them is a pile of constraints that all land in four files.</p>
+<p>The most legible one is the permission list, because it is what a reviewer and a curious user read first:</p>
+<pre><code>// manifest.json
+"permissions": ["activeTab", "contextMenus", "storage", "unlimitedStorage", "scripting", "clipboardWrite"],
+"host_permissions": ["https://api.annmax1983.com/*"],
+"content_security_policy": { "extension_pages": "script-src 'self'; object-src 'self'" },
+"offline_enabled": true</code></pre>
+<p>One host, and it is the licence endpoint — not an OCR endpoint. <code>activeTab</code> plus <code>scripting</code> instead of <code>tabs</code> plus <code>&lt;all_urls&gt;</code>, because the extension only ever needs the tab you are looking at, at the moment you asked for it. <code>offline_enabled: true</code> is a declaration, not a feature: it is the promise written down, and it is only honest if the engine is already inside the package.</p>
+
+<h2 id="what-actually-ships">What Actually Ships</h2>
+<p>So the engine has to be bytes in the zip. SnapOCR's build script does not bundle with a linker; it copies from <code>node_modules</code> into <code>publish/</code> through two explicit lists:</p>
+<pre><code>// scripts/build.js
+const COPY_LIST = ['manifest.json', 'background.js', 'content.js', 'content.css',
+  'license.js', 'quota.js', 'popup', 'result', '_locales', 'icons', 'assets'];
+
+const VENDOR = {
+  'node_modules/tesseract.js/dist/tesseract.min.js':  'vendor/tesseract/tesseract.min.js',
+  'node_modules/tesseract.js/dist/worker.min.js':     'vendor/tesseract/worker.min.js',
+  'node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm.js': 'vendor/tesseract/core/...',
+  'node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm':    'vendor/tesseract/core/...',
+  'node_modules/tesseract.js-core/tesseract-core-lstm.wasm.js':      'vendor/tesseract/core/...',
+  'node_modules/tesseract.js-core/tesseract-core-lstm.wasm':         'vendor/tesseract/core/...',
+  'node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz':     'vendor/tessdata/eng.traineddata.gz',
+  'node_modules/@tesseract.js-data/chi_sim/4.0.0_best_int/chi_sim.traineddata.gz': 'vendor/tessdata/chi_sim.traineddata.gz'
+};</code></pre>
+<p>Four things worth noticing in that map. It is pinned (<code>tesseract.js: 5.1.1</code>, <code>@tesseract.js-data/eng: 1.0.0</code>), so the published extension contains a specific engine, not "whatever npm gave me today". Both a SIMD and a non-SIMD core ship, because the SIMD build is faster and cannot load at all on a CPU without SIMD support — choosing between them is a runtime decision inside the library, and packaging only the fast one silently breaks the slow machines. The language data is shipped <em>compressed</em> (<code>.traineddata.gz</code>), because two packs are the difference between a reasonable download and a silly one. And the two packs that ship are English and Simplified Chinese — the rest are a different story, below.</p>
+<p><code>COPY_LIST</code> is a whitelist rather than "copy the folder" for a reason that has nothing to do with size: the package is reviewed by humans. Whatever is in the zip is auditable; a build that sweeps <code>node_modules</code> into the payload makes every permission question harder to answer. The four runtime scripts are minified with terser, and the manifest, locales, icons and vendor bytes are deliberately not touched.</p>
+
+<h2 id="csp-and-the-engine">CSP, and the Question I Had to Test</h2>
+<p>The CSP line above has no <code>unsafe-eval</code> and no remote script source, which matches how the engine is used: <code>Tesseract.recognize()</code> is handed three paths that all resolve inside the extension origin.</p>
+<pre><code>// result/result.js
+function runOCR(image, lang) {
+  return Tesseract.recognize(image, lang, {
+    workerPath: chrome.runtime.getURL('vendor/tesseract/worker.min.js'),
+    corePath: chrome.runtime.getURL('vendor/tesseract/core'),
+    langPath: langPathFor(lang),
+    logger: (m) =&gt; { if (m.status === 'recognizing text') setProgress(m.progress); }
+  }).then(res =&gt; (res.data.text || '').trim());
+}</code></pre>
+<p>Nothing is fetched from a CDN to run the engine, and no string of JavaScript is ever evaluated — the "code" is a wasm module loaded from the package. That is the whole argument for the strict policy, and it is also the reason the strict policy is affordable.</p>
+<p>One caveat I want to record honestly, because it is the kind of thing you only find on a real install: MV3's <em>default</em> extension-page policy already includes <code>'wasm-unsafe-eval'</code> inside <code>script-src</code>. Writing your own <code>script-src</code> replaces that default instead of adding to it, and a wasm engine is exactly the code that notices. So the CSP block is not a "nice to have" line to tweak and re-zip: after any change to it, load the unpacked extension and run one recognition before you call it done. If the core fails to compile, the fix is <code>script-src 'self' 'wasm-unsafe-eval'</code> — which is still nowhere near the flexibility people assume they need.</p>
+
+<h2 id="css-pixels-are-not-the-image">CSS Pixels Are Not the Image</h2>
+<p>The capture path is where "it works on my laptop" goes to die. The user drags a box on a page; the page lives in CSS pixels; the screenshot does not.</p>
+<pre><code>// content.js — mouseup
+if (rect.width &lt; 8 || rect.height &lt; 8) { cleanup(); return; }
+chrome.runtime.sendMessage({ type: 'SNAPOCR_SELECTION', rect, dpr: window.devicePixelRatio || 1 });</code></pre>
+<pre><code>// background.js
+const rect = msg.rect;
+if (!rect || rect.width &lt; 4 || rect.height &lt; 4) return;
+const dataUrl = await chrome.tabs.captureVisibleTab(windowId, { format: 'png' });
+const cropped = await cropDataUrl(dataUrl, rect, msg.dpr || 1);
+
+// background.js — cropDataUrl(dataUrl, rect, dpr)
+const scale = dpr || 1;
+const sx = Math.max(0, Math.round(rect.x * scale));
+const sy = Math.max(0, Math.round(rect.y * scale));
+const sw = Math.min(bitmap.width - sx, Math.round(rect.width * scale));
+const sh = Math.min(bitmap.height - sy, Math.round(rect.height * scale));
+if (sw &lt;= 0 || sh &lt;= 0) throw new Error('empty crop');
+const canvas = new OffscreenCanvas(sw, sh);
+canvas.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);</code></pre>
+<p>Three details here, each of which came from a failure rather than from a document. First, the two thresholds are different numbers on purpose: 8 CSS pixels in the page kills a stray click before it becomes a request, and 4 in the worker is a backstop behind a message that could have come from anywhere. Second, the multiply-then-clamp order matters: <code>Math.min(bitmap.width - sx, ...)</code> is what stops a rect that ends below the fold from producing a negative height on a 150% display, where one CSS pixel is 1.5 device pixels and rounding drift accumulates across the whole box. Third — the reason the crop multiplies at all — <code>captureVisibleTab</code> returns the viewport at device resolution, so cropping in CSS pixels throws away exactly the pixels OCR needed. On a HiDPI screen a 1× crop of small text is the difference between readable output and mush.</p>
+<p>The overlay also freezes scrolling while you drag:</p>
+<pre><code>// content.js — begin()
+// Freeze the page so captureVisibleTab matches what the user sees
+savedOverflow = document.documentElement.style.overflow;
+document.documentElement.style.overflow = 'hidden';</code></pre>
+<p>That comment is the bug report. <code>captureVisibleTab</code> captures the <em>viewport</em>, so if the page can scroll between the mouse-up and the capture — and it can, because the handoff is asynchronous — you crop a rectangle out of a different image than the one the user selected. Scrolling is not inconvenient there; it is incorrect.</p>
+<p>The last piece of the crop is a size limit you hit once and remember. The PNG has to come back out as a data URL, and the naive way to do that explodes:</p>
+<pre><code>// background.js — blobToDataURL(blob)
+let bin = '';
+const chunk = 0x8000;
+for (let i = 0; i &lt; bytes.length; i += chunk) {
+  bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+}</code></pre>
+<p><code>String.fromCharCode.apply(null, bytes)</code> with a few megabytes of a screenshot is a <code>RangeError</code> — the argument list overflows. 32 KB per call is a number that works, is comfortably below the limit, and is not something I plan to revisit.</p>
+
+<h2 id="the-handoff">The Image Travels Through Storage, Not the URL</h2>
+<p>The cropped image has to reach the result page. The obvious route — put it in the query string — is a bad idea twice over: a multi-megabyte base64 string in a URL is a length-limit problem, and it is also the sort of thing that ends up in history entries and crash reports. So the handoff is a single storage key, and the receiving end deletes it as it reads:</p>
+<pre><code>// background.js
+await chrome.storage.local.set({ [PENDING_KEY]: { image: cropped, lang, ts: Date.now() } });
+try { await chrome.tabs.sendMessage(sender.tab.id, { type: 'SNAPOCR_DISMISS' }); } catch (e) { /* tab may be gone */ }
+await chrome.windows.create({ url: chrome.runtime.getURL('result/result.html'), type: 'popup', width: 580, height: 660 });
+
+// result/result.js — init()
+const stored = await chrome.storage.local.get(PENDING_KEY);
+await chrome.storage.local.remove(PENDING_KEY);
+const pending = stored[PENDING_KEY];
+if (!pending || !pending.image) { hideProgress(); showI18nError('errNoCapture'); return; }</code></pre>
+<p>Get-then-remove gives the page a one-shot handoff: reload the result window and it says "no capture" instead of re-running — and re-billing — the previous image. The <code>DISMISS</code> message before <code>windows.create</code> is another small ordering thing: the overlay lives in the page, and if the popup steals focus first, a semi-transparent full-page overlay stays on top of a website you did not intend to freeze.</p>
+
+<h2 id="a-quota-that-bills-finished-runs">A Quota That Bills Finished Runs, Not Failed Ones</h2>
+<p>The free tier is 20 recognitions a day, and where the counter lives is a product decision disguised as an implementation detail:</p>
+<pre><code>// quota.js
+ * The counter lives in chrome.storage.local on purpose. A server-side counter
+ * would lock people out whenever the network is unavailable, which contradicts
+ * the "works fully offline" promise behind the bundled languages.
+const FREE_DAILY_QUOTA = 20;
+
+/** Local calendar day (not UTC) so the reset feels like "tomorrow" to the user. */
+function _today() { /* YYYY-MM-DD from new Date(), padded */ }
+
+/** Called after OCR succeeds, never before — a failed capture must not eat a Free user's quota. */
+async function consumeQuota() { ... }</code></pre>
+<p>The ordering is enforced at the call site, not inside the quota module:</p>
+<pre><code>// result/result.js
+const text = await runOCR(pending.image, lang);
+if (!isPro) await consumeQuota(); // only bill a successful run
+showResult(text, lang);</code></pre>
+<p>which means an engine crash or an unreadable crop costs the user nothing. That is the kind of fairness that is invisible when you do it and loudly resented when you don't — and it is one line and a comment. Read that line literally, though, and one edge is left open on purpose: <code>runOCR</code> resolving with nothing readable is still a resolve, so an empty result spends the run. The comment in the module says "a failed capture must not eat a Free user's quota", and an empty crop is not a failed capture — the engine ran, found nothing, and reported. Whether the text was any good is not something this call site can decide, so it bills the completion. If that ever reads as unfair to real users, the fix is one clause at the call site, not a change of heart in the quota module.</p>
+<p>The local-day key is the same argument in a smaller register: <code>_today()</code> builds <code>YYYY-MM-DD</code> from the machine's own clock, so the counter rolls over at the user's midnight and the reset genuinely feels like "tomorrow" — a UTC key would flip it at 09:00 for someone in Tokyo, which is a time that suits my logs and nobody else's. And yes, a counter in <code>chrome.storage.local</code> is editable by anyone who opens DevTools on the extension page. I decided that trade deliberately: the alternative is a server that has to be reachable before a person can read text off their own screen, which is worse than being occasionally cheated by a tool that costs $14.99 once. The gate checks a cached licence first and the counter second, and the zero-quota state replaces the whole footer — copy button, export, the second upsell — so the wall page has exactly one call to action instead of three.</p>
+
+<h2 id="the-one-network-path">The One Network Path That Is Not Your Licence</h2>
+<p>Two languages ship in the zip. The other seven in the picker do not:</p>
+<pre><code>// result/result.js
+const BUNDLED_LANGS = ['eng', 'chi_sim'];
+const CDN_LANG_BASE = 'https://tessdata.projectnaptha.com/4.0.0';
+
+function langPathFor(lang) {
+  return BUNDLED_LANGS.includes(lang)
+    ? chrome.runtime.getURL('vendor/tessdata')
+    : CDN_LANG_BASE;
+}</code></pre>
+<p>Two bundled packs are already a large extension; nine would be a different product, so the remaining languages are fetched from the public tessdata mirror once and cached by the engine afterwards. That is the only place in the code where a third-party URL appears outside the licence host, and I keep it visible on purpose: the honesty of "local OCR" rests on the fact that this request carries a language name, not an image. The recognition itself never leaves the machine.</p>
+<p>Two consequences you have to design around. First, a non-bundled language is not offline-usable until it has been downloaded once online — which is why the result page's language badge marks bundled packs explicitly, and why the "works offline" claim in the store copy is scoped to English and Simplified Chinese. Second, a remote path is a dependency. The mirror publishes specific version segments, and the segment in the first build was copied from the npm package layout rather than from the mirror — the mirror does not publish that segment at all, so all seven downloadable languages returned 404 and the paid tier was quietly unusable, with no error a user could act on. I found it by curling the paths by hand, which is the point: if you ship something like this, put a HEAD request for every language path in CI. It is the cheapest test in the project and it catches the exact class of failure that makes a paid feature quietly unusable.</p>
+<p>Cross-origin fetch from an extension page normally wants a host permission, but a policy you can test in one curl: the mirror answers <code>Access-Control-Allow-Origin: *</code>, so the download needs no extra grant in <code>host_permissions</code>. Worth knowing, because "add the host to the manifest" is the reflex answer that makes the permission list grow for no reason.</p>
+
+<h2 id="injection-and-its-no's">Injection, and the Places This Cannot Work</h2>
+<p>The overlay is not declared in the manifest as a content script. It is injected on demand, guarded twice:</p>
+<pre><code>// background.js — startSelection(tab)
+const url = tab.url || '';
+if (!/^(https?|file):/i.test(url)) return;   // chrome://, edge://, Web Store…
+
+const [{ result }] = await chrome.scripting.executeScript({
+  target: { tabId: tab.id }, func: () =&gt; !!window.__snapocrLoaded });
+if (!injected) {
+  await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ['content.css'] });
+  await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
+}
+await chrome.tabs.sendMessage(tab.id, { type: 'SNAPOCR_BEGIN' });</code></pre>
+<p>The probe reads a flag the IIFE sets for itself (<code>if (window.__snapocrLoaded) return;</code>), which is the difference between "inject once" and "two overlays, two listeners, one Escape key that closes neither". Dynamic injection also means a session where you never start a capture never runs the script — no permanent content script sitting on every page, which is both the permission story (<code>activeTab</code>) and the performance story.</p>
+<p>And the list of places it genuinely does not work, which belongs in the product page rather than in a support ticket: <code>chrome://</code> and Web Store pages are off-limits to injection, so a settings screen cannot be read; only the <em>visible</em> tab is captured, so text scrolled out of the viewport is out of reach; and one drag is one region, so a whole table means several boxes. A tool that says what it cannot do gets fewer angry reviews than one that implies it can do everything.</p>
+
+<h2 id="checklist">Checklist</h2>
+<ol>
+<li>If the promise is "no upload", write it where reviewers look: one host permission, no <code>&lt;all_urls&gt;</code>, <code>offline_enabled: true</code>, and a build that proves the engine is packaged.</li>
+<li>Ship the fallback wasm core, not only the SIMD one — and pin the library version, so the zip contains a known engine.</li>
+<li>Copy sources with a whitelist. Every byte in the package is a byte someone may ask you about.</li>
+<li>Read MV3 CSP as a replacement, not an addition, and re-test the wasm path after touching it.</li>
+<li>Capture is in device pixels, selection is in CSS pixels: multiply by <code>devicePixelRatio</code>, then clamp to the bitmap, then refuse empty crops.</li>
+<li>Freeze page scroll during selection, or the crop rectangle lands on a different image than the one the user saw.</li>
+<li>Never build a data URL with one giant <code>String.fromCharCode.apply</code>. Chunk it.</li>
+<li>Hand big payloads through <code>chrome.storage.local</code> and delete on read; a reload should fail cleanly, not re-run the world.</li>
+<li>Bill a quota after success, reset on the user's calendar, and pick the offline-first storage location for the counter on purpose — then write the reason down.</li>
+<li>Mark which languages are packaged and which are fetched; treat every remote path as a dependency with a test.</li>
+<li>Publish the list of things the extension cannot do. It is shorter than the list of tickets it prevents.</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/develop/concepts/manifest/content_security_policy" target="_blank">Content Security Policy (Manifest V3) — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/tabs#method-captureVisibleTab" target="_blank">chrome.tabs.captureVisibleTab — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/scripting" target="_blank">chrome.scripting API Reference — Chrome Docs</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas" target="_blank">OffscreenCanvas — MDN</a></li>
+<li><a href="https://github.com/naptha/tesseract.js" target="_blank">tesseract.js — Pure JavaScript OCR for Javascript</a></li>
+<li><a href="https://github.com/naptha/tessdata" target="_blank">naptha/tessdata — Traineddata files and the public mirror</a></li>
+</ul>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./webassembly-image-processing.html">WebAssembly Image Processing in the Browser: From Pixels to Formats</a></li>
+  <li><a href="./offscreen-image-processing.html">Local-Only Image Processing Architecture via Offscreen Documents</a></li>
+  <li><a href="./license-validation-failure-modes.html">Six Ways License Validation Fails Silently in Browser Extensions</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Tesseract in the Zip: What "100% Local OCR" Costs in an MV3 Extension',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '把 Tesseract 打进压缩包：MV3 扩展里“100% 本地 OCR”这句话的真实成本',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'Tesseract をZIPに同梱する：MV3拡張で「100%ローカルOCR」と宣言する原価',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Tesseract im ZIP: Was „100 % lokale OCR“ in einer MV3-Erweiterung kostet',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Tesseract en el ZIP: lo que cuesta un OCR “100 % local” en una extensión MV3',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Tesseract dans l’archive : ce que coûte un OCR « 100 % local » dans une extension MV3',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://annmax.ccwu.cc"></script>
+</body>
+</html>

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">A Fee Table That Updates Itself: Hot-Reloading Amazon's Numbers in an MV3 Extension — AnnMax</title>
+  <meta name="description" content="Amazon changes its FBA fee schedule several times a year and a browser extension cannot wait for a store review. How VKT MarginMate splits the problem into a hand-transcribed data module, a JSON export, a daily alarm, a schema guard, and a pure calculator that never touches chrome.*.">
+  <meta property="og:title" content="A Fee Table That Updates Itself: Hot-Reloading Amazon's Numbers in an MV3 Extension">
+  <meta property="og:description" content="One authored JS module, one exported JSON copy, one daily alarm, two guards, and a calculator that stays pure. Plus the version-string trap and the day the endpoint silently 404s.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/amazon-fee-table-hot-reload.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/amazon-fee-table-hot-reload.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "A Fee Table That Updates Itself: Hot-Reloading Amazon's Numbers in an MV3 Extension",
+    "description": "Amazon changes its FBA fee schedule several times a year and a browser extension cannot wait for a store review. How VKT MarginMate splits the problem into a hand-transcribed data module, a JSON export, a daily alarm, a schema guard, and a pure calculator that never touches chrome.*.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-11-05",
+    "dateModified": "2026-11-05",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/amazon-fee-table-hot-reload.html"
+    },
+    "url": "https://annmax1983.github.io/blog/amazon-fee-table-hot-reload.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../blog.html" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">A Fee Table That Updates Itself: Hot-Reloading Amazon's Numbers in an MV3 Extension</h1>
+    <div class="meta" id="articleMeta"><span><a href="../#about" style="color:inherit;border-bottom:1px dotted currentColor;text-decoration:none;">AnnMax</a> · November 5, 2026</span><span class="reading-time">12 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="the-rotting-part">Only the Numbers Rot</h2>
+<p><em>This is the story behind <strong>VKT MarginMate</strong>, an Amazon FBA profit calculator that runs as a panel on the product page. Most of it is arithmetic. The interesting engineering is not the arithmetic — it is keeping the arithmetic's inputs honest when the inputs are somebody else's pricing sheet, published on a website that changes without telling you.</em></p>
+<p>Break the product into parts and the split is immediate. The subtraction order — net revenue, referral, fulfilment, storage, ads, returns, landed cost — is stable; nobody re-derives that twice a year. The <em>rates</em> are not stable: Amazon revises the fee schedule several times a year, and the revision dates are not aligned with your release train. Meanwhile the extension ships as a zip that has to pass a store review before a byte of it changes.</p>
+<p>So the design question was not "how do we compute a margin" but "how do we let one file change without shipping a new version of the extension" — while keeping the offline case working, the malformed-payload case harmless, and the user's trust intact. The answer is five pieces: an authored data module, an export tool, a daily alarm, two validation guards, and a calculator that is not allowed to know any of it exists.</p>
+
+<h2 id="one-source-two-artifacts">One Authored File, Two Artifacts</h2>
+<p>The source of truth is a JavaScript file, not JSON, because that is what a service worker and a content script can both load without an async dance:</p>
+<pre><code>/**
+ * VKT MarginMate fee tables.
+ *
+ * SINGLE SOURCE OF TRUTH for every number the calculator uses.
+ * Bump `version` whenever a rate changes — the panel shows it to the user.
+ *
+ * ⚠️  These are *estimates* transcribed from Amazon's public fee schedules.
+ *     Amazon changes them several times a year and applies category / size /
+ *     program exceptions we cannot see from a product page. The UI always
+ *     renders them as estimates and every fee can be overridden by hand.
+ */
+self.MM_FEES = {
+  schema: 1,
+  version: "2026.11",
+  updatedAt: "2026-11-01",
+  source: "https://sellercentral.amazon.com/help/hub/reference/GTG4BAWSY39N4Z8F",
+  marketplaces: { US: { ... }, UK: { ... }, DE: { ... } }
+};</code></pre>
+<p><code>importScripts("data/fees.js", "license.js")</code> at the top of <code>background.js</code> makes the bundled table the floor under every calculation. Note the header comment is part of the product: it says out loud that these are transcribed estimates, that they go stale, and that every one of them can be overridden. A fee table that does not admit it is an estimate is a lie with decimals.</p>
+<p>The JSON copy is produced by a script rather than maintained by hand, so the two artifacts cannot drift apart in the way that only one of them gets edited:</p>
+<pre><code>// tools/export-fees.js
+const sandbox = { self: {} };
+vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync(src, "utf8"), sandbox, { filename: src });
+
+const fees = sandbox.self.MM_FEES;
+if (!fees || !fees.marketplaces) {
+  console.error("❌ data/fees.js does not define self.MM_FEES");
+  process.exit(1);
+}
+fs.writeFileSync(out, JSON.stringify(fees, null, 2) + "\n", "utf8");</code></pre>
+<p>A <code>vm</code> context instead of <code>require()</code>, because the file assigns to <code>self</code> — it is written for a browser world, and the exporter impersonates one instead of asking Node to swallow a construct it would reject. Then it refuses to write a file it cannot recognise, which is the cheapest possible test.</p>
+
+<h2 id="the-refresh">A Daily Alarm, and Two Guards</h2>
+<p>The update loop is about fifteen lines, and most of it is refusals:</p>
+<pre><code>// background.js
+const REMOTE_FEES_URL = "https://annmax1983.com/static/marginmate/fees.json";
+const FEES_CACHE_KEY = "mm_fees_remote";
+
+async function refreshFees() {
+  try {
+    const resp = await fetch(REMOTE_FEES_URL, { cache: "no-store" });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (!data || data.schema !== self.MM_FEES.schema || !data.marketplaces) return;
+    await set({ [FEES_CACHE_KEY]: { data, fetchedAt: Date.now() } });
+  } catch (e) {
+    // offline / not published yet — the bundled table stays in charge
+  }
+}
+
+chrome.runtime.onInstalled.addListener(async () =&gt; {
+  chrome.alarms.create(REFRESH_ALARM, { periodInMinutes: 1440, delayInMinutes: 1 });
+  refreshFees();
+});
+chrome.runtime.onStartup.addListener(() =&gt; {
+  chrome.alarms.create(REFRESH_ALARM, { periodInMinutes: 1440, delayInMinutes: 1 });
+});
+chrome.alarms.onAlarm.addListener((alarm) =&gt; { if (alarm.name === REFRESH_ALARM) refreshFees(); });</code></pre>
+<p><code>periodInMinutes: 1440</code> because fee schedules are not intraday data, and a daily fetch is also the honest answer to "what does this extension do on my network". The alarm is recreated on <code>onInstalled</code> <em>and</em> <code>onStartup</code>: MV3 alarms survive a service-worker restart but not every browser profile event, and re-creating an existing alarm is idempotent, so there is no reason to be clever about it.</p>
+<p>Three separate checks before anything is written, and each catches a different failure. <code>resp.ok</code> — a 404 or a captive-portal HTML page must not be parsed as data. <code>data.schema !== self.MM_FEES.schema</code> — the shape has to match, because a table with renamed fields would flow straight into the calculator and produce confident wrong numbers. <code>!data.marketplaces</code> — a JSON document that is valid but empty is not an update.</p>
+<p>The two-field split is the part I'd defend hardest in review. <code>schema</code> is the compatibility contract; <code>version</code> is content. Bumping <code>schema</code> means old clients ignore the new file forever, which is exactly what you want when fields move — the failure mode is "stale but correct", never "fresh and misread". And the empty catch is a feature with a comment attached: a user on a plane, or a server with a bad deploy, keeps the last good table.</p>
+
+<h2 id="version-strings-are-not-numbers">Version Strings Are Not Numbers</h2>
+<p>Adopting the fetched table is a comparison, and the comparison is a trap I want written down forever:</p>
+<pre><code>// background.js — feeTable()
+/** Bundled table is the floor; a newer remote copy wins. */
+async function feeTable() {
+  const r = await get(FEES_CACHE_KEY);
+  const remote = r[FEES_CACHE_KEY];
+  if (remote &amp;&amp; remote.data &amp;&amp; remote.data.schema === self.MM_FEES.schema) {
+    const newer = String(remote.data.version) &gt; String(self.MM_FEES.version);
+    if (newer) return remote.data;
+  }
+  return self.MM_FEES;
+}</code></pre>
+<p>Run the comparison the way the code does it. As numbers, <code>2026.11</code> is greater than <code>2026.9</code>. As strings — which is what this line compares — <code>"2026.9" &gt; "2026.11"</code> is <code>true</code>, because the comparison stops at the character where <code>'9'</code> meets <code>'1'</code>. So a remote table labelled September would beat a bundled table labelled November: the extension would "update" <em>backwards</em>, and every user would silently get the older rates.</p>
+<p>The code is correct only under an undocumented convention: fixed-width segments. <code>2026.11</code>, <code>2026.12</code>, <code>2027.01</code> compare fine; the day someone exports <code>2027.1</code>, the whole refresh mechanism inverts, quietly, for everyone. Three ways out — zero-pad and put it in a comment (what happened), compare parsed segments (correct, more code), or compare <code>updatedAt</code> as dates (also correct, and it couples adoption to a field that is easier to typo than a version). I chose the convention because the exporter prints the current version on success, so the string you publish is the string you saw. If you build something similar, write the convention in the file that defines the field, not in the file that consumes it.</p>
+
+<h2 id="the-engine-stays-pure">The Calculator Never Finds Out</h2>
+<p>The table moves; the math does not, and the boundary is enforced by a rule at the top of the engine file:</p>
+<pre><code>/**
+ * VKT MarginMate fee engine.
+ *
+ * Pure functions: (marketplace fee table, inputs) → numbers.
+ * Used by the injected panel today and by the batch/compare views later, so it
+ * must never touch the DOM or chrome.* APIs.
+ */</code></pre>
+<p>The refresh lives in the worker, which owns <code>chrome.storage</code> and the alarm. The panel is a content script, and it pulls the current table once per product page:</p>
+<pre><code>// content.js — start()
+const ctx = await chrome.runtime.sendMessage({ type: "mm:context", marketplace: product.marketplace });
+if (!ctx || !ctx.fees) return 0;
+const fees = ctx.fees;
+const market = MMCalc.marketFor(fees, product.marketplace) || fees.marketplaces.US;
+
+// background.js
+case "mm:context": {
+  const [fees, st, saved, pro] = await Promise.all([
+    feeTable(), settings(), savedList(), LicenseManager.hasCachedLicense()
+  ]);
+  sendResponse({ fees, settings: st, saved, pro });
+  break;
+}</code></pre>
+<p>One worker holds one cached copy, so sixteen open product pages do not mean sixteen fetches or sixteen storage reads; and the response carries the licence flag in the same round trip, because the panel needs it to decide what to render before the user types anything. The engine then does its arithmetic with a table it did not load, validate, or even know could be replaced:</p>
+<pre><code>// calc.js — compute(m, input)
+const vat = m.taxInclusive ? n(m.vatRate) : 0;
+const revenue = price / (1 + vat);
+const rr = referralRate(m, input.category, price);
+const rate = input.referralOverride != null ? n(input.referralOverride) : rr.rate;
+const referral = Math.max(n(m.referral.min), price * rate);
+...
+const fixed = cost + freight + duty + fbaFee + st.fee + inbound;
+const variable = rate + adPct + returnPct;
+const profit = revenue - referral - ad - returns - fbaFee - st.fee - inbound - cost - freight - duty;
+const denom = 1 / (1 + vat) - variable;
+const breakeven = denom &gt; 0 ? fixed / denom : null;</code></pre>
+<p>Two asymmetries in there are worth seeing, because both are places where a naive implementation is wrong rather than approximate. The VAT strip comes first: a German list price already contains 19%, so net revenue is <code>price / 1.19</code> — but the referral is still charged on the <em>gross</em> price, which is why <code>price * rate</code> sits next to <code>revenue</code> in the same function and is not a bug. And the reverse solver divides <code>fixed</code> by <code>1/(1+vat) - variable</code> because every percentage in the model is a share of the list price while the thing you are solving for changes that list price; if the variable share exceeds the net-of-VAT share, no price makes money, and the honest answer is <code>null</code>, not a negative number rendered in red.</p>
+
+<h2 id="fallbacks-that-refuse">Fallbacks That Refuse to Guess</h2>
+<p>Sixteen storefronts are matched in the manifest; three have fee tables. The other thirteen get this:</p>
+<pre><code>// calc.js — marketFor(fees, code)
+if (tables[code]) return tables[code];
+const base = tables.US;
+const vatRate = VAT_BY_MARKET[code] || 0;      // FR .2, IT .22, ES .21, NL .21, SE .25, PL .23, JP .1
+return Object.assign({}, base, {
+  code,
+  currency: CURRENCY_BY_MARKET[code] || base.currency,
+  taxInclusive: vatRate &gt; 0,
+  vatRate: vatRate,
+  fba: { mode: "manual" },
+  fallback: true
+});</code></pre>
+<p>The comment in the caller states the intent: "so nothing is silently presented as US". Three deliberate parts. The consumption-tax strip is applied per storefront, because a Tokyo price is gross of 10% and a London price is gross of 20% whether or not we have an FBA number for that country. <code>fba: { mode: "manual" }</code> makes <code>fba()</code> return <code>null</code>, and a null fee renders as an input field rather than as a number — the panel asks you for the Japanese fulfilment fee instead of inventing one from the US tier table. That is the single most important line in the file, because it is where the product refuses to be a guess machine.</p>
+<p>Two honest warts, recorded because they are in the shipped code. The US referral <em>minimum</em> of $0.30 travels to inherited markets with the rest of the object, so a Japanese listing gets a ¥-denominated comparison against a number that was never converted — a floor that is wrong in currency but roughly right in magnitude, and one I would rather document than quietly tune. And the UK and DE tables carry <code>storage: { standard: { low: 0.0, peak: 0.0 } }</code>, so the storage line displays zero rather than an invented rate. A zero that means "we don't have this" is a lie only if you present the total as precise; the panel presents every fee as an estimate and every one of them is overridable.</p>
+
+<h2 id="assumptions-in-the-ui">Assumptions Have to Be Visible</h2>
+<p>The search-results view computes a margin for a whole page of listings with almost no information, so it assumes — and says so, in the tooltip it renders:</p>
+<pre><code>// batch.js
+const FREE_CARDS = 3;
+const ASSUMED_DIMS = [10, 8, 4];
+const costPct = s.batchCostPct == null ? 0.35 : s.batchCostPct;
+
+// batch.js — the badge tooltip, one line in the source
+el.title = `${t("batchBadgeTitle", "Estimated profit at current price")}\n${t("batchAssumption", "cost {c}% of price · 1 lb standard size", [...])}`;</code></pre>
+<p>A one-pound standard-size box at 35% landed cost is not a prediction about your product; it is a common axis so two listings can be compared. The badge is a hint about which products deserve a real calculation on the product page, and the tooltip is what stops it being read as a quote. Same discipline as the free tier: <code>FREE_MAX_PRODUCTS = 3</code> and <code>FREE_CARDS = 3</code> are checked where the write happens (<code>saveProduct</code> returns <code>{ ok: false, limited: true, count }</code>) rather than in the UI that calls it, so the limit cannot be bypassed by whichever entry point forgot to ask.</p>
+<p>The version string earns its keep here too — the popup prints <code>"v" + fees.version</code> next to the numbers. If my table is from November and your invoice disagrees, the UI has already told you which of us is stale. And the CSV export escapes titles by hand (<code>replace(/"/g, '""')</code>, quote if the field contains <code>[",\n]</code>) because Amazon product names are full of commas, quotes, and inch marks — a spreadsheet that silently mis-parses one row is worse than no export at all.</p>
+
+<h2 id="the-day-it-404s">The Day the Endpoint Just 404s</h2>
+<p>Here is the part that this design hides from you until you look. Every failure mode in <code>refreshFees()</code> is silent <em>by intent</em>, so a refresh that never succeeds looks exactly like a refresh that never needed to happen. If the JSON was never uploaded, if the path moved, if a deploy dropped a directory: the extension works, the panel renders, the numbers are the bundled ones, and "updates without a store release" is a feature nobody can observe failing.</p>
+<p>I checked, and the endpoint this post describes is currently one of those states — <code>https://annmax1983.com/static/marginmate/fees.json</code> answers 404 today, so every installed copy is running on the table baked into the package. Nothing is broken; the hot-reload is simply not wired up to a published file yet. Which is precisely the failure I want this section to prevent: <strong>an offline-first fallback makes every remote-data feature untestable by observation.</strong> The fix is not a stricter client, it is an external check — a scheduled request to the URL, asserting 200, valid JSON, <code>schema === 1</code>, and <code>version</code> matching the last export. Three lines in a CI job, and it converts an invisible degradation into an alert. Add it before you ship the second rate change, not after.</p>
+
+<h2 id="checklist">Checklist</h2>
+<ol>
+<li>Split the product into the part that rots (rates) and the part that does not (the subtraction order), and give them different update paths.</li>
+<li>Author the data once and generate the second artifact; never hand-maintain two copies of the same numbers.</li>
+<li>Ship the authored table as the floor, so offline and remote-failure are the same code path: correct, just older.</li>
+<li>Validate with two fields — <code>schema</code> for shape compatibility, <code>version</code> for content. Old clients must ignore an incompatible table, not misread it.</li>
+<li>Refuse before you store: <code>resp.ok</code>, schema match, required key present. The catch block stays empty because the fallback is the point.</li>
+<li>String version comparison only works with fixed-width segments; put the convention in the file that defines the field.</li>
+<li>Recreate the daily alarm on both install and startup; <code>chrome.alarms.create</code> is idempotent, so don't out-think it.</li>
+<li>Keep the calculator pure so it cannot learn where its inputs came from, and deliver the table through one worker so N tabs mean one fetch.</li>
+<li>When a market has no real number, render an empty field instead of a foreign estimate — and strip local consumption tax anyway, because that part you do know.</li>
+<li>Label estimates as estimates, surface the table version in the UI, and print batch assumptions in the tooltip.</li>
+<li>Monitor the remote endpoint from outside the client. A silent fallback is indistinguishable from a silent failure.</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/alarms" target="_blank">chrome.alarms API Reference — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/develop/concepts/service-workers/lifecycle" target="_blank">Service Worker Lifecycle — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/storage" target="_blank">chrome.storage API Reference — Chrome Docs</a></li>
+<li><a href="https://nodejs.org/api/vm.html" target="_blank">vm (Virtual Machines) — Node.js Documentation</a></li>
+<li><a href="https://sellercentral.amazon.com/help/hub/reference/GTG4BAWSY39N4Z8F" target="_blank">Amazon FBA fulfilment fee schedule — Seller Central</a></li>
+</ul>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./checkout-selector-drift.html">Selector Drift Across 24 Checkout Flows: Building an Adapter Layer That Checks Itself</a></li>
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience &amp; State Persistence for MV3</a></li>
+  <li><a href="./license-validation-failure-modes.html">Six Ways License Validation Fails Silently in Browser Extensions</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: "A Fee Table That Updates Itself: Hot-Reloading Amazon's Numbers in an MV3 Extension",
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: "会自我更新的费率表：在 MV3 扩展里热更新亚马逊的收费数字",
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: '自ら更新される手数料テーブル：MV3拡張でAmazonの数値をホットリロードする',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Eine Gebühren-Tabelle, die sich selbst aktualisiert: Amazons Zahlen in einer MV3-Erweiterung hot-reloaden',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Una tabla de tarifas que se actualiza sola: recargar los números de Amazon en una extensión MV3',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Un tableau de frais qui se met à jour seul : recharger les tarifs d’Amazon dans une extension MV3',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://annmax.ccwu.cc"></script>
+</body>
+</html>

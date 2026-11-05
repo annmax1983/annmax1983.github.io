@@ -31,86 +31,121 @@
     "blogPost": [
       {
         "@type": "BlogPosting",
+        "headline": "Tesseract in the Zip: What \"100% Local OCR\" Costs in an MV3 Extension",
+        "url": "https://annmax1983.github.io/blog/tesseract-offline-ocr-in-extension.html",
+        "datePublished": "2026-11-05",
+        "description": "Shipping Tesseract.js inside a Manifest V3 extension: a whitelisted build, one host permission, CSS-pixel to physical-pixel cropping, an image handoff through chrome.storage.local, a quota that only bills successful runs, and the single network path that is not your pixels."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "A Fee Table That Updates Itself: Hot-Reloading Amazon's Numbers in an MV3 Extension",
+        "url": "https://annmax1983.github.io/blog/amazon-fee-table-hot-reload.html",
+        "datePublished": "2026-11-05",
+        "description": "Amazon changes its FBA fee schedule several times a year and a browser extension cannot wait for a store review. How VKT MarginMate splits the problem into a hand-transcribed data module, a JSON export, a daily alarm, a schema guard, and a pure calculator that never touches chrome.*."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "A Lock Screen Inside a Browser: PBKDF2, Surviving Restarts, and Honest Throttles",
+        "url": "https://annmax1983.github.io/blog/offline-lock-screen-pbkdf2.html",
+        "datePublished": "2026-11-03",
+        "description": "How VKT VeilMate builds a lock screen inside a browser extension: PBKDF2-SHA256 at 310,000 iterations, lock state that survives a restart, cooldowns computed from deadlines instead of ticks, and alarms that outlive the service worker."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "Covering Every Tab Without Navigating: A Closed Shadow-DOM Veil in MV3",
+        "url": "https://annmax1983.github.io/blog/shadow-dom-overlay-tab-privacy.html",
+        "datePublished": "2026-11-04",
+        "description": "Why VKT VeilMate hides browser tabs with a closed shadow-DOM overlay instead of navigating pages away: event interception, self-healing host elements, and lossless unlock in Manifest V3."
+      },
+      {
+        "@type": "BlogPosting",
+        "headline": "browsingData Ignores Your Origin List for Four of Nine Data Types",
+        "url": "https://annmax1983.github.io/blog/browsingdata-origin-scoping.html",
+        "datePublished": "2026-11-01",
+        "description": "chrome.browsingData.remove accepts an origins array and quietly applies it to only some data types. Downloads, form data, passwords and history ignore it entirely. How I found it, how VKT CleanMate routes around it, and how the UI tells the truth about it."
+      },
+      {
+        "@type": "BlogPosting",
         "headline": "Locking the Buy Button: Building a Checkout Guard in MV3",
         "url": "https://annmax1983.github.io/blog/checkout-guard-mv3.html",
-        "datePublished": "2026-10-23",
+        "datePublished": "2026-10-29",
         "description": "A DOM-only checkout guard for MV3: document_start injection in all frames, capture-phase click and submit interception, a Shadow DOM overlay, stored deadlines with alarms, and the cost of shipping no skip button."
       },
       {
         "@type": "BlogPosting",
         "headline": "Selector Drift Across 24 Checkout Flows: Building an Adapter Layer That Checks Itself",
         "url": "https://annmax1983.github.io/blog/checkout-selector-drift.html",
-        "datePublished": "2026-10-23",
+        "datePublished": "2026-10-31",
         "description": "Why 24 site presets and a generic fallback must coexist, how multilingual button text and dual URL/DOM signals are matched, and how a passive self-check detects selector drift without scanning whole sites."
       },
       {
         "@type": "BlogPosting",
         "headline": "80,000 Pixels Tall: Geometry Budgets, Viewport Traps and a Deadlock in MV3 Full-Page Capture",
         "url": "https://annmax1983.github.io/blog/full-page-screenshot-geometry-budget.html",
-        "datePublished": "2026-10-22",
+        "datePublished": "2026-10-21",
         "description": "Why full-page capture dies on infinite feeds, why the viewport trick backfires, and the geometry budget plus timeout guards that made it reliable."
       },
       {
         "@type": "BlogPosting",
         "headline": "Six Ways License Validation Fails Silently in Browser Extensions",
         "url": "https://annmax1983.github.io/blog/license-validation-failure-modes.html",
-        "datePublished": "2026-10-22",
+        "datePublished": "2026-10-26",
         "description": "Offline-forever Pro, UI and background disagreeing on expiry, in-flight snapshot races, HTTP 200 with valid:false, and treating offline as revoked."
       },
       {
         "@type": "BlogPosting",
         "headline": "Referer You Cannot Set: Anti-Hotlink Image Downloads in MV3",
         "url": "https://annmax1983.github.io/blog/anti-hotlink-image-downloads.html",
-        "datePublished": "2026-10-22",
+        "datePublished": "2026-10-16",
         "description": "Why batch downloads report success and save nothing: CORS failures, DNR rule slots, and the unreachable Referer header."
       },
       {
         "@type": "BlogPosting",
         "headline": "world: 'MAIN' Is the One Injection Path CSP Kills",
         "url": "https://annmax1983.github.io/blog/extension-css-injection-csp.html",
-        "datePublished": "2026-10-22",
+        "datePublished": "2026-10-19",
         "description": "A style element created in the page's main world is silently refused by strict style-src CSP. Measured comparison of MAIN, ISOLATED and insertCSS."
       },
       {
         "@type": "BlogPosting",
         "headline": "From HTML Table to XLSX: rowspan=0, Pinned Column Clones and Formula Injection",
         "url": "https://annmax1983.github.io/blog/html-table-to-xlsx-edge-cases.html",
-        "datePublished": "2026-10-22",
+        "datePublished": "2026-10-23",
         "description": "rowspan=0 semantics, phantom rows, measure rows, MUI pinned clones, AG Grid wrappers, Excel limits and CSV formula injection."
       },
       {
         "@type": "BlogPosting",
         "headline": "Full-Page Screenshots in Chrome Extensions: Stitching, Fixed Elements and Memory Limits",
         "url": "https://annmax1983.github.io/blog/full-page-screenshot-stitching.html",
-        "datePublished": "2026-10-08",
+        "datePublished": "2026-10-13",
         "description": "captureVisibleTab quota pacing, scroll-and-stitch with devicePixelRatio, hiding fixed headers, and canvas size limits."
       },
       {
         "@type": "BlogPosting",
         "headline": "TOTP from Scratch: Building an Offline 2FA Authenticator with Web Crypto",
         "url": "https://annmax1983.github.io/blog/totp-web-crypto-implementation.html",
-        "datePublished": "2026-10-07",
+        "datePublished": "2026-10-11",
         "description": "Implement RFC 6238 in the browser with zero dependencies: Base32, HMAC via Web Crypto, dynamic truncation, and RFC test vectors."
       },
       {
         "@type": "BlogPosting",
         "headline": "Perceptual Hashing in the Browser: Near-Duplicate Image Detection",
         "url": "https://annmax1983.github.io/blog/perceptual-hash-image-dedup.html",
-        "datePublished": "2026-10-05",
+        "datePublished": "2026-10-09",
         "description": "DCT-based pHash in pure JavaScript: grayscale downscale, bit packing, Hamming distance, and banded indexing."
       },
       {
         "@type": "BlogPosting",
         "headline": "Parsing HTML Tables with Merged Cells: A Grid Normalization Algorithm",
         "url": "https://annmax1983.github.io/blog/html-table-merged-cells-parsing.html",
-        "datePublished": "2026-10-03",
+        "datePublished": "2026-10-06",
         "description": "A grid normalization algorithm for rowspan/colspan tables, header flattening, and safe CSV export."
       },
       {
         "@type": "BlogPosting",
         "headline": "PWA Install and Offline Caching: What Actually Works in 2026",
         "url": "https://annmax1983.github.io/blog/pwa-install-offline-caching.html",
-        "datePublished": "2026-10-02",
+        "datePublished": "2026-10-03",
         "description": "Install criteria, the beforeinstallprompt dance, iOS Safari's rules, and versioned service worker caches."
       },
       {
@@ -124,49 +159,49 @@
         "@type": "BlogPosting",
         "headline": "Git Beyond Commit and Push: Reflog, Bisect, Worktree and Interactive Rebase",
         "url": "https://annmax1983.github.io/blog/git-beyond-commit-and-push.html",
-        "datePublished": "2026-09-16",
+        "datePublished": "2026-09-23",
         "description": "Recover deleted work with reflog, find the commit that broke production with bisect, and work two branches at once with worktree."
       },
       {
         "@type": "BlogPosting",
         "headline": "Modern CSS You Probably Missed: :has(), Container Queries, @layer and Native Nesting",
         "url": "https://annmax1983.github.io/blog/modern-css-you-probably-missed.html",
-        "datePublished": "2026-09-16",
+        "datePublished": "2026-09-30",
         "description": "Seven CSS features that replace JavaScript and preprocessor workarounds, with real examples."
       },
       {
         "@type": "BlogPosting",
         "headline": "Debugging Like a Senior Engineer: A Systematic Method That Actually Works",
         "url": "https://annmax1983.github.io/blog/debugging-like-a-senior-engineer.html",
-        "datePublished": "2026-09-16",
+        "datePublished": "2026-09-15",
         "description": "Reproduce deterministically, read the whole error, cut the search space in half, and lock the fix in with a test."
       },
       {
         "@type": "BlogPosting",
         "headline": "SQLite in the Browser: Building a Local-First Database with OPFS",
         "url": "https://annmax1983.github.io/blog/sqlite-opfs-local-first-database.html",
-        "datePublished": "2026-09-15",
+        "datePublished": "2026-09-08",
         "description": "Run a full SQLite database in the browser using WebAssembly and OPFS. Persistent, fast, and completely offline."
       },
       {
         "@type": "BlogPosting",
         "headline": "WebGPU in 2026: Running AI Inference and Parallel Computing in Your Browser",
         "url": "https://annmax1983.github.io/blog/webgpu-browser-ai-inference.html",
-        "datePublished": "2026-09-10",
+        "datePublished": "2026-09-01",
         "description": "WebGPU brings GPU-accelerated computing to the browser. Run AI models, process images, and perform parallel computation entirely client-side."
       },
       {
         "@type": "BlogPosting",
         "headline": "WebAssembly Image Processing in the Browser: From Pixels to Formats",
         "url": "https://annmax1983.github.io/blog/webassembly-image-processing.html",
-        "datePublished": "2026-08-20",
+        "datePublished": "2026-08-31",
         "description": "Build high-performance, zero-network image processing pipelines with Canvas API and WebAssembly."
       },
       {
         "@type": "BlogPosting",
         "headline": "Browser Fingerprinting Explained: 30 Ways You're Being Tracked Online",
         "url": "https://annmax1983.github.io/blog/browser-fingerprinting-privacy.html",
-        "datePublished": "2026-08-15",
+        "datePublished": "2026-08-01",
         "description": "Canvas, WebGL, AudioContext, font enumeration, and 26 more fingerprinting vectors."
       },
       {
@@ -222,6 +257,50 @@
   </div>
 
   <div class="blog-grid">
+    <a href="blog/tesseract-offline-ocr-in-extension.html" class="blog-card reveal">
+      <div class="blog-date">2026-11</div>
+      <h3>Tesseract in the Zip: What "100% Local OCR" Costs in an MV3 Extension</h3>
+      <p>What the no-upload promise forces into code: a whitelisted vendor build, one host permission, CSS-pixel to physical-pixel crop math, a storage handoff, and a quota that only bills successful runs.</p>
+      <span class="blog-tag">Chrome Extensions</span>
+      <span class="blog-tag">MV3</span>
+      <span class="blog-tag">WebAssembly</span>
+    </a>
+
+    <a href="blog/amazon-fee-table-hot-reload.html" class="blog-card reveal">
+      <div class="blog-date">2026-11</div>
+      <h3>A Fee Table That Updates Itself: Hot-Reloading Amazon's Numbers in an MV3 Extension</h3>
+      <p>A hand-transcribed fee table that updates without a store release: the export tool, the daily alarm, the schema guard, the version-string trap, and a calculator that stays pure.</p>
+      <span class="blog-tag">Chrome Extensions</span>
+      <span class="blog-tag">MV3</span>
+      <span class="blog-tag">Data Pipelines</span>
+    </a>
+    <a href="blog/offline-lock-screen-pbkdf2.html" class="blog-card reveal">
+      <div class="blog-date">2026-11</div>
+      <h3>A Lock Screen Inside a Browser: PBKDF2, Surviving Restarts, and Honest Throttles</h3>
+      <p>How VKT VeilMate builds a lock screen inside a browser extension: PBKDF2-SHA256 at 310,000 iterations, lock state that survives a restart, cooldowns computed from deadlines instead of ticks, and alarms that outlive the service worker.</p>
+      <span class="blog-tag">Chrome Extensions</span>
+      <span class="blog-tag">MV3</span>
+      <span class="blog-tag">Web Crypto</span>
+    </a>
+
+    <a href="blog/shadow-dom-overlay-tab-privacy.html" class="blog-card reveal">
+      <div class="blog-date">2026-11</div>
+      <h3>Covering Every Tab Without Navigating: A Closed Shadow-DOM Veil in MV3</h3>
+      <p>Why VKT VeilMate hides browser tabs with a closed shadow-DOM overlay instead of navigating pages away: event interception, self-healing host elements, and lossless unlock in Manifest V3.</p>
+      <span class="blog-tag">Chrome Extensions</span>
+      <span class="blog-tag">MV3</span>
+      <span class="blog-tag">Shadow DOM</span>
+    </a>
+
+    <a href="blog/browsingdata-origin-scoping.html" class="blog-card reveal">
+      <div class="blog-date">2026-11</div>
+      <h3>browsingData Ignores Your Origin List for Four of Nine Data Types</h3>
+      <p>chrome.browsingData.remove accepts an origins array and quietly applies it to only some data types. Downloads, form data, passwords and history ignore it entirely — and how VKT CleanMate routes around it.</p>
+      <span class="blog-tag">Chrome Extensions</span>
+      <span class="blog-tag">MV3</span>
+      <span class="blog-tag">Privacy</span>
+    </a>
+
     <a href="blog/checkout-guard-mv3.html" class="blog-card reveal">
       <div class="blog-date">2026-10</div>
       <h3>Locking the Buy Button: Building a Checkout Guard in MV3</h3>

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">browsingData Ignores Your Origin List for Four of Nine Data Types — AnnMax</title>
+  <meta name="description" content="chrome.browsingData.remove accepts an origins array and quietly applies it to only some data types. Downloads, form data, passwords and history ignore it entirely. How the trap works, how VKT CleanMate routes around it, and the honest destructive-operation UI built on top of it.">
+  <meta property="og:title" content="browsingData Ignores Your Origin List for Four of Nine Data Types">
+  <meta property="og:description" content="Nine data types, four of which delete the whole profile regardless of the origins you pass. The trap, the execution plan, and the honest destructive-operation UI around it.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/browsingdata-origin-scoping.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/browsingdata-origin-scoping.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "browsingData Ignores Your Origin List for Four of Nine Data Types",
+    "description": "chrome.browsingData.remove accepts an origins array and quietly applies it to only some data types. Downloads, form data, passwords and history ignore it entirely. How I found it, how VKT CleanMate routes around it, and how the UI tells the truth about it.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-11-01",
+    "dateModified": "2026-11-01",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/browsingdata-origin-scoping.html"
+    },
+    "url": "https://annmax1983.github.io/blog/browsingdata-origin-scoping.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../blog.html" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">browsingData Ignores Your Origin List for Four of Nine Data Types</h1>
+    <div class="meta" id="articleMeta"><span><a href="../#about" style="color:inherit;border-bottom:1px dotted currentColor;text-decoration:none;">AnnMax</a> · November 1, 2026</span><span class="reading-time">12 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="the-silent-wipe">The Wipe That Ignored My Scope</h2>
+<p><em>This is the story behind <strong>VKT CleanMate</strong>, a preview-first browser cleaner I ship as an extension. It is about one specific API fact — <code>chrome.browsingData.remove()</code> applies its <code>origins</code> filter to only some data types — and about what you build around a fact like that.</em></p>
+<p>Here is the sentence that burned me: <code>chrome.browsingData.remove()</code> takes an <code>origins</code> array, and if you pass <code>origins</code>, it deletes browsing data <em>for those origins</em>. That is true. It is also only true for some of the types. The other types are stored profile-wide, with no origin column at all, and the API does not tell you so when you call it.</p>
+<p>The concrete case, from early CleanMate testing: I was in targeted mode with exactly one domain on the clean list, all nine data type switches on, retention 7 days. I expected one site's footprint to vanish. What actually vanished: <strong>every download entry in the profile, every saved form autofill, every saved password</strong>. Cache and cookies behaved per-site, as advertised. The other three types looked at my carefully scoped origin list, shrugged, and cleared the whole profile. No exception, no warning, no partial-failure flag in the callback. Just a smaller profile than I left.</p>
+<p>Saved passwords. That is the kind of bug that ends your reputation as a "cleaner" tool. And the API surface makes it easy to hit, because nothing about the call signature distinguishes the two groups.</p>
+
+<h2 id="where-the-docs-hide-it">Where the Docs Hide It</h2>
+<p>The behavior is not exactly secret, but it is distributed. The <a href="https://developer.chrome.google.cn/docs/extensions/reference/api/browsingData" target="_blank">browsingData reference</a> documents <code>origins</code> as a field on <code>RemovalOptions</code> — one field for all the boolean type flags — and the per-type notes are where you can piece together which stores are actually origin-keyed. There is no red box saying "these four types will ignore the list you are holding". You assemble the truth by reading type by type, or, like me, by watching downloads disappear on a one-site test.</p>
+<p>The honest summary, which is what ended up encoded in the extension:</p>
+<ul>
+<li><strong>Origin-aware:</strong> <code>cache</code>, <code>cookies</code>, <code>localStorage</code>, <code>indexedDB</code>, <code>serviceWorkers</code>, <code>fileSystems</code> (plus legacy <code>cacheStorage</code>/<code>webSQL</code>).</li>
+<li><strong>Whole-profile only:</strong> <code>downloads</code>, <code>formData</code>, <code>passwords</code> — and <code>history</code>, which gets a special workaround discussed below.</li>
+</ul>
+<p>Four of the nine types in the product's type table do not scope. And passing them alongside <code>origins</code> is a silent, immediate, profile-wide delete. The <code>origins</code> option was bolted onto an API whose underlying stores were never origin-keyed for the "account-level" data, and Chrome preserves backward compatibility by ignoring the filter for those types rather than rejecting the call.</p>
+
+<h2 id="inverted-whitelist">The Inverted Whitelist: WHOLE_ONLY_TYPES</h2>
+<p>Once the fact is known, the first job is to make it structural so no code path can forget it. In <code>vkt-clean-mate/common/store.js</code>, the nine types are split into two lists that are checked against each other at plan-build time:</p>
+<pre><code>// common/store.js
+/** browsingData 支持 origins 过滤的类型 */
+export const ORIGIN_TYPES = [
+  'cache', 'cookies', 'localStorage', 'indexedDB',
+  'serviceWorkers', 'cacheStorage', 'fileSystems', 'webSQL'
+];
+
+/** 只能整体清理、无法按站点区分的类型 */
+export const WHOLE_ONLY_TYPES = ['history', 'downloads', 'formData', 'passwords'];</code></pre>
+<p>The interesting one is <code>WHOLE_ONLY_TYPES</code> — a whitelist used backwards. Instead of asking "does browsingData respect origins here?" at every call site (and getting it wrong eventually), the extension enumerates the types that <em>cannot</em> be scoped, and every plan must route those through a different execution path. The plan object in <code>background.js</code> literally carries the split:</p>
+<pre><code>// background.js — buildPlan()
+const originTypes = types.filter((t) =&gt; ORIGIN_TYPES.includes(t));
+const wholeTypes  = types.filter((t) =&gt; WHOLE_ONLY_TYPES.includes(t));</code></pre>
+<p>Downstream, nothing ever asks <code>browsingData</code> to scope a whole-only type, because the executor never puts one in an <code>origins</code> call. This is the kind of decision a type system would have made for you, but a named constant checked in three places does almost as well and cost ten minutes.</p>
+
+<h2 id="origins-are-not-hosts">An Origin Is Not a Host</h2>
+<p>Second trap, smaller but sharper: even for the origin-aware types, what you pass in <code>origins</code> is not a domain. <code>example.com</code> is rejected — the list wants full origin patterns like <code>https://example.com</code>, with scheme. It will not expand a bare host, and it will not expand subdomains: <code>https://example.com</code> covers exactly that origin, not <code>cdn.example.com</code>.</p>
+<p>Users think in domains — the clean list stores <code>example.com</code> rules that implicitly include subdomains. So there is an expansion layer between the rule lists and the API:</p>
+<pre><code>// common/domain.js
+/** 同一 host 的两种 scheme 都算（browsingData 的 origins 不吃通配子域） */
+export function originsOf(host) {
+  if (!host) return [];
+  return [`http://${host}`, `https://${host}`];
+}
+
+/** 一批 host 展开成 origins */
+export function expandOrigins(hosts) {
+  const out = [];
+  for (const h of hosts || []) out.push(...originsOf(h));
+  return out;
+}</code></pre>
+<p>Every enumerated host becomes two origins, http and https — you cannot know which scheme stored the data, so you delete both. That is also why the preview reports origins and sites as different numbers: an origin count is roughly double the site count, and anyone reading it as "sites" would be alarmed for no reason.</p>
+<p>Subdomain coverage comes from the <em>enumeration</em>, not from the API: the plan first expands user rules against a list of hosts it can actually find (open tabs, cookie domains, history hosts), then feeds the matched hosts into <code>expandOrigins</code>. There are two failure modes the comments in <code>buildPlan()</code> call out by name, and both bit me during development:</p>
+<ul>
+<li><strong>The closed-tab problem.</strong> A host only appears in the enumeration if something currently references it. Add <code>example.com</code> to the clean list while its tab is open, close the tab, run the clean — and the enumerated pool contains zero origins for it, so the clean silently does nothing. The fix: always union the rule's apex domain into the origin set, even when enumeration finds nothing (<code>originsFilter = expandOrigins([...hostPool, ...cleanable])</code>).</li>
+<li><strong>The protection backdoor.</strong> Cookies for <code>secure.example.com</code> can live on a <code>.example.com</code> cookie domain. If the user protects <code>secure.example.com</code> and the plan still includes <code>https://example.com</code> as an origin because it matched the clean list, deleting that origin's cookie storage nukes the protected subdomain's cookies too. Protecting a subdomain therefore vetoes the apex origin from the list — you can see the double filter in the code: <code>cleanList.filter(r =&gt; !hostMatchesAny(r, protectList) &amp;&amp; !protectList.some(p =&gt; hostMatches(p, r)))</code>.</li>
+</ul>
+
+<h2 id="batching">Chunks of 50, and Why</h2>
+<p>The executor does not send one <code>remove()</code> call with the whole origin array. It slices:</p>
+<pre><code>// background.js
+const BATCH = 50;
+...
+} else if (plan.originsFilter.length &gt; 0) {
+  for (const chunk of chunks(plan.originsFilter, BATCH)) {
+    await chrome.browsingData
+      .remove({ since: plan.since, origins: chunk, ...typeObj })
+      .catch((e) =&gt; result.errors.push(e.message));
+  }
+}</code></pre>
+<p>Am I hiding a documented limit behind that 50? No, and I want to be honest about the provenance: there is no citation in the code comment because there is no doc to cite. The number is a debugging-era heuristic that survived because the chunking itself earns its keep for a different reason than size limits:</p>
+<ol>
+<li><strong>Error isolation.</strong> Each chunk has its own <code>.catch</code>. One malformed origin pattern or one transient failure kills that chunk, not the run, and the surviving chunks still delete. The errors array accumulates what was <em>not</em> removed — which the UI can then show instead of a fake success.</li>
+<li><strong>Progressivity.</strong> A <code>remove()</code> call is a promise that resolves when the wipe is done. Hundreds of origins in one call means one long, uninterruptible operation in a service worker that Chrome would rather kill. Fifty origins per call keeps each operation short enough that recycling is survivable.</li>
+</ol>
+<p>The same instinct appears in the history path, where per-URL deletes go out in concurrent batches of 40 (<code>chunks(urls, 40)</code> with <code>Promise.all</code>). Nobody documented 40 or 50. They are numbers I chose, watched work, and left alone — which is sometimes what engineering budgeting actually is.</p>
+
+<h2 id="history-escape-hatch">History: The One Whole-Only Type With a Side Door</h2>
+<p>Of the four whole-profile types, three are genuinely hopeless: downloads, form data and passwords have no per-origin API anywhere in the extensions surface. History is different, because it has its own API. <code>chrome.history.deleteUrl({ url })</code> deletes one URL's entry, so a per-site history clean is buildable by <em>enumerating and filtering yourself</em>:</p>
+<pre><code>// background.js — deleteHistoryFiltered()
+const items = await chrome.history.search({
+  text: '', startTime: plan.since || 0, maxResults: 20000
+});
+// keep URLs whose host matches the clean list and not the protect list,
+// then deleteUrl() them in batches of 40.</code></pre>
+<p>Two compromises fall out of this, and both are visible to the user:</p>
+<ul>
+<li><strong>It costs the optional <code>history</code> permission.</strong> The manifest lists <code>history</code> and <code>cookies</code> under <code>optional_permissions</code>, so a fresh install never shows the scary "read your browsing history" warning. The extension requests the permission at the moment you first preview or clean history per site — and only from a user gesture, in the popup or the options checkbox handler, because <code>chrome.permissions.request()</code> fails silently outside one.</li>
+<li><strong>There is no per-site <em>and</em> per-date history delete.</strong> <code>deleteUrl</code> removes the entry as a whole. Filtering the enumeration by <code>startTime</code> decides <em>which URLs to consider</em>, but once a URL qualifies, every visit to it goes. The settings page says exactly that: "Per-site history cleaning removes each matched URL as a whole, so older visits of the same sites go too."</li>
+</ul>
+<p>When the plan runs in full mode instead, history goes through <code>browsingData.remove({ since, history: true })</code> with no origins at all, and the result records <code>historyDeleted = -1</code> — a sentinel meaning "cleared profile-wide, count unknowable after the fact". The run log renders -1 as just "history", no number. A count you cannot verify is a count you should not display.</p>
+
+<h2 id="honest-counts">Counting the Damage Before It Happens</h2>
+<p>Deleting the wrong scope is bad; deleting the right scope without telling anyone how much it is, is worse. So <code>buildPreview()</code> assembles live numbers straight from the browser before anything is removed:</p>
+<pre><code>// background.js — buildPreview() (essentials)
+return {
+  mode: plan.mode,
+  retention: plan.retention,
+  types: plan.types,
+  hosts: plan.hostPool.length,                 // sites matched
+  originsUnrestricted: plan.originsFilter === null,
+  historyCount: historyInfo ? historyInfo.count : null,
+  historyTruncated: !!(historyInfo &amp;&amp; historyInfo.truncated),
+  cookieCount,                                 // per-host cookie tally
+  warnings: plan.warnings,
+  needHistory: plan.historyMode === 'skip' &amp;&amp; plan.wholeTypes.includes('history'),
+  needCookies: cookieCount === null &amp;&amp; plan.types.includes('cookies')
+};</code></pre>
+<p>The cookie count comes from <code>chrome.cookies.getAll({})</code> with the dot-prefix stripped from domains and subdomain suffix matching done by hand. The history count comes from the same 20,000-entry search the deleter will use, and if the result is saturated, the preview shows "20000+" with a plus sign rather than a confident wrong number. Missing permissions surface as an inline "Grant" row in the preview sheet itself, not as a failed delete three steps later. Retention — one of <code>all / 1d / 3d / 7d / 30d</code>, converted to a <code>since</code> timestamp by <code>retentionSince()</code> — is always on the sheet, because "keep last 7 days" changes the meaning of every number above it.</p>
+<p>One boundary matters, and I have been sloppy about how I describe it in the past: <strong>this preview sheet appears on manual runs only</strong>. Clicking Clean in the popup — or using the right-click "Preview and clean this site" menu, which opens the same popup locked to a host — builds the plan, shows the sheet, and waits for a confirm button. The scheduled triggers (<code>interval</code>, <code>daily</code>, <code>idle</code>, <code>onStartup</code>, <code>onClose</code>) never show a preview: they run the plan your rules describe and send a notification afterwards with the result summary. That is not an oversight; it is the product contract. A preview you must click while you're asleep is not automation. Auto-runs commit to the <em>rules</em>, and the safety for rules is that the rules are conservative — free tier is targeted mode only, targeted mode never passes whole-only types to <code>browsingData</code> without your explicit acknowledgment, and <code>runClean()</code> demotes any unlicensed full-mode schedule to targeted before executing. Manual runs commit to a <em>counted snapshot</em>, so they get the sheet. Two different promises, two different UIs.</p>
+
+<h2 id="ui-copy">Saying "We Cannot Do Per-Site" in the Interface</h2>
+<p>The product decision that this whole article argues for: when an API cannot do what users assume it does, the UI states the limitation next to the control that triggers it — instead of silently widening scope, or silently skipping the type and making the tool look broken.</p>
+<p>Concretely, three strings shipped in <code>_locales/en/messages.json</code>:</p>
+<pre><code>"warnWholeOnly":  { "message": "Downloads / form data / passwords cannot target a single site" }
+"warnWholeOnlyProtect": { "message": "Downloads / form data / passwords will be cleared for all sites" }
+"typeNote": { "message": "The browser cannot limit history, downloads, form data or passwords to a single site — those are only filtered in Full mode." }</code></pre>
+<p>The first appears in the preview warnings when targeted mode has those types checked (in which case the executor skips them — refusing beats nuking the profile). The second fires in full mode when a protect list exists, because a protected <code>github.com</code> does <em>not</em> protect your download history entries from github.com — nothing does, there is no origin to match on. The third sits permanently under the data-type checkbox grid on the options page. That note is the most valuable line of copy in the extension, and it exists only because <code>WHOLE_ONLY_TYPES</code> is true and I am not allowed to pretend otherwise.</p>
+<p>The store listing repeats it: "Limit history, downloads, form data or passwords to a single site: the browser does not expose that; those four are filtered only in Full mode, and the interface says so next to the checkbox." Users who read that before installing are exactly the users who would have filed the "extension deleted all my passwords" report if I had hidden it.</p>
+
+<h2 id="footprint-honesty">The Same Honesty Applies to What We Collect</h2>
+<p>CleanMate also tracks per-site focus time ("Footprints"), and since the theme of this article is scope-honesty, it is worth recording the constraints that live in the code next to the cleaner's:</p>
+<pre><code>// background.js
+/** 单块计时上限：休眠/挂起醒来后心跳间隔会很长，不能把整夜空档算成专注 */
+const MAX_FOCUS_BLOCK_SEC = 300;
+/** 连续这么久没有任何输入视为"人不在"，停止累计；看视频时不会误判成离开 */
+const FOCUS_IDLE_SEC = 600;</code></pre>
+<p>A timing block counts only when the tab is active <em>and</em> its window is focused and not minimized, checked through <code>chrome.tabs.query({ active: true, lastFocusedWindow: true })</code> plus <code>chrome.idle.queryState(FOCUS_IDLE_SEC)</code>. Ten minutes without input means you left; each committed block is capped at five minutes so a resumed-from-hibernation heartbeat cannot bank your whole night as "focus"; the one-minute alarm flushes with <code>keep: true</code> so a killed service worker loses at most a minute of accounting. Storage per host: visits, seconds, a 24-bucket hour histogram, last visit. No URLs, no titles. A 30-day rolling window, an 800-host cap, and the whole store is one <code>chrome.storage.local</code> key you can wipe with one button. And there is no server: the only host in <code>host_permissions</code> is <code>api.annmax1983.com</code>, used for optional license checks.</p>
+<p>Origin scoping and footprint scoping are the same discipline: know precisely what the API can and cannot bound, keep only what your feature actually needs, and let the observable surface — counts, warnings, retention notes — match the internals exactly.</p>
+
+<h2 id="checklist">Checklist</h2>
+<ol>
+<li>Assume <code>origins</code> is ignored unless a type is on your origin-aware list: cache, cookies, localStorage, indexedDB, serviceWorkers, fileSystems. Everything else is profile-wide.</li>
+<li>Encode the exclusion as data (<code>WHOLE_ONLY_TYPES</code>) and route on it, so no call site can forget.</li>
+<li>Never pass a bare host to <code>origins</code> — expand rules to <code>http://host</code> and <code>https://host</code>, and enumerate subdomains yourself.</li>
+<li>Union user rules into the origin set even when live enumeration finds nothing; closed tabs are not evidence of no data.</li>
+<li>Veto apex origins when a subdomain is protected — cookie domains reach upward.</li>
+<li>Chunk origin deletes; catch per chunk so one bad pattern cannot abort the run.</li>
+<li>History is the only whole-only type with a per-URL side door — budget for the optional <code>history</code> permission and request it from a user gesture.</li>
+<li>Count live before deleting (sites, history entries, cookies, types, retention), show saturation as "20000+", and use an explicit sentinel for "wiped profile-wide, count unknowable".</li>
+<li>Preview is the contract of <em>manual</em> runs; scheduled runs promise their rules and notify after. Never describe automation as "always previewed".</li>
+<li>Put "the browser cannot do per-site here" next to the checkbox. Refusing or warning beats silently deleting the profile.</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/browsingData" target="_blank">chrome.browsingData API Reference — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/browsingData#type-RemovalOptions" target="_blank">RemovalOptions (origins field) — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/history" target="_blank">chrome.history API Reference — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/develop/concepts/declare-permissions" target="_blank">Declare permissions — Chrome Docs</a></li>
+<li><a href="https://developer.chrome.google.cn/docs/extensions/reference/api/idle" target="_blank">chrome.idle API Reference — Chrome Docs</a></li>
+</ul>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./least-privilege-review.html">Least Privilege Implementation &amp; Chrome Web Store Review Checklist</a></li>
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience &amp; State Persistence Patterns for MV3 Extensions</a></li>
+  <li><a href="./browser-fingerprinting-privacy.html">Browser Fingerprinting Explained: 30 Ways You're Being Tracked Online</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'browsingData Ignores Your Origin List for Four of Nine Data Types',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: 'browsingData 会无视你的 origins 列表：九类数据里有四类根本不支持按站点限定',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'browsingData は origins リストを無視する：9つのデータ型のうち4つは全体削除になる',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'browsingData ignoriert deine Origins-Liste — bei vier von neun Datentypen',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'browsingData ignora tu lista de origins en cuatro de los nueve tipos de datos',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'browsingData ignore votre liste d\'origines pour quatre types de données sur neuf',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://annmax.ccwu.cc"></script>
+</body>
+</html>
