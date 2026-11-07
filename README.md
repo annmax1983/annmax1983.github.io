@@ -10,7 +10,7 @@ I started with .NET desktop apps and enterprise Java systems. Moved through Pyth
 
 ## What I Build
 
-I maintain **20 browser extensions** for Chrome, Edge and Firefox — all local-first: no analytics, no tracking, no accounts, and none of them uploads your content to us. A few features make their own network requests: license checks for paid plans, image fetches when you convert or batch-download, Link Audit requests to links you choose, and sync through your browser account (JustFocus by default; Premium sync in LiteCopy, StylePatch, LocalBox2FA and VKT Form):
+I maintain **22 browser extensions** for Chrome, Edge and Firefox — all local-first: no analytics, no tracking, no accounts, and none of them uploads your content to us. A few features make their own network requests: license checks for paid plans, image fetches when you convert or batch-download, Link Audit requests to links you choose, and sync through your browser account (JustFocus by default; Premium sync in LiteCopy, StylePatch, LocalBox2FA and VKT Form):
 
 - 📸 **PageShot** — Full-page screenshots with annotation
 - 🖼️ **ImageConv** — Image format conversion (PNG/JPG/WEBP/AVIF)
@@ -32,6 +32,8 @@ I maintain **20 browser extensions** for Chrome, Edge and Firefox — all local-
 - 📌 **ItemPin** — Product saver & price history (50 items free; Premium unlimited, CSV export and comparison charts)
 - 🕶️ **VKT VeilMate** — One-click privacy curtain over every window, lossless (nothing reloads, no form is cleared), PBKDF2-SHA256 password unlock, idle auto-lock (1–240 min), a growing wrong-password cooldown, right-click lock actions, hidden tab titles and 10 exempt domains free. Pro adds the focus-loss, startup, system-lock and scheduled triggers, the inverse "cover only…" scope, a password-free window, the decoy lock look, biometric unlock and cross-device sync
 - 🧹 **VKT CleanMate** — Preview-first browsing data cleaner: see sites, history entries and cookies before deleting. Free: targeted mode, the protected list, the focus footprint with CSV export, five triggers, nine data types, the retention window and both shortcuts. Pro adds full mode (everything except your protected list), always-on footprint collection and the 30-day trend
+- 💰 **MarginMate** — Amazon FBA profit calculator: referral fee, FBA fulfilment, storage, ads, returns and landed cost, plus break-even price and the price for your target margin. 16 marketplaces, all computed locally
+- 🔍 **SnapOCR** — Screenshot to text: select any area of a webpage and extract its text in one click. 100% local OCR (Tesseract.js) — screenshots never leave your device. Free: 20 captures a day
 
 I also build **VKT PWA** — 9 installable web apps that run offline, installed straight from the browser:
 
@@ -47,6 +49,8 @@ I also build **VKT PWA** — 9 installable web apps that run offline, installed 
 
 And on the SaaS side: **CertTrack Pro** — a multi-tenant reminder platform for certificate expiry tracking, equipment maintenance (CMMS) and inspection tasks, with automatic deadline reminders.
 
+And inside Slack: **VKT for Slack** — org chart, people directory, weekly reports, time off and approvals, running in the workspace your team already has open. Seven modules, one install, no second login.
+
 ## Links
 
 - 🌐 Official website — https://annmax1983.com
@@ -54,6 +58,7 @@ And on the SaaS side: **CertTrack Pro** — a multi-tenant reminder platform for
 - 📱 PWA apps — https://annmax1983.com/pwa/
 - 📝 Guides & blog, 6 languages — https://annmax1983.com/blogs/
 - 💼 CertTrack Pro (remind SaaS) — https://remind.annmax1983.com
+- 💬 VKT for Slack — https://vktapp.com
 - 🪪 Personal site — https://annmax1983.github.io
 
 ## Philosophy

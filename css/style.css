@@ -890,6 +890,12 @@ footer p { margin-bottom: 0.5rem; }
 .products-intro p { color: var(--text-secondary); line-height: 1.8; font-size: 1rem; }
 .products-intro strong { color: var(--accent); }
 #products { padding: 2.5rem 1rem; }
+/* 4 product cards: auto-fill only fits 3 columns at 1200px, which leaves the
+   4th card alone on a second row. Pin this section to a 2x2 grid instead. */
+#products .ext-grid { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 768px) {
+  #products .ext-grid { grid-template-columns: 1fr; }
+}
 
 /* PWA section */
 #pwa { padding: 2.5rem 1rem; }
