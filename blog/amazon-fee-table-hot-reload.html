@@ -122,20 +122,31 @@ chrome.alarms.onAlarm.addListener((alarm) =&gt; { if (alarm.name === REFRESH_ALA
 <p>The two-field split is the part I'd defend hardest in review. <code>schema</code> is the compatibility contract; <code>version</code> is content. Bumping <code>schema</code> means old clients ignore the new file forever, which is exactly what you want when fields move — the failure mode is "stale but correct", never "fresh and misread". And the empty catch is a feature with a comment attached: a user on a plane, or a server with a bad deploy, keeps the last good table.</p>
 
 <h2 id="version-strings-are-not-numbers">Version Strings Are Not Numbers</h2>
-<p>Adopting the fetched table is a comparison, and the comparison is a trap I want written down forever:</p>
-<pre><code>// background.js — feeTable()
+<p>Adopting the fetched table is a comparison, and it is the one line in this design that can invert silently. Here is the current version:</p>
+<pre><code>// background.js — versionNewer() and feeTable()
+function versionNewer(candidate, current) {
+  const parts = (v) =&gt; String(v == null ? "" : v).split(/[.\-+_]/).map((p) =&gt; parseInt(p, 10) || 0);
+  const a = parts(candidate);
+  const b = parts(current);
+  for (let i = 0; i &lt; Math.max(a.length, b.length); i++) {
+    const x = a[i] || 0;
+    const y = b[i] || 0;
+    if (x !== y) return x &gt; y;
+  }
+  return false;
+}
+
 /** Bundled table is the floor; a newer remote copy wins. */
 async function feeTable() {
   const r = await get(FEES_CACHE_KEY);
   const remote = r[FEES_CACHE_KEY];
   if (remote &amp;&amp; remote.data &amp;&amp; remote.data.schema === self.MM_FEES.schema) {
-    const newer = String(remote.data.version) &gt; String(self.MM_FEES.version);
-    if (newer) return remote.data;
+    if (versionNewer(remote.data.version, self.MM_FEES.version)) return remote.data;
   }
   return self.MM_FEES;
 }</code></pre>
-<p>Run the comparison the way the code does it. As numbers, <code>2026.11</code> is greater than <code>2026.9</code>. As strings — which is what this line compares — <code>"2026.9" &gt; "2026.11"</code> is <code>true</code>, because the comparison stops at the character where <code>'9'</code> meets <code>'1'</code>. So a remote table labelled September would beat a bundled table labelled November: the extension would "update" <em>backwards</em>, and every user would silently get the older rates.</p>
-<p>The code is correct only under an undocumented convention: fixed-width segments. <code>2026.11</code>, <code>2026.12</code>, <code>2027.01</code> compare fine; the day someone exports <code>2027.1</code>, the whole refresh mechanism inverts, quietly, for everyone. Three ways out — zero-pad and put it in a comment (what happened), compare parsed segments (correct, more code), or compare <code>updatedAt</code> as dates (also correct, and it couples adoption to a field that is easier to typo than a version). I chose the convention because the exporter prints the current version on success, so the string you publish is the string you saw. If you build something similar, write the convention in the file that defines the field, not in the file that consumes it.</p>
+<p>The first version of this compared the strings, and it was wrong in the direction that matters. As numbers, <code>2026.11</code> is greater than <code>2026.9</code>. As strings — which is what that line did — <code>"2026.9" &gt; "2026.11"</code> is <code>true</code>, because the comparison stops at the character where <code>'9'</code> meets <code>'1'</code>. A remote table labelled September would have beaten a bundled table labelled November: the extension would "update" <em>backwards</em>, silently, for every user.</p>
+<p>The first fix was a convention: write <code>YYYY.MM</code> with a zero-padded month, and comment why. That works — <code>2026.11</code>, <code>2026.12</code>, <code>2027.01</code> compare fine — but it is a rule enforced by whoever exports next, and the day someone writes <code>2027.1</code> the refresh inverts quietly for everyone. It is a function now: split on the separators, parse each part, compare the parts as numbers, and let a missing part read as zero. Padding stops being load-bearing, <code>2027.1</code> is safe, and the rule lives in code instead of in a comment in the file that defines the field. The lesson survives the fix: <strong>a version string is not a number until you make it one.</strong></p>
 
 <h2 id="the-engine-stays-pure">The Calculator Never Finds Out</h2>
 <p>The table moves; the math does not, and the boundary is enforced by a rule at the top of the engine file:</p>
@@ -207,7 +218,7 @@ el.title = `${t("batchBadgeTitle", "Estimated profit at current price")}\n${t("b
 
 <h2 id="the-day-it-404s">The Day the Endpoint Just 404s</h2>
 <p>Here is the part that this design hides from you until you look. Every failure mode in <code>refreshFees()</code> is silent <em>by intent</em>, so a refresh that never succeeds looks exactly like a refresh that never needed to happen. If the JSON was never uploaded, if the path moved, if a deploy dropped a directory: the extension works, the panel renders, the numbers are the bundled ones, and "updates without a store release" is a feature nobody can observe failing.</p>
-<p>I checked, and the endpoint this post describes is currently one of those states — <code>https://annmax1983.com/static/marginmate/fees.json</code> answers 404 today, so every installed copy is running on the table baked into the package. Nothing is broken; the hot-reload is simply not wired up to a published file yet. Which is precisely the failure I want this section to prevent: <strong>an offline-first fallback makes every remote-data feature untestable by observation.</strong> The fix is not a stricter client, it is an external check — a scheduled request to the URL, asserting 200, valid JSON, <code>schema === 1</code>, and <code>version</code> matching the last export. Three lines in a CI job, and it converts an invisible degradation into an alert. Add it before you ship the second rate change, not after.</p>
+<p>I checked during development, and the endpoint this post describes was in exactly that state for a while — <code>https://annmax1983.com/static/marginmate/fees.json</code> answered 404, so every installed copy ran on the table baked into the package. Nothing was broken; the hot-reload simply was not wired up to a published file. It is published now — <code>schema: 1</code>, <code>version: "2026.11"</code>, generated from the authored module — and that only sharpens the point rather than removing it. The failure this section exists to prevent is unchanged: <strong>an offline-first fallback makes every remote-data feature untestable by observation.</strong> The fix is not a stricter client, it is an external check — a scheduled request to the URL, asserting 200, valid JSON, <code>schema === 1</code>, and <code>version</code> matching the last export. Three lines in a CI job, and it converts an invisible degradation into an alert. Add it before you ship the second rate change, not after.</p>
 
 <h2 id="checklist">Checklist</h2>
 <ol>
@@ -216,7 +227,7 @@ el.title = `${t("batchBadgeTitle", "Estimated profit at current price")}\n${t("b
 <li>Ship the authored table as the floor, so offline and remote-failure are the same code path: correct, just older.</li>
 <li>Validate with two fields — <code>schema</code> for shape compatibility, <code>version</code> for content. Old clients must ignore an incompatible table, not misread it.</li>
 <li>Refuse before you store: <code>resp.ok</code>, schema match, required key present. The catch block stays empty because the fallback is the point.</li>
-<li>String version comparison only works with fixed-width segments; put the convention in the file that defines the field.</li>
+<li>A version string is not a number: compare parsed segments, not the strings — padding is a convention, not a guarantee.</li>
 <li>Recreate the daily alarm on both install and startup; <code>chrome.alarms.create</code> is idempotent, so don't out-think it.</li>
 <li>Keep the calculator pure so it cannot learn where its inputs came from, and deliver the table through one worker so N tabs mean one fetch.</li>
 <li>When a market has no real number, render an empty field instead of a foreign estimate — and strip local consumption tax anyway, because that part you do know.</li>

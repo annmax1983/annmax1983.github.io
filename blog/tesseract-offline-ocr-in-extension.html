@@ -58,15 +58,15 @@
 <pre><code>// manifest.json
 "permissions": ["activeTab", "contextMenus", "storage", "unlimitedStorage", "scripting", "clipboardWrite"],
 "host_permissions": ["https://api.annmax1983.com/*"],
-"content_security_policy": { "extension_pages": "script-src 'self'; object-src 'self'" },
+"content_security_policy": { "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'" },
 "offline_enabled": true</code></pre>
 <p>One host, and it is the licence endpoint — not an OCR endpoint. <code>activeTab</code> plus <code>scripting</code> instead of <code>tabs</code> plus <code>&lt;all_urls&gt;</code>, because the extension only ever needs the tab you are looking at, at the moment you asked for it. <code>offline_enabled: true</code> is a declaration, not a feature: it is the promise written down, and it is only honest if the engine is already inside the package.</p>
 
 <h2 id="what-actually-ships">What Actually Ships</h2>
-<p>So the engine has to be bytes in the zip. SnapOCR's build script does not bundle with a linker; it copies from <code>node_modules</code> into <code>publish/</code> through two explicit lists:</p>
+<p>So the engine has to be bytes in the zip. SnapOCR's build script does not bundle with a linker; it copies from <code>node_modules</code> into <code>publish/</code> through one whitelist, one explicit vendor map, and one derived rule:</p>
 <pre><code>// scripts/build.js
-const COPY_LIST = ['manifest.json', 'background.js', 'content.js', 'content.css',
-  'license.js', 'quota.js', 'popup', 'result', '_locales', 'icons', 'assets'];
+const INCLUDE = ['manifest.json', 'background.js', 'content.js', 'content.css',
+  'license.js', 'quota.js', 'popup/', 'result/', '_locales/', 'icons/', 'assets/'];
 
 const VENDOR = {
   'node_modules/tesseract.js/dist/tesseract.min.js':  'vendor/tesseract/tesseract.min.js',
@@ -75,47 +75,70 @@ const VENDOR = {
   'node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm':    'vendor/tesseract/core/...',
   'node_modules/tesseract.js-core/tesseract-core-lstm.wasm.js':      'vendor/tesseract/core/...',
   'node_modules/tesseract.js-core/tesseract-core-lstm.wasm':         'vendor/tesseract/core/...',
-  'node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz':     'vendor/tessdata/eng.traineddata.gz',
-  'node_modules/@tesseract.js-data/chi_sim/4.0.0_best_int/chi_sim.traineddata.gz': 'vendor/tessdata/chi_sim.traineddata.gz'
-};</code></pre>
-<p>Four things worth noticing in that map. It is pinned (<code>tesseract.js: 5.1.1</code>, <code>@tesseract.js-data/eng: 1.0.0</code>), so the published extension contains a specific engine, not "whatever npm gave me today". Both a SIMD and a non-SIMD core ship, because the SIMD build is faster and cannot load at all on a CPU without SIMD support — choosing between them is a runtime decision inside the library, and packaging only the fast one silently breaks the slow machines. The language data is shipped <em>compressed</em> (<code>.traineddata.gz</code>), because two packs are the difference between a reasonable download and a silly one. And the two packs that ship are English and Simplified Chinese — the rest are a different story, below.</p>
-<p><code>COPY_LIST</code> is a whitelist rather than "copy the folder" for a reason that has nothing to do with size: the package is reviewed by humans. Whatever is in the zip is auditable; a build that sweeps <code>node_modules</code> into the payload makes every permission question harder to answer. The four runtime scripts are minified with terser, and the manifest, locales, icons and vendor bytes are deliberately not touched.</p>
+  'node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz':     'vendor/tessdata/eng.traineddata',
+  'node_modules/@tesseract.js-data/chi_sim/4.0.0_best_int/chi_sim.traineddata.gz': 'vendor/tessdata/chi_sim.traineddata'
+};
+
+// .gz source, un-suffixed destination → gunzip while packing
+const GUNZIP_TO = new Set(Object.entries(VENDOR)
+  .filter(([src, dest]) =&gt; src.endsWith('.gz') &amp;&amp; !dest.endsWith('.gz'))
+  .map(([, dest]) =&gt; dest));</code></pre>
+<p>Four things worth noticing in that map. It is pinned (<code>tesseract.js: 5.1.1</code>, <code>@tesseract.js-data/eng: 1.0.0</code>), so the published extension contains a specific engine, not "whatever npm gave me today". Both a SIMD and a non-SIMD core ship, because the SIMD build is faster and cannot load at all on a CPU without SIMD support — choosing between them is a runtime decision inside the library, and packaging only the fast one silently breaks the slow machines. The two language packs are the one place the payload is deliberately <em>not</em> shipped the way npm provides it: the sources arrive gzipped, and the build gunzips them into plain <code>.traineddata</code>. That is not a size optimisation, it is an Edge store rule — the review pipeline inspects magic bytes and rejects an entire package if any archive appears inside it (<code>1F 8B</code> for gzip, <code>PK</code> for zip). Chrome and Mozilla do not check this, Edge does, and one package has to satisfy all three. And the two packs that ship are English and Simplified Chinese — the rest are a different story, below.</p>
+<p><code>INCLUDE</code> is a whitelist rather than "copy the folder" for a reason that has nothing to do with size: the package is reviewed by humans. Whatever is in the zip is auditable; a build that sweeps <code>node_modules</code> into the payload makes every permission question harder to answer. Every runtime script is minified with terser, and the manifest, locales, icons and vendor bytes are deliberately not touched — the language packs are already the right bytes after the gunzip step, and the core ships as a wasm binary plus a generated loader, which a minifier should never be allowed near.</p>
 
 <h2 id="csp-and-the-engine">CSP, and the Question I Had to Test</h2>
-<p>The CSP line above has no <code>unsafe-eval</code> and no remote script source, which matches how the engine is used: <code>Tesseract.recognize()</code> is handed three paths that all resolve inside the extension origin.</p>
+<p>The CSP line above allows no remote script source and no <code>unsafe-eval</code>; its only concession is <code>'wasm-unsafe-eval'</code>, which is the keyword that lets a packaged wasm engine compile at all. Everything the engine uses still resolves inside the extension origin:</p>
 <pre><code>// result/result.js
-function runOCR(image, lang) {
-  return Tesseract.recognize(image, lang, {
+async function runOCR(image, lang) {
+  const worker = await Tesseract.createWorker(lang, 1, {
     workerPath: chrome.runtime.getURL('vendor/tesseract/worker.min.js'),
     corePath: chrome.runtime.getURL('vendor/tesseract/core'),
     langPath: langPathFor(lang),
+    // bundled packs are plain .traineddata; Pro packs come gzipped from the CDN
+    gzip: !BUNDLED_LANGS.includes(lang),
+    // a blob worker cannot importScripts chrome-extension:// files
+    workerBlobURL: false,
     logger: (m) =&gt; { if (m.status === 'recognizing text') setProgress(m.progress); }
-  }).then(res =&gt; (res.data.text || '').trim());
+  });
+  try {
+    await worker.setParameters({ preserve_interword_spaces: '0' });
+    return tidyOcrText((await worker.recognize(image)).data.text);
+  } finally {
+    await worker.terminate();
+  }
 }</code></pre>
-<p>Nothing is fetched from a CDN to run the engine, and no string of JavaScript is ever evaluated — the "code" is a wasm module loaded from the package. That is the whole argument for the strict policy, and it is also the reason the strict policy is affordable.</p>
-<p>One caveat I want to record honestly, because it is the kind of thing you only find on a real install: MV3's <em>default</em> extension-page policy already includes <code>'wasm-unsafe-eval'</code> inside <code>script-src</code>. Writing your own <code>script-src</code> replaces that default instead of adding to it, and a wasm engine is exactly the code that notices. So the CSP block is not a "nice to have" line to tweak and re-zip: after any change to it, load the unpacked extension and run one recognition before you call it done. If the core fails to compile, the fix is <code>script-src 'self' 'wasm-unsafe-eval'</code> — which is still nowhere near the flexibility people assume they need.</p>
+<p>For the two bundled languages, nothing is fetched from a CDN to run the engine, and no string of JavaScript is ever evaluated — the "code" is a wasm module loaded from the package. That is the whole argument for the strict policy, and it is also the reason the strict policy is affordable.</p>
+<p>This is the one part of the note where the caveat stopped being hypothetical. The first build I loaded did not start the engine at all, for two reasons that both live in this policy. MV3's <em>default</em> extension-page policy already includes <code>'wasm-unsafe-eval'</code> inside <code>script-src</code>; writing your own <code>script-src</code> replaces that default instead of adding to it, so the wasm core had no permission to compile. And the worker the library spawns by default is a blob URL, which cannot <code>importScripts</code> a <code>chrome-extension://</code> file, so <code>workerBlobURL: false</code> is what makes it load the packaged worker directly. Two lines — and neither shows up until you run a recognition on a real install: load the unpacked extension and OCR one crop before you call it done. The resulting policy is still nowhere near the flexibility people assume they need.</p>
 
 <h2 id="css-pixels-are-not-the-image">CSS Pixels Are Not the Image</h2>
 <p>The capture path is where "it works on my laptop" goes to die. The user drags a box on a page; the page lives in CSS pixels; the screenshot does not.</p>
 <pre><code>// content.js — mouseup
 if (rect.width &lt; 8 || rect.height &lt; 8) { cleanup(); return; }
-chrome.runtime.sendMessage({ type: 'SNAPOCR_SELECTION', rect, dpr: window.devicePixelRatio || 1 });</code></pre>
+chrome.runtime.sendMessage({
+  type: 'SNAPOCR_SELECTION',
+  rect,
+  dpr: window.devicePixelRatio || 1,
+  viewport: { width: window.innerWidth, height: window.innerHeight }
+});</code></pre>
 <pre><code>// background.js
 const rect = msg.rect;
 if (!rect || rect.width &lt; 4 || rect.height &lt; 4) return;
 const dataUrl = await chrome.tabs.captureVisibleTab(windowId, { format: 'png' });
-const cropped = await cropDataUrl(dataUrl, rect, msg.dpr || 1);
+const cropped = await cropDataUrl(dataUrl, rect, msg.dpr || 1, msg.viewport);
 
-// background.js — cropDataUrl(dataUrl, rect, dpr)
-const scale = dpr || 1;
-const sx = Math.max(0, Math.round(rect.x * scale));
-const sy = Math.max(0, Math.round(rect.y * scale));
-const sw = Math.min(bitmap.width - sx, Math.round(rect.width * scale));
-const sh = Math.min(bitmap.height - sy, Math.round(rect.height * scale));
+// background.js — cropDataUrl(dataUrl, rect, dpr, viewport)
+const bitmap = await createImageBitmap(blob);
+const hasViewport = viewport &amp;&amp; viewport.width &gt; 0 &amp;&amp; viewport.height &gt; 0;
+const scaleX = hasViewport ? bitmap.width / viewport.width : (dpr || 1);
+const scaleY = hasViewport ? bitmap.height / viewport.height : (dpr || 1);
+const sx = Math.min(bitmap.width, Math.max(0, Math.round(rect.x * scaleX)));
+const sy = Math.min(bitmap.height, Math.max(0, Math.round(rect.y * scaleY)));
+const sw = Math.min(bitmap.width - sx, Math.round(rect.width * scaleX));
+const sh = Math.min(bitmap.height - sy, Math.round(rect.height * scaleY));
 if (sw &lt;= 0 || sh &lt;= 0) throw new Error('empty crop');
 const canvas = new OffscreenCanvas(sw, sh);
 canvas.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);</code></pre>
-<p>Three details here, each of which came from a failure rather than from a document. First, the two thresholds are different numbers on purpose: 8 CSS pixels in the page kills a stray click before it becomes a request, and 4 in the worker is a backstop behind a message that could have come from anywhere. Second, the multiply-then-clamp order matters: <code>Math.min(bitmap.width - sx, ...)</code> is what stops a rect that ends below the fold from producing a negative height on a 150% display, where one CSS pixel is 1.5 device pixels and rounding drift accumulates across the whole box. Third — the reason the crop multiplies at all — <code>captureVisibleTab</code> returns the viewport at device resolution, so cropping in CSS pixels throws away exactly the pixels OCR needed. On a HiDPI screen a 1× crop of small text is the difference between readable output and mush.</p>
+<p>Three details here, each of which came from a failure rather than from a document. First, the two thresholds are different numbers on purpose: 8 CSS pixels in the page kills a stray click before it becomes a request, and 4 in the worker is a backstop behind a message that could have come from anywhere. Second, the scale is measured, not assumed. <code>devicePixelRatio</code> answers "device pixels per CSS pixel at 100% zoom", but <code>captureVisibleTab</code> captures the viewport as the browser rendered it — at 125% page zoom on a 2× screen the real factor is 2.5, not 2, so a dpr-only crop drifts further off toward the bottom-right corner the larger the selection. Dividing the bitmap's actual size by <code>window.innerWidth</code> and <code>innerHeight</code> measures both axes directly, and clamping to the bitmap stops a rect that ends below the fold from producing a negative width. Third — the reason the crop scales at all — <code>captureVisibleTab</code> returns the viewport at device resolution, so cropping in CSS pixels throws away exactly the pixels OCR needed. On a HiDPI screen a 1× crop of small text is the difference between readable output and mush.</p>
 <p>The overlay also freezes scrolling while you drag:</p>
 <pre><code>// content.js — begin()
 // Freeze the page so captureVisibleTab matches what the user sees
@@ -177,7 +200,7 @@ function langPathFor(lang) {
     ? chrome.runtime.getURL('vendor/tessdata')
     : CDN_LANG_BASE;
 }</code></pre>
-<p>Two bundled packs are already a large extension; nine would be a different product, so the remaining languages are fetched from the public tessdata mirror once and cached by the engine afterwards. That is the only place in the code where a third-party URL appears outside the licence host, and I keep it visible on purpose: the honesty of "local OCR" rests on the fact that this request carries a language name, not an image. The recognition itself never leaves the machine.</p>
+<p>Two bundled packs are already a large extension; nine would be a different product, so the remaining languages are fetched from the public tessdata mirror once and cached by the engine afterwards. The worker is configured per language for the same reason: <code>gzip: false</code> for the packaged packs, which are plain <code>.traineddata</code>, and <code>gzip: true</code> for the CDN packs, which still arrive compressed. That is the only place in the code where a third-party URL appears outside the licence host, and I keep it visible on purpose: the honesty of "local OCR" rests on the fact that this request carries a language name, not an image. The recognition itself never leaves the machine.</p>
 <p>Two consequences you have to design around. First, a non-bundled language is not offline-usable until it has been downloaded once online — which is why the result page's language badge marks bundled packs explicitly, and why the "works offline" claim in the store copy is scoped to English and Simplified Chinese. Second, a remote path is a dependency. The mirror publishes specific version segments, and the segment in the first build was copied from the npm package layout rather than from the mirror — the mirror does not publish that segment at all, so all seven downloadable languages returned 404 and the paid tier was quietly unusable, with no error a user could act on. I found it by curling the paths by hand, which is the point: if you ship something like this, put a HEAD request for every language path in CI. It is the cheapest test in the project and it catches the exact class of failure that makes a paid feature quietly unusable.</p>
 <p>Cross-origin fetch from an extension page normally wants a host permission, but a policy you can test in one curl: the mirror answers <code>Access-Control-Allow-Origin: *</code>, so the download needs no extra grant in <code>host_permissions</code>. Worth knowing, because "add the host to the manifest" is the reflex answer that makes the permission list grow for no reason.</p>
 
@@ -203,7 +226,7 @@ await chrome.tabs.sendMessage(tab.id, { type: 'SNAPOCR_BEGIN' });</code></pre>
 <li>Ship the fallback wasm core, not only the SIMD one — and pin the library version, so the zip contains a known engine.</li>
 <li>Copy sources with a whitelist. Every byte in the package is a byte someone may ask you about.</li>
 <li>Read MV3 CSP as a replacement, not an addition, and re-test the wasm path after touching it.</li>
-<li>Capture is in device pixels, selection is in CSS pixels: multiply by <code>devicePixelRatio</code>, then clamp to the bitmap, then refuse empty crops.</li>
+<li>Selection is in CSS pixels and the capture is not: measure the bitmap-to-viewport ratio per axis (<code>devicePixelRatio</code> alone misses page zoom), then clamp to the bitmap, then refuse empty crops.</li>
 <li>Freeze page scroll during selection, or the crop rectangle lands on a different image than the one the user saw.</li>
 <li>Never build a data URL with one giant <code>String.fromCharCode.apply</code>. Chunk it.</li>
 <li>Hand big payloads through <code>chrome.storage.local</code> and delete on read; a reload should fail cleanly, not re-run the world.</li>
