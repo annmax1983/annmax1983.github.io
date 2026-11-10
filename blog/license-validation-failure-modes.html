@@ -75,9 +75,9 @@ chrome.alarms.onAlarm.addListener(async (alarm) =&gt; {
 <p>Two details matter. First, the same throttle key is shared by page-side and worker-side validation, so opening the UI does not trigger a second request. Second, the alarm must be created on both <code>onInstalled</code> and <code>onStartup</code> — alarms survive worker restarts but not always profile-level events.</p>
 
 <h2 id="ui-vs-bg">2. The UI and the Background Disagree</h2>
-<p><strong>Symptom:</strong> the popup shows "Premium" while premium features are already gone. Or the reverse: the user paid and the UI still shows the free tier.</p>
+<p><strong>Symptom:</strong> the popup shows "Pro" while Pro features are already gone. Or the reverse: the user paid and the UI still shows the free tier.</p>
 <p><strong>Cause:</strong> two different definitions of "licensed". The UI used a permissive cached check that only looked at <code>status === 'active'</code>. The background used a strict check that also required the expiry to be in the future. Between the moment a license expires and the next successful validation (up to two hours later), the two disagreed.</p>
-<pre><code>// Too weak — claims Premium for up to VALIDATE_INTERVAL_MS after expiry
+<pre><code>// Too weak — claims Pro for up to VALIDATE_INTERVAL_MS after expiry
 const licensed = stored.status === 'active';
 
 // Must mirror the background's definition exactly
@@ -142,7 +142,7 @@ for (const fn of ['getStoredLicense', 'hasCachedLicense', 'validateOnOpen', 'isL
 }</code></pre>
 
 <h2 id="offline-not-revoked">6. Treating "Offline" as "Revoked"</h2>
-<p><strong>Symptom:</strong> paying users lose premium features on a plane, on hotel Wi-Fi, or behind a corporate proxy that blocks the license host.</p>
+<p><strong>Symptom:</strong> paying users lose Pro features on a plane, on hotel Wi-Fi, or behind a corporate proxy that blocks the license host.</p>
 <p><strong>Cause:</strong> the failure branch of the fetch was written as <code>status = 'invalid'</code>. Any network error therefore behaved like a server rejection.</p>
 <p>The correct semantics: a transport failure means <em>unknown</em>, not <em>denied</em>. Keep the cached entitlement, mark it stale, and retry later:</p>
 <pre><code>} catch (e) {
