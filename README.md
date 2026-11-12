@@ -24,7 +24,7 @@ I maintain **22 browser extensions** for Chrome, Edge and Firefox — all local-
 - 🔄 **RefreshMate** — Auto page refresher
 - 🔗 **LinkHarvest** — Link extractor: copy as URLs, Markdown, HTML or JSON Lines; free TXT/JSON/CSV export; Link Audit flags broken links (100 free, 2,000 with a license)
 - ⏱️ **RetroTime** — Floating timer widget (stopwatch / countdown / Pomodoro; custom colors with a license)
-- 🌐 **VKT Header** — Domain-matched HTTP header modifier (5 rules free; rules apply to every tab) with a request tester
+- 🌐 **VKT Header** — HTTP header modifier matching on domain, path, port and request type (10 rules × 10 headers free; rules apply to every tab) with a request tester, cURL paste and project groups
 - 📝 **VKT Note** — Markdown note-taking with text selection (free with unlimited notes, a 7-day Trash and whole-notebook JSON export; Pro adds folders, tags, version history, archives and a 30-day Trash)
 - 🛒 **VKT Cart Lock** — Hard cooling-off lock for your cart: the first checkout click starts a timer and checkout stays blocked until it ends. Free guard with 24 store presets, custom messages and a blocked-checkouts ledger that also records the end-of-lock check-in (bought or let go); Pro adds per-product timers, cross-device sync and 12-month reports.
 - 📝 **VKT Form** — Form snapshot & auto-fill (unlimited local snapshots, fills and JSON export/import free; Pro adds cross-device sync)

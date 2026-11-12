@@ -30,7 +30,7 @@ window.LANG_fr = {
     extRetroTimeDesc: 'Minuteur minimaliste avec chronomètre, compte à rebours et Pomodoro. Les couleurs de texte et de fond personnalisées sont Pro.',
     extRetroTime: 'Minuteur Flottant',
     extWebHeader: 'Modificateur d\'En-têtes HTTP',
-    extWebHeaderDesc: 'Modificateur d\'en-têtes HTTP par domaine, avec testeur de requêtes, import depuis ModHeader/Header Editor et badge dans la barre d\'outils. Les règles s\'appliquent à tous les onglets.',
+    extWebHeaderDesc: 'Ciblage par domaine, chemin, port et type de requête, avec testeur de requêtes, collage cURL, groupes de projet, migration ModHeader/Header Editor et badge dans la barre. Gratuit : 10 règles de 10 en-têtes.',
     extNote: 'Notes Markdown',
     extNoteDesc: 'Notes Markdown avec enregistrement unifié par clic droit, barre de formatage, sauvegarde automatique et aperçu plein écran. HTML→Markdown via Turndown. Mots de passe optionnels : contenu chiffré en AES-256-GCM. Gratuit sans limite de notes, avec corbeille de 7 jours et export JSON de tout le carnet ; Pro ajoute dossiers, étiquettes, historique de versions, archives et corbeille de 30 jours.',
   extCartLock: 'Verrou de refroidissement du panier',

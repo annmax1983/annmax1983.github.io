@@ -10,7 +10,9 @@ function loadLang(lang) {
   return new Promise(function (resolve) {
     if (I18N[lang]) return resolve(I18N[lang]);
     var script = document.createElement('script');
-    script.src = 'js/i18n/' + lang + '.js';
+    // Bump the query string whenever a dictionary under js/i18n/ changes — it is
+    // the only cache key these files have.
+    script.src = 'js/i18n/' + lang + '.js?v=20261112';
     script.onload = function () {
       I18N[lang] = window['LANG_' + lang] || {};
       resolve(I18N[lang]);

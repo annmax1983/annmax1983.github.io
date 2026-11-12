@@ -30,7 +30,7 @@ window.LANG_de = {
     extRetroTimeDesc: 'Minimalistischer Timer mit Stoppuhr, Countdown und Pomodoro. Eigene Schrift- und Hintergrundfarben sind Pro.',
     extRetroTime: 'Schwebender Timer',
     extWebHeader: 'VKT Header',
-    extWebHeaderDesc: 'Domain-basierter HTTP-Header-Editor mit Request-Tester, ModHeader/Header-Editor-Migration und Toolbar-Badge. Regeln matchen per Domain und gelten für jeden Tab.',
+    extWebHeaderDesc: 'Matching nach Domain, Pfad, Port und Anfragetyp — mit Request-Tester, cURL-Einfügen, Projektgruppen, ModHeader/Header-Editor-Migration und Toolbar-Badge. Kostenlos: 10 Regeln mit je 10 Headern.',
     extNote: 'Markdown Notizen',
     extNoteDesc: 'Markdown-Notizen mit einheitlichem Rechtsklick-Speichern, Formatierungsleiste, Auto-Speicherung und Vollbild-Vorschau. HTML→Markdown via Turndown. Optionale Passwörter verschlüsseln Notizen mit AES-256-GCM. Kostenlos ohne Notizenlimit, mit 7-Tage-Papierkorb und JSON-Export des gesamten Notizbuchs; Pro ergänzt Ordner, Tags, Versionsverlauf, Archive und einen 30-Tage-Papierkorb.',
   extCartLock: 'Kassen-Auszeit-Sperre',

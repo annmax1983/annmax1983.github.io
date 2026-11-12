@@ -30,7 +30,7 @@ window.LANG_ja = {
     extRetroTimeDesc: 'ストップウォッチ、カウントダウン、ポモドーロ付きミニマリストタイマー。フォント色と背景色のカスタマイズは Pro機能です。',
     extRetroTime: 'フローティングタイマー',
     extWebHeader: 'VKT Header',
-    extWebHeaderDesc: 'ドメインマッチ型HTTPヘッダー変更ツール。リクエストテスター、ModHeader/Header Editor からの移行インポート、ツールバーバッジを搭載。ルールはドメインでマッチし、全タブに適用。',
+    extWebHeaderDesc: 'ドメイン・パス・ポート・リクエスト種別のマッチングに、リクエストテスター、cURL の貼り付け、プロジェクト単位のグループ、ModHeader / Header Editor からの移行、ツールバーバッジを搭載。無料版は10ルール（各10ヘッダー）。',
     extNote: 'Markdownノート',
     extNoteDesc: '統合右クリック保存・フォーマットツールバー・自動保存・フルスクリーンプレビュー対応Markdownノート。TurndownによるHTML変換。オプションのパスワードで内容をAES-256-GCMにより暗号化。無料でノート数は無制限、7日間ゴミ箱とノートブック全体のJSONエクスポートも含まれます。Proはフォルダ・タグ・バージョン履歴・アーカイブ・30日間ゴミ箱を追加。',
   extCartLock: 'レジ冷静ロック',

@@ -30,7 +30,7 @@ window.LANG_es = {
     extRetroTimeDesc: 'Temporizador minimalista con cronómetro, cuenta regresiva y Pomodoro. Los colores personalizados de texto y fondo son Pro.',
     extRetroTime: 'Temporizador Flotante',
     extWebHeader: 'VKT Header',
-    extWebHeaderDesc: 'Modificador de cabeceras HTTP por dominio, con probador de solicitudes, importación desde ModHeader/Header Editor e insignia en la barra. Las reglas coinciden por dominio y se aplican en cada pestaña.',
+    extWebHeaderDesc: 'Coincidencia por dominio, ruta, puerto y tipo de petición, con probador de peticiones, pegado de cURL, grupos de proyecto, migración desde ModHeader/Header Editor y distintivo en la barra. Gratis: 10 reglas con 10 cabeceras cada una.',
     extNote: 'Notas Markdown',
     extNoteDesc: 'Notas Markdown con guardado unificado por clic derecho, barra de formato, autoguardado y vista previa a pantalla completa. HTML→Markdown con Turndown. Contraseñas opcionales cifran las notas con AES-256-GCM. Gratis sin límite de notas, con papelera de 7 días y exportación JSON de todo el cuaderno; Pro añade carpetas, etiquetas, historial de versiones, archivos y papelera de 30 días.',
   extCartLock: 'Candado de espera al pagar',

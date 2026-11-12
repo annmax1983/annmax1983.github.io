@@ -30,7 +30,7 @@ window.LANG_en = {
     extRetroTimeDesc: 'Minimalist glassmorphism floating timer with stopwatch, countdown, and Pomodoro modes. Custom font and background colors are Pro.',
     extRetroTime: 'Floating Timer',
     extWebHeader: 'VKT Header',
-    extWebHeaderDesc: 'Domain-matched HTTP header modifier with a request tester, ModHeader/Header Editor migration import and a toolbar badge. Rules match by domain and apply to every tab.',
+    extWebHeaderDesc: 'Domain, path, port and request-type matching with a request tester, cURL paste, project groups, ModHeader/Header Editor migration and a toolbar badge. Free: 10 rules with 10 headers each.',
     extNote: 'Markdown Note-Taking',
     extNoteDesc: 'Markdown note-taking with unified right-click save, formatting toolbar, auto-save, and full-screen preview. HTML→Markdown via Turndown. Optional passwords encrypt notes at rest with AES-256-GCM. Free with unlimited notes, a 7-day Trash and whole-notebook JSON export; Pro adds folders, tags, version history, archives and a 30-day Trash.',
   extCartLock: 'Checkout Cooling-off Lock',

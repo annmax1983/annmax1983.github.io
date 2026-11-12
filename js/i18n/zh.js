@@ -30,7 +30,7 @@ window.LANG_zh = {
     extRetroTimeDesc: '极简毛玻璃悬浮计时器，支持秒表、倒计时、番茄钟。自定义字体与背景颜色为 Pro 功能。',
     extRetroTime: '悬浮计时器',
     extWebHeader: 'VKT Header',
-    extWebHeaderDesc: '按域名匹配的 HTTP 请求头修改器，内置请求测试器、ModHeader/Header Editor 迁移导入与工具栏徽标。规则按域名匹配，对所有标签页生效。',
+    extWebHeaderDesc: '按域名、路径、端口和请求类型匹配，内置请求测试器、cURL 粘贴、项目分组、ModHeader/Header Editor 迁移导入与工具栏徽标。免费版 10 条规则、每条 10 个请求头。',
     extNote: 'Markdown划词笔记',
     extNoteDesc: '统一右键菜单、格式工具栏、自动保存、全屏预览的Markdown笔记工具。Turndown库转换HTML。可选密码以 AES-256-GCM 加密笔记内容。免费且笔记数量不限，含 7 天回收站与整本 JSON 导出；Pro 版增加文件夹、标签、版本历史、归档与 30 天回收站。',
   extCartLock: '结账冷静锁',
