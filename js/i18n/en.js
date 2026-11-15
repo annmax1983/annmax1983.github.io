@@ -16,7 +16,7 @@ window.LANG_en = {
   skillUiux: 'UI/UX & Internationalization', skillUiuxDetail: 'Responsive Design · i18n · a11y · Design Systems',
   skillSecurity: 'Security & Privacy Engineering', skillSecurityDetail: 'CSP · Zero-Trust · Local-First · Permission Minimization',
   skillTooling: 'DevOps & Tooling', skillToolingDetail: 'Git · CI/CD · Docker · Web Store Publishing · ASO',
-  extTitle: 'My Extensions', extSubtitle: '22 lightweight browser extensions — core features free forever, privacy-first, local-first',
+  extTitle: 'My Extensions', extSubtitle: '24 lightweight browser extensions — core features free forever, privacy-first, local-first',
   extConv: 'Image Format Converter', extConvDesc: 'Convert images between PNG/JPG/WEBP/AVIF right in your browser. 100% local processing, zero upload.',
   extShot: 'Page Screenshot', extShotDesc: "Full-page, visible area and selection screenshots, no upload. Annotation, mosaic and A4 PDF export with Pro.",
   extStyle: 'Style Customizer', extStyleDesc: 'One-click to change webpage background, text color, and font size. Per-site settings, real-time preview.',
@@ -81,6 +81,9 @@ window.LANG_en = {
   prodSlackTag: 'Slack Workspace', prodSlackFree: 'Free ≤20 people (free policy)',
   extMarginMate: 'VKT MarginMate — Amazon FBA Profit Calculator', extMarginMateDesc: 'See the real profit on any Amazon product page: every fee, break-even price and target-price solver. 16 marketplaces, all local.',
   extSnapOCR: 'VKT SnapOCR — Screenshot to Text', extSnapOCRDesc: 'Select any area of a webpage and extract its text in one click. 100% local OCR — screenshots never leave your machine. Free: 20 captures a day. Pro removes the limit and adds 7 more languages.',
+  extLoginDock: 'LoginDock — Login Page Bookmarks',
+  extLoginDockDesc: 'A bookmark manager for sign-in pages only: save the login page once, reopen it in a click and the username field is already focused while your browser’s own password manager fills the password. LoginDock never sees or stores passwords. Free for 5 entries; a licence removes the limit and adds account auto-select, a verification click and cross-device sync.',
+  extAutofill: 'Browser Autofill',
 
   // PWA Suite
   pwaTitle: 'Installable Web Apps', pwaSubtitle: 'Installable · Works offline · Private by design · No scores, no pressure',
@@ -132,5 +135,7 @@ window.LANG_en = {
   blog15Title: 'PWA Install and Offline Caching: What Actually Works in 2026',
   blog15Desc: 'Install criteria, the beforeinstallprompt dance, iOS Safari\'s separate rules, versioned service worker caches, and storage persistence.',
   blog16Title: 'Falling Sand on Canvas: Cellular Automata at 60 FPS',
-  blog16Desc: 'Uint8Array grids, bottom-up iteration, ImageData rendering, and a fixed-timestep loop - the data layout that makes 60 FPS the default.'
+  blog16Desc: 'Uint8Array grids, bottom-up iteration, ImageData rendering, and a fixed-timestep loop - the data layout that makes 60 FPS the default.',
+  extTabTape: 'TabTape — Tab Audio Recorder',
+  extTabTapeDesc: 'Record the audio of a single browser tab to MP3 or WAV. Sound is encoded in one-second blocks while it records, so a two-hour lecture stays one file with flat memory, and the tab keeps playing out loud. Free: 20 minutes per recording, with the full library and crash recovery; a licence removes the limit and adds trim.'
 };

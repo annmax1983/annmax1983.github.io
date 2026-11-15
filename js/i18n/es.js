@@ -16,7 +16,7 @@ window.LANG_es = {
   skillUiux: 'UI/UX e Internacionalización', skillUiuxDetail: 'Diseño Responsivo · i18n · Accesibilidad · Sistemas de Diseño',
   skillSecurity: 'Seguridad y Privacidad', skillSecurityDetail: 'CSP · Confianza Cero · Local-First · Minimización de Permisos',
   skillTooling: 'DevOps y Herramientas', skillToolingDetail: 'Git · CI/CD · Docker · Publicación en Tienda · ASO',
-  extTitle: 'Mis Extensiones', extSubtitle: '22 extensiones ligeras — funciones principales gratis, privacidad primero, local-first',
+  extTitle: 'Mis Extensiones', extSubtitle: '24 extensiones ligeras — funciones principales gratis, privacidad primero, local-first',
   extConv: 'Convertidor de Imágenes', extConvDesc: 'Convierte imágenes entre PNG/JPG/WEBP/AVIF en tu navegador. 100% local, sin subidas.',
   extShot: 'Captura de Página', extShotDesc: "Capturas de página completa, área visible y selección, sin subidas. Anotaciones, mosaico y PDF A4 con Pro.",
   extStyle: 'Personalizador de Estilos', extStyleDesc: 'Cambia fondo, color de texto y tamaño de fuente con un clic. Configuración por sitio.',
@@ -81,6 +81,9 @@ window.LANG_es = {
   prodSlackTag: 'Espacio de Slack', prodSlackFree: 'Gratis hasta 20 (fase gratuita)',
   extMarginMate: 'VKT MarginMate — Calculadora de beneficios FBA', extMarginMateDesc: 'Beneficio real en cada página de Amazon: todas las tarifas, precio de equilibrio y calculadora de precio objetivo. 16 marketplaces, en local.',
   extSnapOCR: 'VKT SnapOCR — Captura a texto', extSnapOCRDesc: 'Selecciona cualquier área de una página y extrae su texto con un clic. OCR 100% local: sin subidas ni registros. Gratis: 20 capturas al día. Pro elimina el límite y añade 7 idiomas más.',
+  extLoginDock: 'LoginDock — Marcadores de páginas de acceso',
+  extLoginDockDesc: 'Un gestor de marcadores solo para páginas de acceso: guarda la página una vez, ábrela con un clic y el campo de usuario ya está enfocado mientras el gestor de contraseñas del navegador rellena la contraseña. LoginDock nunca ve ni guarda contraseñas. Gratis hasta 5 entradas; con licencia se quita el límite y se añaden selección automática de cuenta, clic de verificación y sincronización entre dispositivos.',
+  extAutofill: 'Autorrelleno del navegador',
 
   // PWA Suite
   pwaTitle: 'Apps web instalables', pwaSubtitle: 'Instalables · Funcionan sin conexión · Privacidad primero · Sin puntos, sin presión',
@@ -132,5 +135,7 @@ window.LANG_es = {
   blog15Title: 'Instalación PWA y caché offline: lo que realmente funciona en 2026',
   blog15Desc: 'Criterios de instalación, el flujo de beforeinstallprompt, las reglas propias de iOS Safari, cachés versionadas del Service Worker y persistencia de almacenamiento.',
   blog16Title: 'Arena que cae en Canvas: autómatas celulares a 60 FPS',
-  blog16Desc: 'Rejillas Uint8Array, iteración ascendente, render con ImageData y bucle de paso fijo - el diseño de datos que hace de 60 FPS lo predeterminado.'
+  blog16Desc: 'Rejillas Uint8Array, iteración ascendente, render con ImageData y bucle de paso fijo - el diseño de datos que hace de 60 FPS lo predeterminado.',
+  extTabTape: 'TabTape — Grabador de audio de pestañas',
+  extTabTapeDesc: 'Graba el audio de una sola pestaña a MP3 o WAV. Se codifica en bloques de un segundo mientras graba, así que una clase de dos horas sigue siendo un archivo con memoria constante y la pestaña se sigue oyendo. Gratis: 20 minutos por grabación con biblioteca y recuperación; una licencia quita el límite y añade el recorte.'
 };

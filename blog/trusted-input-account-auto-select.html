@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Picking the Right Account Without Ever Clicking Sign In</title>
+  <meta name="description" content="How LoginDock automates the browser's account dropdown with debugger-driven trusted input, username read-back calibration, and a submit block that makes accidental sign-in impossible.">
+  <meta property="og:title" content="Picking the Right Account Without Ever Clicking Sign In">
+  <meta property="og:description" content="Trusted input sessions, read-back calibration against dropdown drift, and the invariant that the extension never submits a login form.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/trusted-input-account-auto-select.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/trusted-input-account-auto-select.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Picking the Right Account Without Ever Clicking Sign In",
+    "description": "How LoginDock automates the browser's account dropdown with debugger-driven trusted input, username read-back calibration, and a submit block that makes accidental sign-in impossible.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-11-15",
+    "dateModified": "2026-11-15",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/trusted-input-account-auto-select.html"
+    },
+    "url": "https://annmax1983.github.io/blog/trusted-input-account-auto-select.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Picking the Right Account Without Ever Clicking Sign In</h1>
+    <div class="meta" id="articleMeta"><span><a href="../#about" style="color:inherit;border-bottom:1px dotted currentColor;text-decoration:none;">AnnMax</a> · November 15, 2026</span><span class="reading-time">9 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="why-synthetic">Why a Synthetic Click Is Not Enough</h2>
+<p>LoginDock is a bookmark manager for sign-in pages. Opening a saved entry focuses the username field so the browser's own password manager offers its dropdown. The Pro feature automates the next step: when a site remembers several accounts, pick the one at the position you configured.</p>
+<p>The naive implementation — <code>element.click()</code> from a content script, then <code>dispatchEvent</code> a few keydowns — fails immediately. The browser's autofill dropdown is a native UI surface, and it only opens for <em>trusted</em> events. Synthetic DOM events have <code>isTrusted: false</code>; the password manager ignores them. The only extension API that produces trusted input is <code>chrome.debugger</code>, via CDP's <code>Input.dispatchMouseEvent</code> and <code>Input.dispatchKeyEvent</code>.</p>
+<p>That API comes with a visible cost: Chrome shows a "LoginDock started debugging this browser" banner while it is attached. We originally planned to keep <code>debugger</code> in <code>optional_permissions</code> and request it inside the popup click, but Chrome would not grant it at runtime in this flow, so the permission is declared at install and the banner is documented instead of hidden. The session detaches the moment the pick is done.</p>
+
+<h2 id="session">Trusted Input as a Session, Not a Fire-and-Forget</h2>
+<p>The first design sent one message — "pick account N" — and detached. It broke in two ways: a retry after a drifted dropdown re-attached the debugger (second banner, lost state), and a captcha click after detach had no trusted channel left. The fix is a session protocol with three messages:</p>
+<ul>
+<li><code>ld-trusted-start</code> — attach the debugger, pick the account, read the username back.</li>
+<li><code>ld-trusted-retry</code> — clear the fields, pick the next position, read back again. The debugger stays attached.</li>
+<li><code>ld-trusted-end</code> — optionally click the human-verification checkbox, then detach.</li>
+</ul>
+<p>Sessions live in a <code>Map</code> keyed by tab id, and <code>chrome.debugger.onDetach</code> deletes the entry, so a user dismissing the banner can never leave a zombie session behind:</p>
+<pre><code>const trustedSessions = new Map(); // tabId -&gt; { field }
+
+if (chrome.debugger &amp;&amp; chrome.debugger.onDetach) {
+  chrome.debugger.onDetach.addListener(source =&gt; {
+    if (source &amp;&amp; source.tabId !== undefined) trustedSessions.delete(source.tabId);
+  });
+}</code></pre>
+
+<h2 id="pick">The Pick Itself</h2>
+<p>With the debugger attached, the pick is deliberately dumb: click the username field at the coordinates the content script measured, wait for the native dropdown to render, press ArrowDown N times, press Enter. No DOM guessing about the dropdown — it is native UI and has no DOM.</p>
+<pre><code>async function selectAccount(tabId, field, accountIndex) {
+  await clickAt(tabId, field.x, field.y);
+  await sleep(500); // let the native dropdown render
+  const n = Math.min(Math.max(1, Math.floor(accountIndex) || 1), LD.MAX_ACCOUNT_INDEX);
+  for (let i = 0; i &lt; n; i++) {
+    await keyTap(tabId, 'ArrowDown', 40);
+    await sleep(100);
+  }
+  await keyTap(tabId, 'Enter', 13);
+  await sleep(400); // let autofill write both fields
+}</code></pre>
+<p>The sleeps are not polish; they are the protocol. The dropdown needs a frame to appear, and autofill needs a moment to write both fields before anything reads them back.</p>
+
+<h2 id="readback">Read-Back Calibration: Dropdowns Drift</h2>
+<p>Here is the failure mode that makes naive automation dangerous: the browser's dropdown order is not stable. A login you used yesterday can move after a password change or a new saved account. "Position 2" silently becomes the wrong account — and the wrong account plus autofill is one Enter away from signing into the wrong identity.</p>
+<p>So after every pick, the background reads the filled username back through the debugger and the content script compares it with the username remembered for that entry. Mismatch means: clear both fields, increment the position, retry — at most <code>LD.MAX_TRUSTED_ATTEMPTS</code> (3) times. The read-back is deliberately narrow:</p>
+<pre><code>// Only the username is read back — password values never leave the page.
+const expr = `(function(){try{var el=document.querySelector(${JSON.stringify(selectors.username)});return el?String(el.value):null}catch(e){return null}})()`;
+const res = await chrome.debugger.sendCommand({ tabId }, 'Runtime.evaluate', {
+  expression: expr, returnByValue: true
+});</code></pre>
+<p>Clearing uses the native value setter plus <code>input</code>/<code>change</code> events, because React-style controlled inputs ignore a plain <code>el.value = ''</code>:</p>
+<pre><code>var d = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value');
+if (d &amp;&amp; d.set) d.set.call(el, ''); else el.value = '';
+el.dispatchEvent(new Event('input', { bubbles: true }));
+el.dispatchEvent(new Event('change', { bubbles: true }));</code></pre>
+<p>Fields inside a shadow root are skipped by calibration — the content script cannot hand out a selector that crosses the boundary, and a best-effort read that returns null simply ends the session without retrying.</p>
+
+<h2 id="never-submit">The Invariant: Never Submit</h2>
+<p>Every safeguard above still assumes the dropdown opened. What if it didn't? Then the ArrowDowns went nowhere and the Enter keypress lands in the username field — which on most login forms submits it. An automation that can sign you in by accident is worse than no automation.</p>
+<p>The content script therefore intercepts Enter and <code>submit</code> on the login fields, in the capture phase, for the whole trusted session. The keys still reach the dropdown (native UI consumes them before the page), but a form submission can never fire while we are driving. Clicking Sign in is always the user's own click. This is the invariant the whole feature is built around: <strong>the extension picks; the human submits.</strong></p>
+
+<h2 id="captcha">The Verification Click, at the End</h2>
+<p>Pro also offers one best-effort click on "I'm not a robot" style checkboxes. It runs in <code>ld-trusted-end</code>, after the account is settled, using the same trusted channel, and then the debugger detaches. It is a convenience, not a solver: picture puzzles and audio challenges are left to the human, and if no checkbox is found, nothing happens.</p>
+
+<h2 id="passwords">What Never Leaves the Page</h2>
+<p>It is worth stating the data boundary plainly, because "automates login" sounds like "reads passwords":</p>
+<ul>
+<li>The password value is never read, stored or transmitted. The read-back expression selects the username field only.</li>
+<li>Filling is done by the browser's password manager, from the logins it already holds.</li>
+<li>Stored entries carry title, URL, icon and the last username — nothing else.</li>
+</ul>
+<p>Trusted input is a powerful primitive; the design work is in bounding it. A session that attaches once, verifies what it picked, blocks submission, and detaches at the end is the difference between a convenience and a liability.</p>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./least-privilege-review.html">Least Privilege Implementation &amp; Chrome Web Store Review Checklist</a></li>
+  <li><a href="./checkout-selector-drift.html">Selector Drift Across 24 Checkout Flows: Building an Adapter Layer That Checks Itself</a></li>
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience &amp; State Persistence Patterns for MV3 Extensions</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Picking the Right Account Without Ever Clicking Sign In',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '选对账号，但绝不替你点登录',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'ログインをクリックせずに正しいアカウントを選ぶ',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Das richtige Konto wählen, ohne je auf Anmelden zu klicken',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Elegir la cuenta correcta sin pulsar nunca Iniciar sesión',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Choisir le bon compte sans jamais cliquer sur Connexion',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    // Language detection
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      // Update TOC title
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    // Build TOC
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      // Scroll spy
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    // Copy button for code blocks
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://api.annmax.ccwu.cc"></script>
+</body>
+</html>

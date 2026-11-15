@@ -16,7 +16,7 @@ window.LANG_ja = {
   skillUiux: 'UI/UX & 国際化', skillUiuxDetail: 'レスポンシブデザイン · i18n · アクセシビリティ · デザインシステム',
   skillSecurity: 'セキュリティ＆プライバシー', skillSecurityDetail: 'CSP · ゼロトラスト · ローカルファースト · 権限最小化',
   skillTooling: 'DevOps & ツール', skillToolingDetail: 'Git · CI/CD · Docker · ストア公開 · ASO',
-  extTitle: '私の拡張機能', extSubtitle: '22の軽量ブラウザ拡張機能 — コア機能永久無料、プライバシー優先、ローカルファースト',
+  extTitle: '私の拡張機能', extSubtitle: '24の軽量ブラウザ拡張機能 — コア機能永久無料、プライバシー優先、ローカルファースト',
   extConv: '画像フォーマット変換', extConvDesc: 'PNG/JPG/WEBP/AVIFをブラウザ内で変換。100%ローカル処理、アップロードなし。',
   extShot: 'ページスクリーンショット', extShotDesc: "ページ全体・表示領域・選択範囲の撮影、アップロード不要。注釈・モザイク・A4 PDF 書き出しは Pro。",
   extStyle: 'スタイルカスタマイザー', extStyleDesc: 'ワンクリックで背景色、文字色、フォントサイズを変更。サイトごとに保存。',
@@ -81,6 +81,9 @@ window.LANG_ja = {
   prodSlackTag: 'Slack ワークスペース', prodSlackFree: '20人まで無料（無料ポリシー期間）',
   extMarginMate: 'VKT MarginMate — アマゾン FBA 利益計算', extMarginMateDesc: 'アマゾンの商品ページで実際の利益を確認：全費用、損益分岐価格、目標価格の計算。16 マーケットプレイス、ローカル計算。',
   extSnapOCR: 'VKT SnapOCR — 画像からテキストへ', extSnapOCRDesc: 'ページの好きな範囲を囲むだけで文字を抽出。100% ローカル OCR でアップロードなし・登録不要。無料は 1 日 20 回、Pro で回数無制限＋7 言語を追加。',
+  extLoginDock: 'LoginDock — ログインページのブックマーク',
+  extLoginDockDesc: 'ログインページ専用のブックマーク管理。一度保存すれば、ワンクリックで開けて、ユーザー名の欄はすでにフォーカス済み。パスワードはブラウザ標準のパスワードマネージャーが入力します。LoginDock はパスワードを読み取りも保存もしません。5 件まで無料、ライセンスで上限解除に加えて、アカウントの自動選択・確認クリック・端末間同期が使えます。',
+  extAutofill: 'ブラウザの自動入力',
 
   // PWA スイート
   pwaTitle: 'インストールできるウェブアプリ', pwaSubtitle: 'インストール可能 · オフラインで動く · プライバシー第一 · スコアなし、プレッシャーなし',
@@ -132,5 +135,7 @@ window.LANG_ja = {
   blog15Title: 'PWAのインストールとオフラインキャッシュ：2026年に実際に機能する方法',
   blog15Desc: 'インストール条件、beforeinstallpromptの流れ、iOS Safariの独自ルール、バージョン管理されたService Workerキャッシュ、ストレージ永続化。',
   blog16Title: 'Canvasの落下砂シミュレーション：セルオートマトンを60fpsで',
-  blog16Desc: 'Uint8Arrayグリッド、下から上への反復、ImageDataレンダリング、固定タイムステップループ——60fpsを既定にするデータレイアウト。'
+  blog16Desc: 'Uint8Arrayグリッド、下から上への反復、ImageDataレンダリング、固定タイムステップループ——60fpsを既定にするデータレイアウト。',
+  extTabTape: 'TabTape — タブ音声の録音',
+  extTabTapeDesc: '1 つのタブの音声を MP3 / WAV で録音。1 秒単位でエンコードしながら書き込むので、2 時間の講義も 1 ファイルのままメモリは増えず、録音中も音が聞こえます。無料は 1 回 20 分でライブラリとクラッシュ復元も利用可、ライセンスで時間制限が外れトリムが使えます。'
 };

@@ -126,6 +126,16 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://annmax1983.github.io/blog/trusted-input-account-auto-select.html</loc>
+    <lastmod>2026-11-15</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://annmax1983.github.io/blog/firefox-tab-audio-capture-bridge.html</loc>
+    <lastmod>2026-11-15</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://annmax1983.github.io/blog/totp-web-crypto-implementation.html</loc>
     <lastmod>2026-10-14</lastmod>
     <priority>0.7</priority>

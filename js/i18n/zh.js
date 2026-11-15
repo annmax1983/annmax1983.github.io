@@ -16,7 +16,7 @@ window.LANG_zh = {
   skillUiux: 'UI/UX & 国际化', skillUiuxDetail: '响应式设计 · i18n · 无障碍 · 设计系统',
   skillSecurity: '安全与隐私工程', skillSecurityDetail: 'CSP · 零信任 · 本地优先 · 权限最小化',
   skillTooling: 'DevOps & 工具链', skillToolingDetail: 'Git · CI/CD · Docker · 商店发布 · ASO',
-  extTitle: '我的插件作品', extSubtitle: '22款轻量级浏览器插件 · 核心功能永久免费 · 隐私优先，本地优先',
+  extTitle: '我的插件作品', extSubtitle: '24款轻量级浏览器插件 · 核心功能永久免费 · 隐私优先，本地优先',
   extConv: '图片格式转换', extConvDesc: '在浏览器内完成 PNG/JPG/WEBP/AVIF 格式互转，100%本地处理，零上传。',
   extShot: '网页截图', extShotDesc: "全页、可见区域和选区截图，无需上传。标注、马赛克和 A4 分页 PDF 导出需 Pro 版。",
   extStyle: '网页样式修改', extStyleDesc: '一键修改网页背景色、文字色、字体大小，支持按站点保存，实时预览。',
@@ -81,6 +81,9 @@ window.LANG_zh = {
   prodSlackTag: 'Slack 工作区', prodSlackFree: '20 人内免费（免费政策期内）',
   extMarginMate: 'VKT MarginMate — 亚马逊 FBA 利润计算器', extMarginMateDesc: '在任意亚马逊商品页看到真实利润：全部费用、保本价与目标价求解，16 个站点，全部本地计算。',
   extSnapOCR: 'VKT SnapOCR — 截图转文字', extSnapOCRDesc: '框选网页任意区域，一键提取文字。100% 本地 OCR，截图不上传、无需注册。免费每天 20 次，Pro 解锁无限次并追加 7 种语言。',
+  extLoginDock: 'LoginDock — 登录页书签',
+  extLoginDockDesc: '只为登录页做的书签：保存一次，之后一键打开，用户名输入框已经聚焦，密码交给浏览器自带的密码管理器去填。LoginDock 从不读取也不存储密码。免费版 5 条；授权后解除上限，并加账号自动选择、人机验证点击和跨设备同步。',
+  extAutofill: '浏览器原生填充',
 
   // PWA 专区
   pwaTitle: '可安装的网页小应用', pwaSubtitle: '可安装 · 离线可用 · 隐私优先 · 不计分无压力',
@@ -132,5 +135,7 @@ window.LANG_zh = {
   blog15Title: 'PWA 安装与离线缓存实战：2026 年真正有效的做法',
   blog15Desc: '可安装性标准、beforeinstallprompt 完整流程、iOS Safari 的特殊规则、版本化 Service Worker 缓存与存储持久化。',
   blog16Title: 'Canvas 落沙模拟：让元胞自动机跑满 60fps',
-  blog16Desc: 'Uint8Array 网格、自底向上迭代、ImageData 渲染与固定步长循环——让 60fps 成为默认结果的数据布局。'
+  blog16Desc: 'Uint8Array 网格、自底向上迭代、ImageData 渲染与固定步长循环——让 60fps 成为默认结果的数据布局。',
+  extTabTape: 'TabTape — 标签页录音',
+  extTabTapeDesc: '把单个标签页的声音录成 MP3 或 WAV。边录边按一秒一块编码，两小时的讲座也是一个文件、内存不涨，录制期间照常出声。免费每次 20 分钟，音频库与崩溃恢复照给；授权解锁时长上限并加上裁剪。'
 };

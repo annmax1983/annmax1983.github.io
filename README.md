@@ -10,7 +10,7 @@ I started with .NET desktop apps and enterprise Java systems. Moved through Pyth
 
 ## What I Build
 
-I maintain **22 browser extensions** for Chrome, Edge and Firefox — all local-first: no analytics, no tracking, no accounts, and none of them uploads your content to us. A few features make their own network requests: license checks for paid plans, image fetches when you convert or batch-download, Link Audit requests to links you choose, and sync through your browser account (JustFocus by default; Pro sync in LiteCopy, StylePatch, LocalBox2FA and VKT Form):
+I maintain **24 browser extensions** for Chrome, Edge and Firefox — all local-first: no analytics, no tracking, no accounts, and none of them uploads your content to us. A few features make their own network requests: license checks for paid plans, image fetches when you convert or batch-download, Link Audit requests to links you choose, and sync through your browser account (JustFocus by default; Pro sync in LiteCopy, StylePatch, LocalBox2FA, LoginDock and VKT Form):
 
 - 📸 **PageShot** — Screenshots with Pro annotation, mosaic and A4 PDF
 - 🖼️ **ImageConv** — Image format conversion (PNG/JPG/WEBP/AVIF)
@@ -34,6 +34,8 @@ I maintain **22 browser extensions** for Chrome, Edge and Firefox — all local-
 - 🧹 **VKT CleanMate** — Preview-first browsing data cleaner: see sites, history entries and cookies before deleting. Free: targeted mode, the protected list, the focus footprint with CSV export, five triggers, nine data types, the retention window and both shortcuts. Pro adds full mode (everything except your protected list), always-on footprint collection and the 30-day trend
 - 💰 **MarginMate** — Amazon FBA profit calculator: referral fee, FBA fulfilment, storage, ads, returns and landed cost, plus break-even price and the price for your target margin. 16 marketplaces, all computed locally
 - 🔍 **SnapOCR** — Screenshot to text: select any area of a webpage and extract its text in one click. 100% local OCR (Tesseract.js) — screenshots never leave your device. Free: 20 captures a day
+- 🔑 **LoginDock** — Bookmark manager for sign-in pages: save a login page once, reopen it in a click and the username field is already focused while your browser's password manager fills the password (passwords are never seen or stored). Free for 5 entries; a licence removes the limit and adds account auto-select, a verification click and cross-device entry sync
+- 🎙️ **TabTape** — Tab audio recorder to MP3 or WAV. Audio is encoded in one-second blocks while it records, so a two-hour lecture stays one file with flat memory and the tab keeps playing out loud. Free: 20 minutes per recording; a licence removes the limit and adds trim
 
 I also build **VKT PWA** — 9 installable web apps that run offline, installed straight from the browser:
 

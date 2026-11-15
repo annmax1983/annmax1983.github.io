@@ -16,7 +16,7 @@ window.LANG_de = {
   skillUiux: 'UI/UX & Internationalisierung', skillUiuxDetail: 'Responsives Design · i18n · Barrierefreiheit · Design-Systeme',
   skillSecurity: 'Sicherheit & Datenschutz', skillSecurityDetail: 'CSP · Zero-Trust · Lokal-Zuerst · Minimale Berechtigungen',
   skillTooling: 'DevOps & Werkzeuge', skillToolingDetail: 'Git · CI/CD · Docker · Store-Veröffentlichung · ASO',
-  extTitle: 'Meine Erweiterungen', extSubtitle: '22 leichtgewichtige Browser-Erweiterungen — Kernfunktionen dauerhaft kostenlos, Datenschutz zuerst',
+  extTitle: 'Meine Erweiterungen', extSubtitle: '24 leichtgewichtige Browser-Erweiterungen — Kernfunktionen dauerhaft kostenlos, Datenschutz zuerst',
   extConv: 'Bildformat-Konverter', extConvDesc: 'Konvertiere Bilder zwischen PNG/JPG/WEBP/AVIF direkt im Browser. 100% lokal, kein Upload.',
   extShot: 'Seiten-Screenshot', extShotDesc: "Ganzseiten-, Sichtbereich- und Auswahlaufnahme, kein Upload. Anmerkungen, Mosaik und A4-PDF-Export mit Pro.",
   extStyle: 'Stil-Anpasser', extStyleDesc: 'Hintergrund, Textfarbe und Schriftgröße mit einem Klick ändern. Pro Website gespeichert.',
@@ -81,6 +81,9 @@ window.LANG_de = {
   prodSlackTag: 'Slack-Workspace', prodSlackFree: 'Kostenlos bis 20 (Gratisphase)',
   extMarginMate: 'VKT MarginMate — Amazon-FBA-Gewinnrechner', extMarginMateDesc: 'Echten Gewinn auf jeder Amazon-Produktseite: alle Gebühren, Break-even-Preis und Zielpreis-Rechner. 16 Marktplätze, alles lokal.',
   extSnapOCR: 'VKT SnapOCR — Screenshot zu Text', extSnapOCRDesc: 'Markieren Sie einen beliebigen Bereich einer Webseite und holen Sie den Text mit einem Klick heraus. 100% lokale OCR — keine Uploads, keine Anmeldung. Gratis: 20 Aufnahmen pro Tag. Pro hebt das Limit auf und schaltet 7 weitere Sprachen frei.',
+  extLoginDock: 'LoginDock — Lesezeichen für Anmeldeseiten',
+  extLoginDockDesc: 'Ein Lesezeichen-Manager nur für Anmeldeseiten: einmal speichern, mit einem Klick wieder öffnen — das Feld für den Benutzernamen ist bereits fokussiert, und der Passwortmanager des Browsers füllt das Passwort ein. LoginDock sieht und speichert keine Passwörter. Kostenlos für 5 Einträge; mit Lizenz entfällt das Limit, dazu kommen Konto-Autowahl, ein Verifizierungs-Klick und geräteübergreifende Synchronisierung.',
+  extAutofill: 'Browser-Autofill',
 
   // PWA Suite
   pwaTitle: 'Installierbare Web-Apps', pwaSubtitle: 'Installierbar · Funktioniert offline · Privat von Grund auf · Keine Punkte, kein Druck',
@@ -132,5 +135,7 @@ window.LANG_de = {
   blog15Title: 'PWA-Installation und Offline-Caching: Was 2026 tatsächlich funktioniert',
   blog15Desc: 'Installationskriterien, der beforeinstallprompt-Ablauf, iOS-Safaris eigene Regeln, versionierte Service-Worker-Caches und Storage-Persistenz.',
   blog16Title: 'Falling Sand auf Canvas: Zelluläre Automaten mit 60 FPS',
-  blog16Desc: 'Uint8Array-Grids, Bottom-up-Iteration, ImageData-Rendering und ein Fixed-Timestep-Loop - das Datenlayout, das 60 FPS zum Standard macht.'
+  blog16Desc: 'Uint8Array-Grids, Bottom-up-Iteration, ImageData-Rendering und ein Fixed-Timestep-Loop - das Datenlayout, das 60 FPS zum Standard macht.',
+  extTabTape: 'TabTape — Tab-Audio aufnehmen',
+  extTabTapeDesc: 'Nimmt den Ton eines Tabs als MP3 oder WAV auf. In Ein-Sekunden-Blöcken direkt mitgeschrieben, sodass eine zweistündige Vorlesung eine Datei bleibt und der Speicher flach bleibt; der Tab bleibt hörbar. Kostenlos: 20 Minuten pro Aufnahme samt Bibliothek und Absturzwiederherstellung; eine Lizenz hebt das Limit auf und schaltet den Zuschnitt frei.'
 };

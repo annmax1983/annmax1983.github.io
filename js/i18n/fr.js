@@ -16,7 +16,7 @@ window.LANG_fr = {
   skillUiux: 'UI/UX & Internationalisation', skillUiuxDetail: 'Design Responsive · i18n · Accessibilité · Systèmes de Design',
   skillSecurity: 'Sécurité & Vie Privée', skillSecurityDetail: 'CSP · Zéro-Confiance · Local-First · Minimisation des Permissions',
   skillTooling: 'DevOps & Outils', skillToolingDetail: 'Git · CI/CD · Docker · Publication Store · ASO',
-  extTitle: 'Mes Extensions', extSubtitle: "22 extensions légères — fonctions principales gratuites, vie privée d'abord",
+  extTitle: 'Mes Extensions', extSubtitle: "24 extensions légères — fonctions principales gratuites, vie privée d'abord",
   extConv: "Convertisseur d'Images", extConvDesc: "Convertissez des images entre PNG/JPG/WEBP/AVIF dans votre navigateur. 100% local, zéro upload.",
   extShot: 'Capture de Page', extShotDesc: "Captures page entière, zone visible et sélection, sans upload. Annotations, mosaïque et PDF A4 avec Pro.",
   extStyle: 'Personnaliseur de Style', extStyleDesc: "Changez le fond, la couleur du texte et la taille de police en un clic. Paramètres par site.",
@@ -81,6 +81,9 @@ window.LANG_fr = {
   prodSlackTag: 'Espace Slack', prodSlackFree: 'Gratuit jusqu\'à 20 (phase gratuite)',
   extMarginMate: 'VKT MarginMate — Calculateur de marge FBA', extMarginMateDesc: 'Bénéfice réel sur chaque page Amazon : tous les frais, prix d\'équilibre et calcul du prix cible. 16 marketplaces, en local.',
   extSnapOCR: 'VKT SnapOCR — Capture vers texte', extSnapOCRDesc: 'Sélectionnez n\'importe quelle zone d\'une page et extrayez son texte en un clic. OCR 100% locale — aucun envoi, aucun compte. Gratuit : 20 captures par jour. Pro supprime la limite et ajoute 7 langues de plus.',
+  extLoginDock: 'LoginDock — Favoris de pages de connexion',
+  extLoginDockDesc: 'Un gestionnaire de favoris réservé aux pages de connexion : enregistrez la page une fois, rouvrez-la en un clic — le champ identifiant est déjà sélectionné et le gestionnaire de mots de passe du navigateur remplit le mot de passe. LoginDock ne voit ni ne stocke jamais les mots de passe. Gratuit jusqu’à 5 entrées ; la licence supprime la limite et ajoute la sélection automatique du compte, le clic de vérification et la synchronisation entre appareils.',
+  extAutofill: 'Remplissage navigateur',
 
   // PWA Suite
   pwaTitle: 'Applications web installables', pwaSubtitle: 'Installables · Hors ligne · Privées par conception · Sans score, sans pression',
@@ -132,5 +135,7 @@ window.LANG_fr = {
   blog15Title: 'Installation PWA et cache hors ligne : ce qui fonctionne vraiment en 2026',
   blog15Desc: 'Critères d\'installation, le parcours beforeinstallprompt, les règles propres à iOS Safari, caches versionnés du Service Worker et persistance du stockage.',
   blog16Title: 'Sable qui tombe sur Canvas : automates cellulaires à 60 FPS',
-  blog16Desc: 'Grilles Uint8Array, itération ascendante, rendu ImageData et boucle à pas fixe - la disposition de données qui fait des 60 FPS la norme.'
+  blog16Desc: 'Grilles Uint8Array, itération ascendante, rendu ImageData et boucle à pas fixe - la disposition de données qui fait des 60 FPS la norme.',
+  extTabTape: "TabTape — Enregistreur audio d'onglet",
+  extTabTapeDesc: "Enregistre l'audio d'un seul onglet en MP3 ou WAV. Encodé par blocs d'une seconde pendant la capture : une conférence de deux heures reste un seul fichier, mémoire stable, et l'onglet continue de s'entendre. Gratuit : 20 minutes par enregistrement, bibliothèque et récupération incluses ; une licence supprime la limite et ajoute le découpement."
 };

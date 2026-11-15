@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Recording Tab Audio in Firefox Without tabCapture</title>
+  <meta name="description" content="Firefox has no tabCapture API. How TabTape's Firefox build records playing media elements through an injected page bridge, streams PCM over a runtime port, and encodes to MP3/WAV with flat memory.">
+  <meta property="og:title" content="Recording Tab Audio in Firefox Without tabCapture">
+  <meta property="og:description" content="captureStream/mozCaptureStream, dead-stream bookkeeping, a port that keeps the event page alive, and chunked lamejs encoding — the Firefox half of a tab recorder.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/firefox-tab-audio-capture-bridge.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/firefox-tab-audio-capture-bridge.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Recording Tab Audio in Firefox Without tabCapture",
+    "description": "Firefox has no tabCapture API. How TabTape's Firefox build records playing media elements through an injected page bridge, streams PCM over a runtime port, and encodes to MP3/WAV with flat memory.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-11-15",
+    "dateModified": "2026-11-15",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/firefox-tab-audio-capture-bridge.html"
+    },
+    "url": "https://annmax1983.github.io/blog/firefox-tab-audio-capture-bridge.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Recording Tab Audio in Firefox Without tabCapture</h1>
+    <div class="meta" id="articleMeta"><span><a href="../#about" style="color:inherit;border-bottom:1px dotted currentColor;text-decoration:none;">AnnMax</a> · November 15, 2026</span><span class="reading-time">10 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="no-api">The Missing API</h2>
+<p>TabTape records one browser tab's audio to MP3 or WAV. On Chrome and Edge the architecture is the obvious one: <code>chrome.tabCapture</code> hands you a MediaStream of the whole tab, an offscreen document holds it, an AudioWorklet passes the audio through to the speakers, and PCM blocks are encoded as they arrive.</p>
+<p>Firefox has no <code>tabCapture</code>. There is no extension API that returns "the audio of this tab". What Firefox does have is <code>HTMLMediaElement.captureStream()</code> — spelled <code>mozCaptureStream()</code> in its prefixed form — which exposes the audio of a single <code>&lt;video&gt;</code> or <code>&lt;audio&gt;</code> element. So the Firefox build is a different architecture with the same product promise: record what the tab is playing, keep it audible, write it to disk as it arrives.</p>
+
+<h2 id="bridge">The Page Bridge</h2>
+<p>The capture code runs in the page, injected on demand with <code>activeTab</code> + <code>scripting</code> when the user presses Record — there is no declarative content script watching pages. It collects the playing media elements, attaches a capture stream to each, and mixes them through one AudioContext:</p>
+<pre><code>if (typeof el.captureStream === 'function') stream = el.captureStream();
+else if (typeof el.mozCaptureStream === 'function') stream = el.mozCaptureStream();
+...
+src = state.ctx.createMediaStreamSource(stream);
+src.connect(state.processor);</code></pre>
+<p>The processor is a ScriptProcessor-style tap that interleaves the channels and posts ~one-second PCM blocks to the background. The AudioContext is explicitly resumed and its state checked before the session starts — a context created without a user gesture can be <code>suspended</code>, and a suspended context records pure silence while looking perfectly healthy.</p>
+
+<h2 id="dead-streams">Dead Streams and Player Swaps</h2>
+<p>Two Firefox quirks cost me a day each, and both are now load-bearing comments in the bridge.</p>
+<p><strong>Quirk one: the same stream comes back, dead.</strong> <code>captureStream()</code> returns the <em>same</em> MediaStream object for a given element. Once its tracks have ended — the video reached its end, the source was swapped — that stream never comes back to life. Re-attaching the element every tick would feed pure silence into the recording. So elements whose tracks ended go into a <code>dead</code> WeakSet and are never retried:</p>
+<pre><code>const live = tracks.filter(t =&gt; t.readyState === 'live');
+if (!live.length) {
+  if (tracks.length) state.dead.add(el);
+  return;
+}</code></pre>
+<p><strong>Quirk two: pages swap players.</strong> Next episode, SPA route change, autoplay hand-off — the element you attached at start may be gone while a new one plays. A periodic <code>sync()</code> detaches dead streams and attaches newly playing elements. Paused elements are detached but the session stays alive: press play again and the next tick re-attaches. "Paused" and "ended" are different states, and conflating them either kills long recordings or records silence.</p>
+
+<h2 id="port">A Port That Keeps the Event Page Alive</h2>
+<p>Firefox MV3 backgrounds are event pages: they unload when idle. A recording that streams PCM into a background which has gone to sleep is a recording into the void. The bridge therefore opens a named runtime port, and the open port is what keeps the event page alive for the whole session:</p>
+<pre><code>state.port = chrome.runtime.connect({ name: 'tt-capture' });
+state.port.onDisconnect.addListener(() =&gt; {
+  // The background page was unloaded while the page was still audible;
+  // nothing can be encoded any more.
+  if (run === state &amp;&amp; !state.stopping) stop('disconnected');
+});
+state.port.postMessage({
+  type: 'hello',
+  recId: cfg.recId,
+  sampleRate: state.ctx.sampleRate,
+  channels: 2,
+  sources: playing.map(describe)
+});</code></pre>
+<p>The <code>hello</code> handshake carries the sample rate and channel count so the encoder is configured from the actual AudioContext, not an assumption. If the port dies mid-recording, the only honest outcome is to stop and save what already reached disk — which the chunked storage model makes possible.</p>
+
+<h2 id="encode">Encoding at the Background, Chunks on Disk</h2>
+<p>The background page owns the encoder: a vendored build of lamejs for MP3, raw PCM for WAV. Two details matter. lamejs's <code>encodeBuffer(left, right)</code> wants <em>separate channel arrays</em> — handing it interleaved data produces garbage — so the bridge's interleaved blocks are de-interleaved per channel before encoding. And every encoded chunk is written to IndexedDB as it arrives, with the meta row marked incomplete until stop.</p>
+<p>That is the whole memory story: a two-hour lecture is a sequence of one-second chunks on disk, not a two-hour buffer in RAM. It is also the crash story: if the browser dies mid-recording, the library offers a recover bar that rebuilds a playable file from the chunks that already landed — WAV duration computed from bytes, MP3 from frame parsing.</p>
+
+<h2 id="trim">Trim Without Decoding</h2>
+<p>Because the storage model is chunked and the formats are parsed, not decoded, trimming never loads the whole file. WAV cuts are byte-exact at sample boundaries; MP3 cuts walk frame headers and slice at frame granularity. A two-hour MP3 trims in milliseconds with no re-encode — the export is the same audio bytes, not a recompressed copy. The same frame parser powers duration display and crash recovery, which is a good hint that the abstraction is right: one parser, three consumers.</p>
+
+<h2 id="limits">What It Cannot Record, Said Plainly</h2>
+<p>The media-element approach has a honest boundary, and the UI states it instead of hiding it:</p>
+<ul>
+<li><strong>DRM players</strong> decode outside the media pipeline; their audio never reaches <code>captureStream()</code>. Those pages record as silence.</li>
+<li><strong>Web Audio and WebRTC</strong> — calls, games, synth apps — are not attached to a media element, so there is nothing to capture.</li>
+<li><strong>A page with nothing playing</strong> records nothing; the popup says "start the video or audio first" rather than producing an empty file.</li>
+</ul>
+<p>Chrome's <code>tabCapture</code> records the whole tab regardless of source; Firefox's bridge records the media the page is playing. Different capability, same promise: the file is yours, on your disk, and nothing was uploaded to get it there.</p>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience &amp; State Persistence Patterns for MV3 Extensions</a></li>
+  <li><a href="./sqlite-opfs-local-first-database.html">SQLite in the Browser: Building a Local-First Database with OPFS</a></li>
+  <li><a href="./least-privilege-review.html">Least Privilege Implementation &amp; Chrome Web Store Review Checklist</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Recording Tab Audio in Firefox Without tabCapture',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '没有 tabCapture，Firefox 如何录下标签页声音',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'tabCapture なしで Firefox のタブ音声を録音する',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Tab-Audio in Firefox aufnehmen — ohne tabCapture',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Grabar el audio de una pestaña en Firefox sin tabCapture',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Enregistrer l’audio d’un onglet dans Firefox sans tabCapture',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    // Language detection
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      // Update TOC title
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    // Build TOC
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      // Scroll spy
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    // Copy button for code blocks
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://api.annmax.ccwu.cc"></script>
+</body>
+</html>

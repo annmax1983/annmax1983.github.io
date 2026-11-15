@@ -9,7 +9,29 @@
     <name>AnnMax</name>
     <email>support@annmax1983.com</email>
   </author>
-  <updated>2026-11-05T00:00:00Z</updated>
+  <updated>2026-11-15T00:00:00Z</updated>
+
+  <entry>
+    <title>Picking the Right Account Without Ever Clicking Sign In</title>
+    <link href="https://annmax1983.github.io/blog/trusted-input-account-auto-select.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/trusted-input-account-auto-select.html</id>
+    <updated>2026-11-15T00:00:00Z</updated>
+    <summary>How LoginDock automates the browser's account dropdown with debugger-driven trusted input, username read-back calibration, and a submit block that makes accidental sign-in impossible.</summary>
+    <category term="Chrome Extensions"/>
+    <category term="MV3"/>
+    <category term="Security"/>
+  </entry>
+
+  <entry>
+    <title>Recording Tab Audio in Firefox Without tabCapture</title>
+    <link href="https://annmax1983.github.io/blog/firefox-tab-audio-capture-bridge.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/firefox-tab-audio-capture-bridge.html</id>
+    <updated>2026-11-15T00:00:00Z</updated>
+    <summary>Firefox has no tabCapture API. How TabTape's Firefox build records playing media elements through an injected page bridge, streams PCM over a runtime port, and encodes to MP3/WAV with flat memory.</summary>
+    <category term="Firefox"/>
+    <category term="Web Audio"/>
+    <category term="MV3"/>
+  </entry>
 
   <entry>
     <title>Tesseract in the Zip: What "100% Local OCR" Costs in an MV3 Extension</title>
