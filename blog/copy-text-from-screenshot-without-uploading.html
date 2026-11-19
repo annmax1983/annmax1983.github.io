@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">How to Copy Text From a Screenshot Without Uploading It (2026) — AnnMax</title>
+  <meta name="description" content="Learn how to copy text from a screenshot without uploading it. SnapOCR selects a region, recognizes locally with Tesseract WASM, crops in memory, and destroys the image on close — it works offline.">
+  <meta property="og:title" content="How to Copy Text From a Screenshot Without Uploading It (2026)">
+  <meta property="og:description" content="Learn how to copy text from a screenshot without uploading it. SnapOCR selects a region, recognizes locally with Tesseract WASM, crops in memory, and destroys the image on close — it works offline.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/copy-text-from-screenshot-without-uploading.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/copy-text-from-screenshot-without-uploading.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "How to Copy Text From a Screenshot Without Uploading It (2026)",
+    "description": "Learn how to copy text from a screenshot without uploading it. SnapOCR selects a region, recognizes locally with Tesseract WASM, crops in memory, and destroys the image on close — it works offline.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-11-17",
+    "dateModified": "2026-11-17",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/copy-text-from-screenshot-without-uploading.html"
+    },
+    "url": "https://annmax1983.github.io/blog/copy-text-from-screenshot-without-uploading.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../blog.html" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">How to Copy Text From a Screenshot Without Uploading It (2026)</h1>
+    <div class="meta" id="articleMeta"><span><a href="../#about" style="color:inherit;border-bottom:1px dotted currentColor;text-decoration:none;">AnnMax</a> · November 17, 2026</span><span class="reading-time">8 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+<div class="lang-block" data-lang="en" lang="en">
+<h2 id="en-why-uploads-happen">Why Copying Text From a Screenshot Usually Means an Upload</h2>
+<p>The fastest way to get text out of an image is usually a website: drag the file in, wait, copy the result. It is also the least private. Your screenshot — a bank statement, an internal slide, a medical form — leaves your machine and waits in a queue on someone else's infrastructure while a model reads it.</p>
+<p>If you want to copy text from a screenshot without uploading it, the recognition has to happen where the image already is. SnapOCR runs Tesseract as WebAssembly inside the extension, so the picture never needs an endpoint to travel to.</p>
+<h2 id="en-how-it-works">How SnapOCR Copies Text From a Screenshot Without Uploading</h2>
+<p>The workflow is short. You invoke SnapOCR, drag a box over any region of the page, and the extension captures the visible tab, crops the selection in memory, and feeds the crop to the local engine. The recognized text lands in a result window with a copy button.</p>
+<p>That is the whole answer to how to copy text from a screenshot without uploading it: select a region, recognize locally, copy. There is no account, no upload queue, and no third party in the middle of a document you were already reading.</p>
+<h2 id="en-in-memory-crop">The Screenshot Is Cropped in Memory and Destroyed on Close</h2>
+<p>The screenshot's lifecycle is deliberately short. The crop is made in memory, the full capture is discarded, and closing the result window destroys the crop too. Nothing is written to disk and nothing is cached for a later session.</p>
+<p>This matters more than it sounds. An OCR tool that keeps your screenshots in a history folder has quietly turned a private document into a stored artifact. SnapOCR keeps no such folder — the image exists only for the duration of one recognition.</p>
+<h2 id="en-offline">Working Offline, and What the Local Engine Actually Needs</h2>
+<p>Because the engine is packaged with the extension, recognition works with the network unplugged. Free ships with English and Simplified Chinese built in, so those two languages are genuinely offline from the first run — no model download, no warm-up request.</p>
+<p>There is a boundary worth stating plainly: only what is visible in the viewport can be selected, and one drag selects one region. A full page of small text may need several boxes. Saying that up front is better than letting a user discover it by failing.</p>
+<h2 id="en-free-tier">Free: 20 Scans a Day, English and Simplified Chinese</h2>
+<p>Free gives you 20 recognitions a day, counted on your own calendar day rather than a server clock. A failed or unreadable crop does not consume a scan — you are billed for a successful recognition, not an attempt.</p>
+<p>Twenty is enough for the occasional form or receipt, and the limit is stored locally rather than enforced by a remote service. The two built-in languages are the honest scope of the offline promise; anything beyond them is described clearly rather than implied.</p>
+<h2 id="en-pro-and-availability">Pro: No Daily Cap, Seven More Languages, and Availability</h2>
+<p>Pro removes the daily cap and adds seven more languages, taking the picker well past the two bundled packs. The recognition itself stays local in every case — a language pack is a file, not a reason to phone home.</p>
+<p>SnapOCR is available on Edge and Firefox now; the Chrome version is coming soon. The promise does not change between browsers: copy text from a screenshot without uploading it, because the screenshot never leaves the machine that took it.</p>
+</div>
+<div class="lang-block" data-lang="zh" lang="zh" hidden>
+<h2 id="zh-why-uploads-happen">为什么从截图复制文字通常意味着上传</h2>
+<p>把图片里的文字弄出来，最快的方式往往是一个网站：拖入文件、等待、复制结果。这也是最不私密的方式。你的截图——银行对账单、内部幻灯片、医疗表格——离开了你的机器，在别人的基础设施队列里等待模型读取。</p>
+<p>如果你想在不上传的情况下从截图复制文字，识别就必须发生在图片本来就在的地方。SnapOCR 把 Tesseract 作为 WebAssembly 运行在扩展内部，图片根本不需要一个可以上传的端点。</p>
+<h2 id="zh-how-it-works">SnapOCR 如何在不上传的情况下从截图复制文字</h2>
+<p>流程很短。你唤起 SnapOCR，在页面任意区域拖出一个框，扩展捕获当前可见标签页、在内存里裁剪选区，并把裁剪结果交给本地引擎。识别出的文字出现在结果窗口，带一个复制按钮。</p>
+<p>这就是不上传而从截图复制文字的完整答案：选区、本地识别、复制。没有账号、没有上传队列，也没有第三方夹在你正在读的文档中间。</p>
+<h2 id="zh-in-memory-crop">截图在内存裁剪，关窗即销毁</h2>
+<p>截图的生命周期刻意很短。裁剪在内存中完成，完整截图被丢弃，关闭结果窗口时裁剪也被销毁。没有任何东西写入磁盘，也没有为后续会话缓存。</p>
+<p>这比听起来更重要。一个把截图留在历史文件夹里的 OCR 工具，已经悄悄把私密文档变成了存储下来的产物。SnapOCR 不保留这样的文件夹——图片只存在一次识别的时间里。</p>
+<h2 id="zh-offline">断网可用，以及本地引擎真正需要什么</h2>
+<p>因为引擎和扩展打包在一起，识别在拔掉网线后依然可用。免费版内置英语和简体中文，所以这两种语言从第一次运行就真正离线——没有模型下载，也没有预热请求。</p>
+<p>有一个边界值得坦白说明：只能选中视口里可见的内容，一次拖动只选一个区域。满屏小字可能需要几个框。事先说明这些，胜过让用户靠失败去发现。</p>
+<h2 id="zh-free-tier">免费版：每天 20 次、英语与简体中文</h2>
+<p>免费版每天 20 次识别，按你自己的日历日计算，而不是服务器时钟。失败或无法读取的裁剪不消耗次数——只有成功识别才计数。</p>
+<p>20 次足够应付偶尔的表格或收据，而且限制存在本地，不是由远程服务强制。两种内置语言是离线承诺的真实范围；超出部分会被清楚说明，而不是含糊暗示。</p>
+<h2 id="zh-pro-and-availability">Pro：取消每日上限、增加 7 种语言与可用平台</h2>
+<p>Pro 取消每日上限，并增加 7 种语言，让语言选择远超两个内置包。识别在任何情况下都保持本地——语言包是一个文件，不是打电话回家的理由。</p>
+<p>SnapOCR 现已在 Edge 和 Firefox 上架，Chrome 版本即将推出。这个承诺在各浏览器间不变：在不上传的情况下从截图复制文字，因为截图从未离开拍下它的机器。</p>
+</div>
+<div class="lang-block" data-lang="ja" lang="ja" hidden>
+<h2 id="ja-why-uploads-happen">スクリーンショットからの文字コピーが結局アップロードに終わる理由</h2>
+<p>画像から文字を取り出す最も速い方法は、たいていウェブサイトです。ファイルをドラッグし、待ち、結果をコピーする。しかしこれは最もプライバシーに弱い方法でもあります。あなたのスクリーンショット——銀行の明細、社内スライド、医療用紙——は機械を離れ、誰かのインフラのキューでモデルの読み取りを待ちます。</p>
+<p>アップロードせずにスクリーンショットから文字をコピーしたいなら、認識は画像がすでにある場所で行う必要があります。SnapOCR は Tesseract を WebAssembly として拡張機能内で動かすため、画像が送られる先など存在しません。</p>
+<h2 id="ja-how-it-works">SnapOCR がアップロードせずにスクリーンショットから文字をコピーする仕組み</h2>
+<p>手順は短いです。SnapOCR を呼び出し、ページの任意の領域に枠をドラッグすると、拡張機能が表示中のタブを捕捉し、選択範囲をメモリで切り抜いて、その結果をローカルエンジンに渡します。認識された文字はコピーボタン付きの結果ウィンドウに表示されます。</p>
+<p>これがアップロードせずにスクリーンショットから文字をコピーする答えです。領域を選び、ローカルで認識し、コピーする。アカウントもアップロードキューも、読んでいた文書の間に立ちはだかる第三者もいません。</p>
+<h2 id="ja-in-memory-crop">画像はメモリで切り抜かれ、閉じれば破棄される</h2>
+<p>スクリーンショットの寿命は意図的に短いものです。切り抜きはメモリ内で行われ、全体のキャプチャは破棄され、結果ウィンドウを閉じれば切り抜きも消えます。ディスクには何も書かれず、次のセッションのためにキャッシュされることもありません。</p>
+<p>これは聞こえる以上に重要です。スクリーンショットを履歴フォルダに残す OCR ツールは、気づかないうちに私的な文書を保存された成果物に変えてしまいます。SnapOCR はそのようなフォルダを持ちません。画像は 1 回の認識の間だけ存在します。</p>
+<h2 id="ja-offline">オフラインで動くことと、ローカルエンジンが本当に必要なもの</h2>
+<p>エンジンが拡張機能に同梱されているため、ネットワークを切っても認識は動きます。無料版は英語と簡体字中国語を内蔵しているので、この 2 言語は最初の実行から本当にオフラインです。モデルのダウンロードもウォームアップ要求もありません。</p>
+<p>率直に述べるべき境界があります。選択できるのはビューポート内に見えている範囲だけです。小さな文字がびっしりのページなら、複数の枠が必要かもしれません。先に説明しておくほうが、ユーザーが失敗して気づくよりましです。</p>
+<h2 id="ja-free-tier">無料版：1 日 20 回、英語と簡体字中国語</h2>
+<p>無料版は 1 日 20 回の認識を提供し、サーバーの時計ではなく自分のカレンダー日で数えます。失敗した読み取りや認識できない切り抜きは回数を消費しません。課金されるのは成功した認識で、試行ではありません。</p>
+<p>20 回はたまの帳票や領収書には十分で、制限はリモートサービスではなくローカルに保存されています。2 つの内蔵言語がオフライン約束の正直な範囲であり、それ以外は曖昧に示さず明確に説明されます。</p>
+<h2 id="ja-pro-and-availability">Pro：日次上限なし、7 言語追加、対応ブラウザ</h2>
+<p>Pro は日次上限を撤廃し、さらに 7 言語を追加して、言語選択を 2 つの内蔵パックの遥か先へ広げます。認識はどの場合もローカルのままです。言語パックはファイルであり、呼び出しの口実ではありません。</p>
+<p>SnapOCR は現在 Edge と Firefox で利用でき、Chrome 版は近日公開予定です。どのブラウザでも約束は変わりません。アップロードせずにスクリーンショットから文字をコピーする。画像がそれを撮った機械を離れないからです。</p>
+</div>
+<div class="lang-block" data-lang="de" lang="de" hidden>
+<h2 id="de-why-uploads-happen">Warum Text aus Screenshots meistens hochgeladen wird</h2>
+<p>Der schnellste Weg, Text aus einem Bild zu bekommen, ist meistens eine Website: Datei hineinziehen, warten, Ergebnis kopieren. Das ist auch der unprivateste Weg. Ihr Screenshot – ein Kontoauszug, eine interne Folie, ein medizinisches Formular – verlässt Ihren Rechner und wartet in einer Warteschlange auf fremder Infrastruktur, bis ein Modell ihn liest.</p>
+<p>Wenn Sie Text aus einem Screenshot kopieren möchten, ohne ihn hochzuladen, muss die Erkennung dort passieren, wo das Bild bereits ist. SnapOCR betreibt Tesseract als WebAssembly innerhalb der Erweiterung, sodass das Bild zu keinem Endpunkt reisen muss.</p>
+<h2 id="de-how-it-works">Wie SnapOCR Text aus einem Screenshot kopiert, ohne ihn hochzuladen</h2>
+<p>Der Ablauf ist kurz. Sie rufen SnapOCR auf, ziehen ein Rechteck über einen beliebigen Bereich der Seite, und die Erweiterung erfasst den sichtbaren Tab, schneidet die Auswahl im Speicher zu und übergibt den Ausschnitt an die lokale Engine. Der erkannte Text erscheint in einem Ergebnisfenster mit einer Kopier-Schaltfläche.</p>
+<p>Das ist die ganze Antwort darauf, wie man Text aus einem Screenshot kopiert, ohne ihn hochzuladen: Bereich wählen, lokal erkennen, kopieren. Kein Konto, keine Upload-Warteschlange, kein Dritter mitten in einem Dokument, das Sie gerade gelesen haben.</p>
+<h2 id="de-in-memory-crop">Der Screenshot wird im Speicher zugeschnitten und beim Schließen zerstört</h2>
+<p>Der Lebenszyklus des Screenshots ist bewusst kurz. Der Zuschnitt entsteht im Speicher, die vollständige Aufnahme wird verworfen, und beim Schließen des Ergebnisfensters wird auch der Zuschnitt zerstört. Nichts wird auf die Platte geschrieben, nichts für eine spätere Sitzung zwischengespeichert.</p>
+<p>Das wiegt schwerer, als es klingt. Ein OCR-Werkzeug, das Screenshots in einem Verlaufsordner behält, hat ein privates Dokument stillschweigend zu einem gespeicherten Artefakt gemacht. SnapOCR führt keinen solchen Ordner – das Bild existiert nur für die Dauer einer Erkennung.</p>
+<h2 id="de-offline">Offline nutzbar – und was die lokale Engine wirklich braucht</h2>
+<p>Weil die Engine mit der Erweiterung gepackt ist, funktioniert die Erkennung auch mit gezogenem Netzwerkstecker. Die kostenlose Stufe bringt Englisch und Vereinfachtes Chinesisch mit, diese beiden Sprachen sind also ab dem ersten Start wirklich offline – kein Modelldownload, keine Aufwärmanfrage.</p>
+<p>Eine Grenze sei klar genannt: Markieren lässt sich nur, was im sichtbaren Bereich liegt, und eine Ziehung markiert genau einen Bereich. Eine ganze Seite mit kleiner Schrift braucht womöglich mehrere Rechtecke. Das vorher zu sagen ist besser, als wenn ein Nutzer es durch Scheitern herausfindet.</p>
+<h2 id="de-free-tier">Kostenlos: 20 Erkennungen pro Tag, Englisch und Vereinfachtes Chinesisch</h2>
+<p>Die kostenlose Stufe gibt 20 Erkennungen pro Tag, gezählt nach Ihrem eigenen Kalendertag statt nach einer Serveruhr. Ein fehlgeschlagener oder unlesbarer Zuschnitt verbraucht keine Erkennung – berechnet wird ein erfolgreicher Lauf, kein Versuch.</p>
+<p>Zwanzig reicht für gelegentliche Formulare oder Quittungen, und das Limit liegt lokal statt in einem entfernten Dienst. Die beiden mitgelieferten Sprachen sind der ehrliche Umfang des Offline-Versprechens; alles darüber wird klar benannt statt nur angedeutet.</p>
+<h2 id="de-pro-and-availability">Pro: kein Tageslimit, sieben weitere Sprachen und Verfügbarkeit</h2>
+<p>Pro hebt das Tageslimit auf und fügt sieben weitere Sprachen hinzu, sodass die Auswahl weit über die beiden mitgelieferten Pakete hinausgeht. Die Erkennung bleibt in jedem Fall lokal – ein Sprachpaket ist eine Datei, kein Grund, nach Hause zu telefonieren.</p>
+<p>SnapOCR ist jetzt für Edge und Firefox verfügbar; die Chrome-Version folgt bald. Auf jedem Browser bleibt das Versprechen dasselbe: Text aus einem Screenshot kopieren, ohne ihn hochzuladen, weil das Screenshot nie den Rechner verlässt, auf dem es entstand.</p>
+</div>
+<div class="lang-block" data-lang="es" lang="es" hidden>
+<h2 id="es-why-uploads-happen">Por qué copiar texto de una captura suele implicar subirla</h2>
+<p>La forma más rápida de sacar texto de una imagen suele ser un sitio web: arrastra el archivo, espera y copia el resultado. También es la menos privada. Tu captura —un extracto bancario, una diapositiva interna, un formulario médico— sale de tu máquina y espera en una cola de la infraestructura de otro mientras un modelo la lee.</p>
+<p>Si quieres copiar texto de una captura sin subirla, el reconocimiento debe ocurrir donde la imagen ya está. SnapOCR ejecuta Tesseract como WebAssembly dentro de la extensión, así que la imagen no necesita ningún destino al que viajar.</p>
+<h2 id="es-how-it-works">Cómo SnapOCR copia texto de una captura sin subirla</h2>
+<p>El flujo es breve. Invocas SnapOCR, arrastras un recuadro sobre cualquier región de la página, y la extensión captura la pestaña visible, recorta la selección en memoria y entrega el recorte al motor local. El texto reconocido aparece en una ventana de resultado con un botón de copiar.</p>
+<p>Esa es toda la respuesta a cómo copiar texto de una captura sin subirla: seleccionar una región, reconocer en local, copiar. Sin cuenta, sin cola de subida y sin terceros interpuestos en un documento que ya estabas leyendo.</p>
+<h2 id="es-in-memory-crop">La captura se recorta en memoria y se destruye al cerrar</h2>
+<p>El ciclo de vida de la captura es deliberadamente corto. El recorte se hace en memoria, la captura completa se descarta y, al cerrar la ventana de resultado, el recorte también se destruye. Nada se escribe en disco y nada se guarda en caché para una sesión posterior.</p>
+<p>Esto importa más de lo que parece. Una herramienta OCR que conserva tus capturas en una carpeta de historial ha convertido silenciosamente un documento privado en un archivo almacenado. SnapOCR no tiene esa carpeta: la imagen existe solo durante un reconocimiento.</p>
+<h2 id="es-offline">Funciona sin conexión y lo que realmente necesita el motor local</h2>
+<p>Como el motor va empaquetado con la extensión, el reconocimiento funciona con la red desconectada. La versión gratuita incluye inglés y chino simplificado, así que esos dos idiomas son genuinamente offline desde la primera ejecución: sin descarga de modelos ni petición de calentamiento.</p>
+<p>Hay un límite que conviene decir claramente: solo se puede seleccionar lo que es visible en la ventana y un arrastre selecciona una sola región. Una página llena de texto pequeño puede necesitar varios recuadros. Decirlo antes es mejor que dejar que el usuario lo descubra fallando.</p>
+<h2 id="es-free-tier">Gratis: 20 reconocimientos al día, inglés y chino simplificado</h2>
+<p>La versión gratuita ofrece 20 reconocimientos al día, contados en tu propio día natural y no en el reloj de un servidor. Un recorte fallido o ilegible no consume un reconocimiento: se cobra una ejecución correcta, no un intento.</p>
+<p>Veinte bastan para formularios o recibos ocasionales, y el límite se guarda en local en lugar de imponerlo un servicio remoto. Los dos idiomas incluidos son el alcance honesto de la promesa offline; todo lo demás se nombra con claridad en lugar de insinuarse.</p>
+<h2 id="es-pro-and-availability">Pro: sin límite diario, siete idiomas más y disponibilidad</h2>
+<p>Pro elimina el límite diario y añade siete idiomas más, llevando el selector mucho más allá de los dos paquetes incluidos. El reconocimiento sigue siendo local en todos los casos: un paquete de idioma es un archivo, no un motivo para llamar a casa.</p>
+<p>SnapOCR ya está disponible en Edge y Firefox; la versión para Chrome llega pronto. En todos los navegadores la promesa es la misma: copiar texto de una captura sin subirla, porque la imagen nunca sale de la máquina que la tomó.</p>
+</div>
+<div class="lang-block" data-lang="fr" lang="fr" hidden>
+<h2 id="fr-why-uploads-happen">Pourquoi copier le texte d&#x27;une capture finit par un téléversement</h2>
+<p>Le moyen le plus rapide d'extraire le texte d'une image reste un site web : glissez le fichier, attendez, copiez le résultat. C'est aussi le moins privé. Votre capture — un relevé bancaire, une diapositive interne, un formulaire médical — quitte votre machine et attend dans une file d'attente sur l'infrastructure de quelqu'un d'autre pendant qu'un modèle la lit.</p>
+<p>Si vous voulez copier le texte d'une capture sans la téléverser, la reconnaissance doit avoir lieu là où l'image se trouve déjà. SnapOCR exécute Tesseract en WebAssembly dans l'extension : l'image n'a aucun serveur où se rendre.</p>
+<h2 id="fr-how-it-works">Comment SnapOCR copie le texte d&#x27;une capture sans la téléverser</h2>
+<p>Le parcours est court. Vous invoquez SnapOCR, vous tracez un cadre sur n'importe quelle zone de la page, et l'extension capture l'onglet visible, recadre la sélection en mémoire et transmet le recadrage au moteur local. Le texte reconnu apparaît dans une fenêtre de résultat avec un bouton Copier.</p>
+<p>C'est là toute la réponse à comment copier le texte d'une capture sans la téléverser : choisir une zone, reconnaître en local, copier. Aucun compte, aucune file de téléversement, aucun tiers entre vous et un document que vous lisiez déjà.</p>
+<h2 id="fr-in-memory-crop">La capture est recadrée en mémoire et détruite à la fermeture</h2>
+<p>La durée de vie de la capture est volontairement courte. Le recadrage se fait en mémoire, la capture complète est jetée, et fermer la fenêtre de résultat détruit aussi le recadrage. Rien n'est écrit sur le disque, rien n'est mis en cache pour une session ultérieure.</p>
+<p>Cela compte plus qu'il n'y paraît. Un outil OCR qui garde vos captures dans un dossier d'historique a discrètement transformé un document privé en un artefact stocké. SnapOCR n'a pas un tel dossier : l'image n'existe que le temps d'une reconnaissance.</p>
+<h2 id="fr-offline">Fonctionne hors ligne, et ce dont le moteur local a vraiment besoin</h2>
+<p>Comme le moteur est empaqueté avec l'extension, la reconnaissance fonctionne même débranché. La version gratuite intègre l'anglais et le chinois simplifié : ces deux langues sont donc réellement hors ligne dès le premier lancement, sans téléchargement de modèle ni requête de préchauffage.</p>
+<p>Une limite mérite d'être énoncée clairement : on ne peut sélectionner que ce qui est visible dans la fenêtre, et un glisser ne sélectionne qu'une zone. Une page pleine de petits caractères peut demander plusieurs cadres. Mieux vaut le dire avant que l'utilisateur ne le découvre en échouant.</p>
+<h2 id="fr-free-tier">Gratuit : 20 reconnaissances par jour, anglais et chinois simplifié</h2>
+<p>La version gratuite offre 20 reconnaissances par jour, comptées sur votre propre journée calendaire plutôt que sur l'horloge d'un serveur. Un recadrage raté ou illisible ne consomme pas une reconnaissance : on facture une exécution réussie, pas une tentative.</p>
+<p>Vingt suffisent pour un formulaire ou un reçu occasionnel, et la limite est stockée localement plutôt qu'imposée par un service distant. Les deux langues intégrées sont la portée honnête de la promesse hors ligne ; tout le reste est nommé explicitement plutôt que suggéré.</p>
+<h2 id="fr-pro-and-availability">Pro : aucun plafond quotidien, sept langues de plus et disponibilité</h2>
+<p>Pro supprime le plafond quotidien et ajoute sept langues, portant le sélecteur bien au-delà des deux paquets intégrés. La reconnaissance reste locale dans tous les cas : un pack de langue est un fichier, pas un prétexte pour appeler la maison.</p>
+<p>SnapOCR est disponible sur Edge et Firefox dès maintenant ; la version Chrome arrive bientôt. Dans tous les navigateurs, la promesse ne change pas : copier le texte d'une capture sans la téléverser, parce que l'image ne quitte jamais la machine qui l'a prise.</p>
+</div>
+
+<h2 id="related"><span id="relatedTitle">Related Articles</span></h2>
+<ul class="related">
+  <li><a href="./tesseract-offline-ocr-in-extension.html">Tesseract in the Zip: What &quot;100% Local OCR&quot; Costs in an MV3 Extension</a></li>
+  <li><a href="./offscreen-image-processing.html">Local-Only Image Processing Architecture via Offscreen Documents</a></li>
+  <li><a href="./webassembly-image-processing.html">WebAssembly Image Processing in the Browser: From Pixels to Formats</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+  "en": {
+    "title": "How to Copy Text From a Screenshot Without Uploading It (2026)",
+    "back": "Back to Blog",
+    "toc": "Contents",
+    "related": "Related Articles"
+  },
+  "zh": {
+    "title": "如何在不上传的情况下从截图复制文字？SnapOCR 本地识别（2026）",
+    "back": "返回博客",
+    "toc": "目录",
+    "related": "相关文章"
+  },
+  "ja": {
+    "title": "アップロードせずにスクリーンショットから文字をコピーする方法｜SnapOCR（2026）",
+    "back": "ブログに戻る",
+    "toc": "目次",
+    "related": "関連記事"
+  },
+  "de": {
+    "title": "Text aus einem Screenshot kopieren, ohne ihn hochzuladen: So geht's mit SnapOCR (2026)",
+    "back": "Zum Blog",
+    "toc": "Inhalt",
+    "related": "Verwandte Artikel"
+  },
+  "es": {
+    "title": "Cómo copiar texto de una captura de pantalla sin subirla con SnapOCR (2026)",
+    "back": "Volver al Blog",
+    "toc": "Contenido",
+    "related": "Artículos relacionados"
+  },
+  "fr": {
+    "title": "Copier le texte d'une capture d'écran sans la téléverser avec SnapOCR (2026)",
+    "back": "Retour au Blog",
+    "toc": "Sommaire",
+    "related": "Articles connexes"
+  }
+};
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      document.getElementById('relatedTitle').textContent = a.related;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.toc;
+      document.querySelectorAll('#articleContent .lang-block').forEach(function (b) {
+        b.hidden = (b.dataset.lang !== lang);
+      });
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent .lang-block[data-lang="' + currentLang + '"] h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.toc}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://annmax.ccwu.cc"></script>
+</body>
+</html>

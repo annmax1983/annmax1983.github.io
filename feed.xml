@@ -9,7 +9,7 @@
     <name>AnnMax</name>
     <email>support@annmax1983.com</email>
   </author>
-  <updated>2026-11-15T00:00:00Z</updated>
+  <updated>2026-11-19T00:00:00Z</updated>
 
   <entry>
     <title>Picking the Right Account Without Ever Clicking Sign In</title>
@@ -340,6 +340,95 @@
     <category term="ServiceWorker"/>
     <category term="Chrome Extensions"/>
     <category term="MV3"/>
+  </entry>
+
+
+  <entry>
+    <title>How to Remember Your Scroll Position on Long Pages (2026)</title>
+    <link href="https://annmax1983.github.io/blog/remember-scroll-position-on-long-pages.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/remember-scroll-position-on-long-pages.html</id>
+    <updated>2026-11-17T00:00:00Z</updated>
+    <summary>Learn how to remember your scroll position on long pages. ReadPos saves your place locally, restores it only after confirmation, and keeps per-site history private — no account or server.</summary>
+    <category term="ReadPos"/>
+    <category term="Productivity"/>
+    <category term="Browser Extensions"/>
+  </entry>
+
+  <entry>
+    <title>How to Bookmark Login Pages Without Saving Passwords (2026)</title>
+    <link href="https://annmax1983.github.io/blog/bookmark-login-pages-without-saving-passwords.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/bookmark-login-pages-without-saving-passwords.html</id>
+    <updated>2026-11-17T00:00:00Z</updated>
+    <summary>Learn how to bookmark login pages without saving passwords. LoginDock saves the page, lets your own browser fill the credentials, and never reads, stores, or transmits a password value.</summary>
+    <category term="LoginDock"/>
+    <category term="Security"/>
+    <category term="Browser Extensions"/>
+  </entry>
+
+  <entry>
+    <title>How to Record Tab Audio to MP3 Without Uploading It (2026)</title>
+    <link href="https://annmax1983.github.io/blog/record-tab-audio-to-mp3-locally.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/record-tab-audio-to-mp3-locally.html</id>
+    <updated>2026-11-17T00:00:00Z</updated>
+    <summary>Learn how to record tab audio to MP3 locally. TabTape records one tab, encodes as it plays, and writes a single file to your own Downloads/TabTape folder — nothing is uploaded.</summary>
+    <category term="TabTape"/>
+    <category term="Audio"/>
+    <category term="Browser Extensions"/>
+  </entry>
+
+  <entry>
+    <title>How to Copy Text From a Screenshot Without Uploading It (2026)</title>
+    <link href="https://annmax1983.github.io/blog/copy-text-from-screenshot-without-uploading.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/copy-text-from-screenshot-without-uploading.html</id>
+    <updated>2026-11-17T00:00:00Z</updated>
+    <summary>Learn how to copy text from a screenshot without uploading it. SnapOCR selects a region, recognizes locally with Tesseract WASM, crops in memory, and destroys the image on close — it works offline.</summary>
+    <category term="SnapOCR"/>
+    <category term="OCR"/>
+    <category term="Browser Extensions"/>
+  </entry>
+
+  <entry>
+    <title>How to Calculate Real Amazon FBA Profit Per Product (2026)</title>
+    <link href="https://annmax1983.github.io/blog/calculate-real-amazon-fba-profit.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/calculate-real-amazon-fba-profit.html</id>
+    <updated>2026-11-17T00:00:00Z</updated>
+    <summary>Learn how to calculate real Amazon FBA profit per product. MarginMate computes it locally on the product page, breaking out FBA fees, commission, storage and VAT across 16 marketplaces — your numbers stay in the browser.</summary>
+    <category term="MarginMate"/>
+    <category term="E-commerce"/>
+    <category term="Browser Extensions"/>
+  </entry>
+
+  <entry>
+    <title>Unwrapping Redirect URLs Without Fetching Them (2026)</title>
+    <link href="https://annmax1983.github.io/blog/unwrap-redirects-without-fetching.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/unwrap-redirects-without-fetching.html</id>
+    <updated>2026-11-19T00:00:00Z</updated>
+    <summary>Why a privacy-first link cleaner must never fetch a redirect to resolve it — and how LinkClean unwraps Google, Facebook, Outlook Safe Links and AMP URLs by local, hop-limited parsing with zero network requests.</summary>
+    <category term="LinkClean"/>
+    <category term="Privacy"/>
+    <category term="Browser Extensions"/>
+  </entry>
+
+  <entry>
+    <title>Scoring Paragraphs to Find the Article on a Page (2026)</title>
+    <link href="https://annmax1983.github.io/blog/article-extraction-scoring.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/article-extraction-scoring.html</id>
+    <updated>2026-11-19T00:00:00Z</updated>
+    <summary>How PrintClean finds the article with Readability-style paragraph scoring, ancestor decay and a tightening pass, then rebuilds it as a whitelist clone in a detached document — typeset for paper, never uploaded.</summary>
+    <category term="PrintClean"/>
+    <category term="Print"/>
+    <category term="Browser Extensions"/>
+  </entry>
+
+  <entry>
+    <title>Saving Tab Sessions Without a Server (2026)</title>
+    <link href="https://annmax1983.github.io/blog/tab-sessions-without-a-server.html" rel="alternate" type="text/html"/>
+    <id>https://annmax1983.github.io/blog/tab-sessions-without-a-server.html</id>
+    <updated>2026-11-19T00:00:00Z</updated>
+    <summary>Tab sessions are just titles, URLs and icons. How TabCoffer saves and restores named workspaces with chrome.tabs and storage.local, JSON export as backup, and no account, cloud or page access.</summary>
+    <category term="TabCoffer"/>
+    <category term="Productivity"/>
+    <category term="Browser Extensions"/>
   </entry>
 
 </feed>

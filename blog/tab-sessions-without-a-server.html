@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Saving Tab Sessions Without a Server (2026) — AnnMax</title>
+  <meta name="description" content="Tab sessions are just titles, URLs and icons. How TabCoffer saves and restores named workspaces with chrome.tabs and storage.local, JSON export as backup, and no account, cloud or page access.">
+  <meta property="og:title" content="Saving Tab Sessions Without a Server (2026)">
+  <meta property="og:description" content="Tab sessions are just titles, URLs and icons. How TabCoffer saves and restores named workspaces with chrome.tabs and storage.local, JSON export as backup, and no account, cloud or page access.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/tab-sessions-without-a-server.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/tab-sessions-without-a-server.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Saving Tab Sessions Without a Server (2026)",
+    "description": "Tab sessions are just titles, URLs and icons. How TabCoffer saves and restores named workspaces with chrome.tabs and storage.local, JSON export as backup, and no account, cloud or page access.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-11-19",
+    "dateModified": "2026-11-19",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/tab-sessions-without-a-server.html"
+    },
+    "url": "https://annmax1983.github.io/blog/tab-sessions-without-a-server.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../blog.html" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Saving Tab Sessions Without a Server (2026)</h1>
+    <div class="meta" id="articleMeta"><span><a href="../#about" style="color:inherit;border-bottom:1px dotted currentColor;text-decoration:none;">AnnMax</a> · November 19, 2026</span><span class="reading-time">8 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="cloud-is-a-choice">The Cloud Is a Choice, Not a Requirement</h2>
+<p>Search for a tab manager and the results split into two camps: extensions that want an account, and extensions that want an account <em>and a subscription</em>. Sign up, sync your tabs to someone's server, restore them from someone's server. The pitch is convenience across devices, and the pitch is real — but somewhere along the way the category decided that saving a list of URLs is a cloud service.</p>
+<p>It is not. A tab session is a few kilobytes of metadata. The browser already hands it to any extension with the <code>tabs</code> permission, and the browser already provides durable local storage to put it in. Everything else — the account, the sync backend, the breach disclosure email three years later — is optional architecture. <a href="https://annmax1983.com/extensions/tabcoffer" target="_blank" rel="noopener">TabCoffer</a> is my demonstration of the minimal version: save the tabs you have open as named sessions on your device, bring them back in one click, no account, no cloud, no tracking. This article is the engineering tour of why that minimal version loses nothing that matters.</p>
+
+<h2 id="what-tabs-gives">What chrome.tabs Actually Gives You</h2>
+<p>The entire data acquisition layer of a serverless tab manager is one query:</p>
+<pre><code>// Save every tab in the current window — metadata only.
+const tabs = await chrome.tabs.query({ currentWindow: true });
+const session = {
+  name: chosenName,
+  createdAt: Date.now(),
+  tabs: tabs.map(t =&gt; ({
+    title: t.title,
+    url: t.url,
+    favIconUrl: t.favIconUrl
+  }))
+};</code></pre>
+<p>Look at what is in that object and what is not. Title, address, site icon — the three things you need to recognise a tab later and reopen it. There is no page content, no form field, no scroll position, no browsing history, because the extension never asks for any of it. TabCoffer captures the current window or every window at once, and that is the whole capture surface.</p>
+<p>This is worth contrasting with the other camp. Many tab managers register a content script on every page so they can show previews, track time-on-tab, or dedupe by DOM content. That requires host access to everything you browse, and it means the extension is running code inside your bank's page whether you asked it to or not. TabCoffer's manifest has <strong>no content script and no host access at all</strong>. It never injects anything into a page and never reads what is on it. The privacy stance is not a policy document; it is the absence of the permissions that would make the policy necessary.</p>
+
+<h2 id="session-is-json">A Session Is Just JSON, and storage.local Is Enough</h2>
+<p>The storage layer is equally unglamorous. Sessions live in <code>chrome.storage.local</code> — this browser's profile, on this device. An illustrative export shape (simplified; the real file carries a format version and a little more bookkeeping):</p>
+<pre><code>{
+  "version": 1,
+  "sessions": [
+    {
+      "id": "s_1794000000000",
+      "name": "Q4 research",
+      "createdAt": 1794000000000,
+      "tabs": [
+        {
+          "title": "Example Domain",
+          "url": "https://example.com/",
+          "favIconUrl": "https://example.com/favicon.ico"
+        },
+        {
+          "title": "A long article worth keeping",
+          "url": "https://example.org/articles/long-read",
+          "favIconUrl": "https://example.org/favicon.ico"
+        }
+      ]
+    }
+  ]
+}</code></pre>
+<p>Do the quota math before reaching for IndexedDB or a database engine. A tab entry is a title plus two URLs — call it 300 bytes on average, generously. A 200-tab session is roughly 60 KB. Even a hundred such sessions is single-digit megabytes, inside the default <code>storage.local</code> quota with room to spare. The heavy machinery a "real" app would bring — a schema, migrations, an ORM over IndexedDB — buys nothing here, because the data is a flat list of small records that is read and written whole. JSON in local storage is not a compromise; it is the correct size of tool.</p>
+<p>The honest caveat: favicons are stored as URLs, not image bytes, so an icon can 404 later if the site changes it. That is a cosmetic failure with a cosmetic fallback, and it is the right trade — caching icon bytes would multiply storage use for a decoration.</p>
+
+<h2 id="restore">Restore Semantics Are the Actual Product</h2>
+<p>Saving is easy. The design work is in restoring, because "reopen my session" means different things on different mornings:</p>
+<ul>
+<li><strong>New window.</strong> The session is a workspace; give it its own window, exactly as saved. This is the default mental model — "Q4 research" comes back as a room of its own.</li>
+<li><strong>Merge into this window.</strong> The session is a set of references you want alongside what you are already doing. Same tabs, added to the current window instead of a fresh one.</li>
+<li><strong>Skip duplicates / open only missing (Pro).</strong> The careful mode for people who restore habitually. Skip duplicate addresses so restoring twice does not double every tab; or compare against what is already open and open only the tabs that are not there. This turns restore from a blunt replay into an idempotent operation — the property that makes a session manager safe to use every day instead of once a week.</li>
+</ul>
+<p>There is a browser-side honesty note here too. Restoring a session opens real tabs, and real tabs cost real memory — the extension hands URLs to <code>chrome.tabs.create</code> and the browser decides what to load and what to discard. A 200-tab restore is a heavy operation no matter who issues it, which is one reason the caps below exist. A tab manager that pretends otherwise is selling you a crash.</p>
+
+<h2 id="export">Export Is the Backup Story</h2>
+<p>The standard objection to local-only storage is "what if I lose the device?" The answer is not a server; it is a file. TabCoffer exports every session to a JSON file you control — put it in your own backup, your own cloud drive if you want one, a USB stick, whatever your threat model prefers. Import (a Pro feature) reads that file back into the vault on another device or after a reinstall.</p>
+<p>The difference between this and sync-based managers is who holds the data in between. With export, the bytes leave the browser exactly once, into a file you chose, and the extension has no idea where the file went. With sync, every saved URL transits and rests on a vendor's infrastructure continuously, under the vendor's retention policy and the vendor's security. Both are legitimate choices — but only one of them should be the <em>default</em> for a list of every page you had open, which is a surprisingly intimate document.</p>
+
+<h2 id="limits">Limits as Product Design: 3×20 Free, 100×200 Pro</h2>
+<p>Free keeps up to 3 saved sessions with 20 tabs each, with one-click save and restore, renaming, sorting and JSON export — everything works offline, no account. Pro raises the ceiling to 100 sessions with 200 tabs each and adds search across every saved session and tab by name or address, JSON import, and the careful restore modes above.</p>
+<p>I want to be precise about what those numbers are, because "limits" in extension marketing are usually quota theatre. As the storage math above shows, 3×20 is not a storage wall — it is a product boundary. Three named sessions is a shelf you can scan at a glance; it covers the person who parks a research cluster and a shopping cluster and wants them back. A hundred sessions is a different tool — an archive you search instead of browse — and search, import and dedupe restore are exactly the features that archive needs. The free tier is the complete small tool, not a trial of the big one: saving, restoring and exporting always work, and nothing expires.</p>
+
+<h2 id="licence-timer">The Only Timer: An Alarm-Based Licence Re-Check</h2>
+<p>TabCoffer makes no network requests except the optional licence check when you activate Pro — and even that is engineered to be boring. MV3 service workers die when idle, so a <code>setInterval</code> licence timer is a timer that stops existing after thirty seconds. The re-check runs on <code>chrome.alarms</code>, roughly every two hours, which is why <code>alarms</code> appears in the manifest next to <code>tabs</code> and <code>storage</code>. Between checks the cached licence in local storage answers instantly, so the extension works fully offline, and a failed check — network down, server hiccup — never locks you out. One key activates two browsers, and removing it from one frees that slot for another machine. If you have read my piece on the ways licence validation fails silently, this is the short version of the fixes: alarms outlive the worker, the cache is the source of truth between checks, and failure defaults to the last known good state.</p>
+
+<h2 id="comparisons">Compared Honestly: Bookmark Folders and Sync Managers</h2>
+<p>Two alternatives deserve a fair hearing, because both are genuinely good at what they do.</p>
+<p><strong>Bookmark folders</strong> are local, built in, and can open a whole folder in tabs. If your workflow is "keep these twenty references forever," a bookmark folder is the right tool and you do not need an extension. What folders do not model is the <em>session</em>: a named snapshot of what was open right now, saved in one click, restored as a window, then deleted when the project ends. Bookmarks are a library; sessions are a workbench. The friction difference sounds small until you have parked and restored three workspaces in a day.</p>
+<p><strong>Sync-based tab managers</strong> win one thing outright: cross-device continuity with zero manual steps. If you genuinely move between machines all day, that convenience is real. The cost is equally real — your open-tab URLs leave the device continuously, and the vendor's server becomes a standing record of your working context. TabCoffer's answer is the JSON export: manual, occasional, and entirely under your control. For a single-machine workflow — which is most people, most days — the sync tax buys nothing.</p>
+
+<h2 id="small-print">Small Print and Availability</h2>
+<p>TabCoffer is a Manifest V3 extension built for Firefox 140 and later; Chrome, Edge and Firefox store listings are all still coming soon, and the <a href="https://annmax1983.com/extensions/tabcoffer" target="_blank" rel="noopener">product page</a> tracks the current state. The UI ships in six languages: English, Simplified Chinese, Japanese, German, Spanish and French. Saving, restoring and exporting work offline. Sessions, titles, addresses and icons never leave the device; there is no account, no analytics, no ads. The limits are stated above and enforced as documented — 3×20 without a licence, 100×200 with one — and the licence itself is optional, one-off, two browsers, with slot release when you remove it.</p>
+<p>The takeaway for anyone building in this category: the entire feature set — capture, named storage, restore, backup — fits in three permissions and a few hundred lines of honest code. The server was never load-bearing. It was just the easiest thing to sell.</p>
+
+<h2 id="related"><span id="relatedTitle">Related Articles</span></h2>
+<ul class="related">
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience &amp; State Persistence for MV3</a></li>
+  <li><a href="./license-validation-failure-modes.html">Six Ways License Validation Fails Silently in Browser Extensions</a></li>
+  <li><a href="./sqlite-opfs-local-first-database.html">SQLite in the Browser: A Local-First Database with OPFS</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Saving Tab Sessions Without a Server (2026)',
+        back: 'Back to Blog',
+        toc: 'Contents',
+        related: 'Related Articles'
+      }
+    };
+
+    function detectLang() {
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      document.getElementById('relatedTitle').textContent = a.related;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.toc;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.toc}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://annmax.ccwu.cc"></script>
+</body>
+</html>

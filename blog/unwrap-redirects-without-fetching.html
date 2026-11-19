@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Unwrapping Redirect URLs Without Fetching Them (2026) — AnnMax</title>
+  <meta name="description" content="Why a privacy-first link cleaner must never fetch a redirect to resolve it — and how local, hop-limited parsing of known wrapper shapes unwraps Google, Facebook, Outlook Safe Links and AMP URLs with zero network requests.">
+  <meta property="og:title" content="Unwrapping Redirect URLs Without Fetching Them (2026)">
+  <meta property="og:description" content="Why a privacy-first link cleaner must never fetch a redirect to resolve it — and how local, hop-limited parsing of known wrapper shapes unwraps Google, Facebook, Outlook Safe Links and AMP URLs with zero network requests.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/unwrap-redirects-without-fetching.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/unwrap-redirects-without-fetching.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Unwrapping Redirect URLs Without Fetching Them (2026)",
+    "description": "Why a privacy-first link cleaner must never fetch a redirect to resolve it — and how local, hop-limited parsing of known wrapper shapes unwraps Google, Facebook, Outlook Safe Links and AMP URLs with zero network requests.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-11-19",
+    "dateModified": "2026-11-19",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/unwrap-redirects-without-fetching.html"
+    },
+    "url": "https://annmax1983.github.io/blog/unwrap-redirects-without-fetching.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../blog.html" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Unwrapping Redirect URLs Without Fetching Them (2026)</h1>
+    <div class="meta" id="articleMeta"><span><a href="../#about" style="color:inherit;border-bottom:1px dotted currentColor;text-decoration:none;">AnnMax</a> · November 19, 2026</span><span class="reading-time">9 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="the-wrong-way">The Obvious Implementation Is the Wrong One</h2>
+<p>A wrapped link looks like this: <code>https://l.facebook.com/l.php?u=https%3A%2F%2Fexample.com%2Farticle&amp;h=AT2...</code>. Somewhere inside that query string is the URL you actually want. The obvious way to find it is to ask the server: issue a <code>fetch()</code> with <code>redirect: 'manual'</code>, read the <code>Location</code> header, done. Every "unshorten" service on the web works this way, and for a server-side tool it is a fine design.</p>
+<p>For a link cleaner that lives in your browser, it is the worst possible design. I build <a href="https://annmax1983.com/extensions/linkclean" target="_blank" rel="noopener">LinkClean</a>, a small extension whose whole pitch is that links never leave your device. The moment the cleaner fetches a redirect to resolve it, that pitch is dead, and not in a subtle way:</p>
+<ul>
+<li><strong>The cleaner becomes the tracker.</strong> To unwrap a link, it would have to send that link — the exact URL someone sent you, with its tokens and identifiers — to Facebook, Google, or whoever wrapped it. A privacy tool that phones every wrapper network with your full link inventory is a privacy tool in name only. The request also carries your IP and browser fingerprint, so the wrapper learns not just the link but <em>who is about to click it</em>, before you have decided to click anything.</li>
+<li><strong>Latency you cannot cache away.</strong> A fetch is a round trip, sometimes several. Cleaning a paragraph with eight links becomes eight network requests, each with its own timeout and failure mode. Local string parsing is microseconds; a network resolver is a spinner.</li>
+<li><strong>Login walls and bot challenges.</strong> Wrapper endpoints increasingly answer automated clients with a consent page, a CAPTCHA, or a 403. The <code>Location</code> header you wanted is behind a wall that a browser extension has no business climbing.</li>
+<li><strong>A fetcher is an attack surface.</strong> An extension that fetches arbitrary user-supplied URLs is a confused deputy: point it at an internal address and you have built SSRF with a friendly UI. Even with browser sandboxing, "this tool makes requests to wherever the input says" is a property I never want to ship.</li>
+</ul>
+<p>So the rule in LinkClean is absolute: <strong>no redirect is ever fetched to find out where it goes.</strong> The question this article answers is what you can do instead — and it turns out the answer covers most of the wrapped links a normal person encounters.</p>
+
+<h2 id="redirects-are-data">Redirects Are Data, Not Destinations</h2>
+<p>The key observation is that the big wrapper networks do not hide the target. They <em>carry</em> it. The redirect exists so the wrapper can log the click, but the destination has to be in the URL itself, because the wrapper's server needs it to issue the 302. That means the destination is sitting in the string you already have — you just have to know where each network puts it.</p>
+<p>These shapes are stable, public, and parseable:</p>
+<ul>
+<li><code>google.com/url?q=…</code> — the target in the <code>q</code> parameter.</li>
+<li><code>l.facebook.com/l.php?u=…</code> — the target in <code>u</code>, percent-encoded.</li>
+<li><code>out.reddit.com/…?url=…</code> — Reddit's outbound wrapper, target in <code>url</code>.</li>
+<li><code>link.zhihu.com/?target=…</code> — same idea, target in <code>target</code>.</li>
+<li>Outlook Safe Links — <code>*.safelinks.protection.outlook.com/?url=…&amp;data=…</code>, where <code>data</code> is the tenant's telemetry blob and <code>url</code> is what you want.</li>
+<li>Bing's <code>u=a1…</code> — the target base64-encoded behind an <code>a1</code> prefix.</li>
+<li>Proofpoint URL Defense and Skimlinks — enterprise and affiliate wrappers with their own documented shapes.</li>
+<li>A generic <code>/redirect?url=…</code> path that hundreds of forums, newsletters and CMS installs use.</li>
+</ul>
+<p>LinkClean's Pro unwrapping recognises all of these, plus the outbound wrappers of YouTube, DuckDuckGo, LinkedIn, Douban, Jianshu, SSPAI, VK, Slack, Tumblr, Medium, Pocket and Weibo's <code>sinaurl</code>. None of that recognition needs a network. It needs a table of shapes and a URL parser — both of which the platform already gives you.</p>
+
+<h2 id="hop-limited">A Hop-Limited Local Unwrapper</h2>
+<p>Here is the core of the approach, simplified for the article. Each wrapper is a matcher: a host pattern, an optional path pattern, and the parameter that carries the target. One pass tries every matcher against the current URL and returns the decoded target if one fits:</p>
+<pre><code>// Illustrative and simplified — the real table has ~20 shapes,
+// plus per-shape decoding rules (percent-encoding, base64, path prefixes).
+const WRAPPERS = [
+  { host: 'www.google.com',  path: /^\/url$/,        param: 'q' },
+  { host: 'l.facebook.com',  path: /^\/l\.php$/,     param: 'u' },
+  { host: 'out.reddit.com',  path: null,             param: 'url' },
+  { host: 'link.zhihu.com',  path: null,             param: 'target' },
+  { host: /\.safelinks\.protection\.outlook\.com$/,
+    path: null, param: 'url' },
+  { host: null, path: /\/redirect\/?$/, param: 'url' } // generic shape
+];
+
+function unwrapOnce(urlStr) {
+  let u;
+  try { u = new URL(urlStr); } catch { return null; }
+  if (u.protocol !== 'https:' &amp;&amp; u.protocol !== 'http:') return null;
+  for (const w of WRAPPERS) {
+    const hostOk = w.host === null ? true
+      : typeof w.host === 'string' ? u.hostname === w.host
+      : w.host.test(u.hostname);
+    if (!hostOk) continue;
+    if (w.path &amp;&amp; !w.path.test(u.pathname)) continue;
+    const raw = u.searchParams.get(w.param);
+    if (!raw) continue;
+    try {
+      const target = new URL(raw); // searchParams already percent-decodes
+      if (target.protocol === 'https:' || target.protocol === 'http:')
+        return target.href;
+    } catch { /* not a URL — this shape did not match after all */ }
+  }
+  return null;
+}</code></pre>
+<p>Two details in that snippet are load-bearing. First, the protocol check on both ends: a "target" of <code>javascript:</code> or <code>data:</code> is not a redirect worth unwrapping, it is an injection attempt wearing a redirect's clothes. Second, the failure mode: when a shape matches but the parameter does not parse as a URL, the matcher <em>declines</em> rather than guessing. A cleaner that mangles a URL it does not understand is worse than one that leaves it alone.</p>
+<p>Wrapped links are often wrapped twice — a newsletter wraps a social link that wraps the article. So the resolver is recursive, but with a hard ceiling of three hops:</p>
+<pre><code>function unwrapChain(start, maxHops = 3) {
+  const chain = [start];
+  let current = start;
+  for (let hop = 0; hop &lt; maxHops; hop++) {
+    const next = unwrapOnce(current);
+    if (!next || next === current) break;      // nothing left to unwrap
+    if (sameSite(next, current)) break;        // target belongs to the wrapper itself
+    chain.push(next);
+    current = next;
+  }
+  return { clean: current, chain };
+}</code></pre>
+<p>The hop limit is not a performance tweak, it is a termination guarantee. Local parsing cannot see cycles the way a fetcher eventually would (a redirect loop ends in a browser error); a wrapper whose target parameter contains another copy of itself would loop forever in a naive <code>while</code>. Three hops covers every real chain I have seen — newsletter → social → destination — and turns a pathological input into a bounded, boring result.</p>
+
+<h2 id="cross-site">The Cross-Site Rule: When a ?url= Is Not a Redirect</h2>
+<p>The subtlest bug in this whole feature is the false positive. Plenty of legitimate pages take a <code>?url=</code> or <code>?target=</code> parameter that is <em>part of the page's own function</em>: a reader view, a preview tool, a download mirror selector. Unwrapping those destroys the link — you hand the user the parameter's value when the parameter was the point.</p>
+<p>LinkClean's rule is simple: a redirect is only unwrapped when the target sits on <strong>another site</strong> than the wrapper. If <code>tools.example.org/redirect?url=https://tools.example.org/files/report.pdf</code> points back at its own site, the URL is left exactly as it is. The <code>sameSite</code> check in the snippet above is where this lives, and in production it compares registrable domains, not raw hostnames — comparing <code>foo.co.uk</code> and <code>bar.co.uk</code> by "last two labels" would call two unrelated sites the same one. You need the public-suffix notion of a site, or the rule quietly misfires on half the British web.</p>
+<p>This is also why the generic <code>/redirect?url=</code> matcher is safe to ship at all. On its own it is an aggressive guess; combined with the cross-site rule and the known-shape table taking priority, it only fires on URLs that really look like outbound hops.</p>
+
+<h2 id="show-the-chain">Show the Chain, List Every Removal</h2>
+<p>Local resolution has one more advantage over fetching that I did not expect to care about as much as I do: it is <em>explainable</em>. A fetch-based resolver can only tell you the final answer — it cannot tell you why, because the answer came from a server's mood that day. A parser can show its work.</p>
+<p>LinkClean's unwrap result displays the full chain it walked: the original wrapper, each intermediate hop, and the final destination. You can see that the link went Outlook → a marketing tracker → the actual article, and decide for yourself whether the destination is where you wanted to go. The same philosophy governs parameter stripping: every removed parameter is listed by name, together with the value the site would have received. Nothing disappears silently. If the cleaner ever removes something you needed, you can see exactly what it was — and in Pro, click it once to keep that parameter on that site from then on.</p>
+
+<h2 id="blocklist">Tracking Parameters: A Curated Blocklist, Not a Guessed Allowlist</h2>
+<p>Stripping the wrapper is half the job; the destination URL usually arrives wearing its own tracking jewellery. Here the design debate is allowlist versus blocklist. An allowlist — keep only parameters known to be functional — sounds safer for privacy and is a disaster in practice: the web has no registry of functional parameters. <code>page</code>, <code>q</code>, <code>sort</code>, <code>variant</code>, <code>t</code> (a YouTube timestamp), <code>id</code>, ten thousand CMS-specific names — an allowlist breaks all of them by default, and a link cleaner that breaks links is uninstalled by lunchtime.</p>
+<p>LinkClean goes the other way: a curated removal list of <strong>58 named marketing parameters plus 11 prefix families</strong> — the <code>utm_</code>, <code>ga_</code>, <code>mtm_</code>, <code>piwik_</code> and <code>_hs</code> families among them — and everything not on the list survives. Filters, page numbers, product options and search terms are untouched because the cleaner has never heard of them, which is exactly the point. The honest cost of a blocklist is that a brand-new tracker parameter survives until the list learns it; the honest cost of an allowlist is that your users' links break today. I chose the failure mode that errs toward the user's intent.</p>
+<p>Pro adds the escape hatch that makes a blocklist livable long-term: per-domain keep/remove rules where the most specific domain wins and subdomains inherit — <code>shop.example.com</code> overrides <code>example.com</code> — so Amazon can keep <code>th</code> and <code>psc</code> while everything else is stripped. Rules, custom parameters and keep-lists travel between machines as one JSON bundle.</p>
+
+<h2 id="amp">AMP Is the Same Trick in a Different Costume</h2>
+<p>An AMP URL is a redirect that happens at the content layer instead of the HTTP layer: <code>google.com/amp/s/example.com/article</code> or <code>example-com.cdn.ampproject.org/c/s/example.com/article</code> serves a cached, re-hosted copy of the page. The canonical URL is embedded in the path, so recovering it is the same local-parsing idea — strip the known prefix shapes (<code>cdn.ampproject.org/c/s/</code>, <code>google.com/amp/s/</code>, a trailing <code>/amp</code>), restore the original scheme and host, and drop the AMP leftovers (<code>amp_js_v</code>, <code>outputtype</code>, <code>usqp</code>) that ride along in the query.</p>
+<p>No fetch, again. The canonical page is not discovered by asking Google where it lives; it is decoded from the string Google already handed you. LinkClean treats AMP resolution as part of the same Pro unwrapping pass, so a wrapped AMP link — a social wrapper around a Google AMP cache URL — resolves in one chain walk.</p>
+
+<h2 id="product">What This Looks Like as a Product</h2>
+<p>All of the above ships in <a href="https://annmax1983.com/extensions/linkclean" target="_blank" rel="noopener">LinkClean</a>, a Manifest V3 extension built for Firefox 140 and later, with Chrome, Edge and Firefox store listings still coming soon — the product page is the place to watch. The split is deliberate: single-link cleaning with the full built-in parameter list, Markdown copy, clipboard paste, batch up to 10 links and a small history is free, permanently. Redirect and AMP unwrapping, per-site rules, paragraphs with several links inside, unlimited batch and history search are the optional Pro licence — one key, two browsers, validated at most about every two hours, working offline from the cached licence, and a failed check never locks you out.</p>
+<p>The privacy architecture is the part I would defend in a review: no content script at all, no <code>tabs</code>, <code>scripting</code> or <code>debugger</code> permission. The extension sees only the URL you hand it — pasted, or prefilled from the tab you clicked via <code>activeTab</code>. The clipboard is read only when you press Paste. Without a licence key it makes <strong>no network request of any kind</strong>; with one, the only request is the licence check. Every technique in this article exists because "zero network" is a promise, and promises constrain code.</p>
+
+<h2 id="limits">The Honest Limits</h2>
+<p>Local parsing has a real boundary, and it would be dishonest to write this article without it. An <em>opaque</em> shortener — <code>bit.ly/xyz</code> and its relatives — carries no target in the string. The mapping lives in a database on the shortener's server, and the only way to learn it is to ask, which is precisely what LinkClean refuses to do. Those links are left alone rather than resolved through a fetch, a third-party API, or a "privacy-preserving" resolver that is neither. The same goes for wrappers whose shape changes or whose targets are encrypted server-side: if the string does not contain the answer, the cleaner says so by doing nothing.</p>
+<p>That is the trade, stated plainly: everything that can be resolved from the URL alone is resolved locally, instantly, offline, and with a visible chain — and everything else is untouched. For the links that arrive through newsletters, social shares and corporate mail gateways, that covers most of the trail worth removing. The rest was never yours to fetch.</p>
+
+<h2 id="related"><span id="relatedTitle">Related Articles</span></h2>
+<ul class="related">
+  <li><a href="./browser-fingerprinting-privacy.html">Browser Fingerprinting: 30 Ways You're Being Tracked Online</a></li>
+  <li><a href="./least-privilege-review.html">Least Privilege &amp; Chrome Web Store Review Checklist</a></li>
+  <li><a href="./license-validation-failure-modes.html">Six Ways License Validation Fails Silently in Browser Extensions</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Unwrapping Redirect URLs Without Fetching Them (2026)',
+        back: 'Back to Blog',
+        toc: 'Contents',
+        related: 'Related Articles'
+      }
+    };
+
+    function detectLang() {
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      document.getElementById('relatedTitle').textContent = a.related;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.toc;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.toc}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://annmax.ccwu.cc"></script>
+</body>
+</html>

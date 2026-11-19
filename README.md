@@ -10,7 +10,7 @@ I started with .NET desktop apps and enterprise Java systems. Moved through Pyth
 
 ## What I Build
 
-I maintain **24 browser extensions** for Chrome, Edge and Firefox — all local-first: no analytics, no tracking, no accounts, and none of them uploads your content to us. A few features make their own network requests: license checks for paid plans, image fetches when you convert or batch-download, Link Audit requests to links you choose, and sync through your browser account (JustFocus by default; Pro sync in LiteCopy, StylePatch, LocalBox2FA, LoginDock and VKT Form):
+I maintain **25 browser extensions** for Chrome, Edge and Firefox — all local-first: no analytics, no tracking, no accounts, and none of them uploads your content to us. A few features make their own network requests: license checks for paid plans, image fetches when you convert or batch-download, Link Audit requests to links you choose, and sync through your browser account (JustFocus by default; Pro sync in LiteCopy, StylePatch, LocalBox2FA, LoginDock and VKT Form):
 
 - 📸 **PageShot** — Screenshots with Pro annotation, mosaic and A4 PDF
 - 🖼️ **ImageConv** — Image format conversion (PNG/JPG/WEBP/AVIF)
@@ -20,7 +20,7 @@ I maintain **24 browser extensions** for Chrome, Edge and Firefox — all local-
 - 🔐 **LocalBox2FA** — Local-first TOTP authenticator; encrypted cross-device sync is Pro
 - 📊 **TableGrab** — HTML table to Excel (XLSX) / CSV exporter with preview, column selection and TSV/Markdown copy
 - 🔤 **FontFixer** — Web font optimizer (5 sites free, unlimited with a license)
-- 🎯 **JustFocus** — Site blocker with timed blocks from 30 minutes to permanent plus a 5-minute bypass; Surgical Blocking hides Shorts/Reels/For You feeds (YouTube Shorts free, 11 more sites with a license)
+- 🎯 **JustFocus** — Site blocker with timed blocks from 30 minutes to permanent and two 5-minute bypasses a day; free YouTube Shorts surgical blocking, and a license adds surgical blocking on 11 more sites, schedules, a daily allowance per site and unlimited bypasses
 - 🔄 **RefreshMate** — Auto page refresher
 - 🔗 **LinkHarvest** — Link extractor: copy as URLs, Markdown, HTML or JSON Lines; free TXT/JSON/CSV export; Link Audit flags broken links (100 free, 2,000 with a license)
 - ⏱️ **RetroTime** — Floating timer widget (stopwatch / countdown / Pomodoro; custom colors with a license)
@@ -36,6 +36,7 @@ I maintain **24 browser extensions** for Chrome, Edge and Firefox — all local-
 - 🔍 **SnapOCR** — Screenshot to text: select any area of a webpage and extract its text in one click. 100% local OCR (Tesseract.js) — screenshots never leave your device. Free: 20 captures a day
 - 🔑 **LoginDock** — Bookmark manager for sign-in pages: save a login page once, reopen it in a click and the username field is already focused while your browser's password manager fills the password (passwords are never seen or stored). Free for 5 entries; a licence removes the limit and adds account auto-select, a verification click and cross-device entry sync
 - 🎙️ **TabTape** — Tab audio recorder to MP3 or WAV. Audio is encoded in one-second blocks while it records, so a two-hour lecture stays one file with flat memory and the tab keeps playing out loud. Free: 20 minutes per recording; a licence removes the limit and adds trim
+- 📖 **ReadPos** — Reading-position memory for every long page: the offset is written 600 ms after you stop and a pill offers to continue, without ever scrolling on its own. Pages that hold state — a dashboard, a half-filled form — are saved as a scene and put back whole. Free: positions, the pill, a 20-page history and JSON export; a licence adds page scenes, a 500-page history and adjustable timing
 
 I also build **VKT PWA** — 9 installable web apps that run offline, installed straight from the browser:
 

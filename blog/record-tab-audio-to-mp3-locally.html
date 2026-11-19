@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">How to Record Tab Audio to MP3 Without Uploading It (2026) — AnnMax</title>
+  <meta name="description" content="Learn how to record tab audio to MP3 locally. TabTape records one tab, encodes as it plays, and writes a single file to your own Downloads/TabTape folder — nothing is uploaded.">
+  <meta property="og:title" content="How to Record Tab Audio to MP3 Without Uploading It (2026)">
+  <meta property="og:description" content="Learn how to record tab audio to MP3 locally. TabTape records one tab, encodes as it plays, and writes a single file to your own Downloads/TabTape folder — nothing is uploaded.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/record-tab-audio-to-mp3-locally.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/record-tab-audio-to-mp3-locally.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "How to Record Tab Audio to MP3 Without Uploading It (2026)",
+    "description": "Learn how to record tab audio to MP3 locally. TabTape records one tab, encodes as it plays, and writes a single file to your own Downloads/TabTape folder — nothing is uploaded.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-11-17",
+    "dateModified": "2026-11-17",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/record-tab-audio-to-mp3-locally.html"
+    },
+    "url": "https://annmax1983.github.io/blog/record-tab-audio-to-mp3-locally.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../blog.html" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">How to Record Tab Audio to MP3 Without Uploading It (2026)</h1>
+    <div class="meta" id="articleMeta"><span><a href="../#about" style="color:inherit;border-bottom:1px dotted currentColor;text-decoration:none;">AnnMax</a> · November 17, 2026</span><span class="reading-time">8 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+<div class="lang-block" data-lang="en" lang="en">
+<h2 id="en-why-recording-uploads">Why Most Tab Recorders End Up Uploading Your Audio</h2>
+<p>A lecture, a webinar, a podcast playing in a tab — you want the audio as a file. The usual path is a web recorder that captures the sound and sends it to a server to be encoded, where it sits until a download link is ready. That works, but it means a private meeting or a paid course exists for a while on somebody else's disk.</p>
+<p>If you want to record tab audio to MP3 locally, the server has to go. TabTape records exactly one tab — the one you point it at — and encodes on your machine as the sound arrives. Nothing about the recording needs a network connection.</p>
+<h2 id="en-how-it-works">How to Record Tab Audio to MP3 Locally With TabTape</h2>
+<p>The core loop is deliberately dull. TabTape captures the tab's audio, passes it through so the tab still plays out loud as usual, and encodes the stream into MP3 (or WAV) one second at a time. Each encoded second is a small block written straight to disk. There is no giant in-memory buffer waiting for the session to end.</p>
+<p>That is the answer to how to record tab audio to MP3 locally: capture one tab, encode in one-second slices, append. The file you get is a normal MP3 that plays anywhere — no proprietary container, no account needed to open it.</p>
+<h2 id="en-one-file-flat-memory">One File, Flat Memory, Even for a Two-Hour Lecture</h2>
+<p>The one-second block is the whole memory story. A two-hour lecture is roughly 7,200 small blocks on disk, not a two-hour PCM buffer in RAM. Memory stays flat whether you record for five minutes or two hours, which matters on a laptop you are also using for everything else.</p>
+<p>The same chunking that keeps memory flat also makes the file resilient. Because each block is already encoded and already on disk, an interrupted session leaves a usable set of blocks rather than a corrupt half-file. Playback length is computed from the blocks that actually landed.</p>
+<h2 id="en-your-disk">The File Goes to Downloads/TabTape, Not a Server</h2>
+<p>The finished file is written to your own Downloads/TabTape/ folder. That is a real folder in your filesystem, not a virtual library behind a login. You can move it, back it up, or delete it with ordinary file operations.</p>
+<p>The library index — titles, durations, timestamps — lives in the extension's local storage. It never goes to a server, and there is no server-side account that owns your recordings. TabTape indexes files; it does not collect them.</p>
+<h2 id="en-free-and-recovery">Free Sessions, a Full Library, and Crash Recovery</h2>
+<p>Free gives you a 20-minute cap per recording and, importantly, the complete library. Free users are not locked out of their own files or shown a truncated history. Crash recovery is part of the free tier too: if the browser dies mid-session, the library offers to rebuild a playable file from the blocks already written.</p>
+<p>The 20-minute limit is per session, not per day, so you are not rationing yourself across short clips. Most quick captures — a message, a snippet, a reminder — fit comfortably, and the cap is honest about where it sits.</p>
+<h2 id="en-pro-and-availability">Pro: No Time Limit, Trimming, and Availability</h2>
+<p>Pro lifts the duration limit entirely and adds trimming. Because the audio is stored in parsed blocks, trimming does not re-encode the whole file: you cut at block boundaries and export the same audio bytes. A long recording becomes editable without losing quality.</p>
+<p>TabTape is available on Edge now; Chrome and Firefox versions are coming soon. The promise stays the same on every browser: one tab, local encoding, and a file in your own Downloads folder — a way to record tab audio to MP3 without uploading a second of it.</p>
+</div>
+<div class="lang-block" data-lang="zh" lang="zh" hidden>
+<h2 id="zh-why-recording-uploads">为什么大多数标签页录音最后都上传了</h2>
+<p>讲座、网络研讨会、在标签页里播放的播客——你想把声音存成文件。常见路径是在线录音器：它捕获声音后送到服务器编码，你得等下载链接就绪。这能用，但意味着一场私人会议或一门付费课程，曾在别人的磁盘上存在过一段时间。</p>
+<p>如果你想在本地把标签页声音录成 MP3，服务器就必须去掉。TabTape 只录一个标签页——你指定的那个——并在声音到达时在本机编码。整个录音过程不需要网络连接。</p>
+<h2 id="zh-how-it-works">TabTape 如何在本地把标签页声音录成 MP3</h2>
+<p>核心循环刻意做得平淡无奇。TabTape 捕获标签页音频，同时把它传出去让标签页照常外放，并把音频流按每秒一块编码成 MP3（或 WAV）。每一秒编码好的内容都是一个小块，直接写到磁盘。没有等待会话结束的巨大内存缓冲区。</p>
+<p>这就是本地把标签页声音录成 MP3 的答案：捕获一个标签页，按一秒切片编码，追加写入。你得到的是普通 MP3，到处都能播放——没有专有容器，也不需要账号才能打开。</p>
+<h2 id="zh-one-file-flat-memory">两小时讲座也是单文件、内存平稳</h2>
+<p>一秒钟的块就是内存故事的全部。两小时的讲座大约是磁盘上 7200 个小块，而不是内存里两小时的 PCM 缓冲。无论你录五分钟还是两小时，内存都保持平稳——这对一边录音一边还要干别的笔记本很重要。</p>
+<p>让内存平稳的分块方式，同样让文件更健壮。因为每块都已经编码并落盘，中断的会话留下的是一组可用块，而不是损坏的半截文件。播放时长由实际落盘的块计算出来。</p>
+<h2 id="zh-your-disk">文件写入你自己的 Downloads/TabTape</h2>
+<p>完成的文件写入你自己的 Downloads/TabTape/ 文件夹。那是文件系统里真实的文件夹，不是登录后才可见的虚拟资料库。你可以像普通文件一样移动、备份或删除它。</p>
+<p>库索引——标题、时长、时间戳——存在扩展的本地存储里。它从不上服务器，也没有一个服务端账号拥有你的录音。TabTape 索引文件，但不收集文件。</p>
+<h2 id="zh-free-and-recovery">免费额度、完整资料库与崩溃恢复</h2>
+<p>免费版每次录音上限 20 分钟，但重要的是：资料库是完整的。免费用户不会被锁在自己的文件之外，也不会看到被截断的历史。崩溃恢复同样属于免费功能：如果浏览器在录音中途挂掉，资料库会提供从已写入的块重建可播放文件的选项。</p>
+<p>20 分钟是按次计算，不是按天，所以你不必把短片段省着用。大多数快速录制——一句话、一段片段、一个提醒——都能轻松装下，而且上限的边界写得很清楚。</p>
+<h2 id="zh-pro-and-availability">Pro：解除时长限制、裁剪与可用平台</h2>
+<p>Pro 完全解除时长限制，并增加裁剪功能。因为音频按可解析的块存储，裁剪不需要重新编码整个文件：你在块边界处剪切，导出的仍是同样的音频字节。长录音可以编辑而不损失质量。</p>
+<p>TabTape 现已在 Edge 上架，Chrome 和 Firefox 版本即将推出。在每个浏览器上承诺都一样：一个标签页、本地编码，以及你 Downloads 文件夹里的一个文件——一种不上传任何一秒就能把标签页声音录成 MP3 的方法。</p>
+</div>
+<div class="lang-block" data-lang="ja" lang="ja" hidden>
+<h2 id="ja-why-recording-uploads">なぜタブ録音は結局アップロードに終わるのか</h2>
+<p>講義、ウェビナー、タブで再生しているポッドキャスト——音声をファイルに残したい。よくある方法はウェブ録音機で、音を捕捉してサーバーに送り、そこでエンコードし、ダウンロードリンクができるのを待つものです。動きますが、私的な会議や有料講座がしばらく誰かのディスク上存在することになります。</p>
+<p>タブ音声をローカルで MP3 に録音したいなら、サーバーをなくす必要があります。TabTape は 1 つのタブ——指定したものだけ——を録音し、音が届いた時点で自分の機械でエンコードします。録音にネットワーク接続は一切必要ありません。</p>
+<h2 id="ja-how-it-works">TabTape がタブ音声をローカルで MP3 に録音する仕組み</h2>
+<p>中身は意図的に地味です。TabTape はタブの音声を捕捉し、タブがいつも通り外部出力されるように通しながら、ストリームを 1 秒ずつ MP3（または WAV）にエンコードします。エンコード済みの 1 秒は小さなブロックとして直接ディスクに書き出されます。セッション終了を待つ巨大なメモリバッファはありません。</p>
+<p>これがタブ音声をローカルで MP3 に録音する答えです。1 つのタブを捉え、1 秒単位でエンコードし、追記する。手に入るのはどこでも再生できる普通の MP3 で、独自コンテナも、開くためのアカウントもありません。</p>
+<h2 id="ja-one-file-flat-memory">2 時間の講義も単一ファイル、メモリは横ばい</h2>
+<p>1 秒ブロックがメモリ面のすべてです。2 時間の講義はメモリ上の 2 時間分の PCM バッファではなく、ディスク上の約 7200 個の小さなブロックになります。5 分でも 2 時間でもメモリは横ばいで、録音しながら他の作業をするノートでも安心です。</p>
+<p>メモリを抑える分割方式は、ファイルを丈夫にもします。各ブロックがすでにエンコードされディスクにあるため、中断されても破損した半端ファイルではなく、利用可能なブロックの集合が残ります。再生時間は実際に書き込まれたブロックから算出されます。</p>
+<h2 id="ja-your-disk">ファイルは自分の Downloads/TabTape へ</h2>
+<p>完成したファイルは自分の Downloads/TabTape/ フォルダに書き出されます。ログイン後に見える仮想ライブラリではなく、ファイルシステム上の実在のフォルダです。普通のファイルと同じように移動、バックアップ、削除ができます。</p>
+<p>ライブラリの索引——タイトル、長さ、日時——は拡張機能のローカルストレージにあります。サーバーには送られず、録音を所有するサーバー側アカウントも存在しません。TabTape はファイルを索引付けするだけで、収集はしません。</p>
+<h2 id="ja-free-and-recovery">無料の制限、完全なライブラリ、クラッシュ復旧</h2>
+<p>無料版は 1 回の録音が 20 分までですが、重要なのはライブラリが完全だという点です。無料ユーザーが自分のファイルから締め出されたり、履歴が切り詰められたりすることはありません。クラッシュ復旧も無料範囲です。ブラウザが録音中に落ちても、書き込み済みのブロックから再生可能なファイルを再構築できます。</p>
+<p>20 分は 1 回あたりで、1 日あたりではありません。短いクリップを節約する必要はありません。ちょっとした録音——一言、抜粋、リマインダー——は十分収まり、上限がどこにあるかも明示されています。</p>
+<h2 id="ja-pro-and-availability">Pro：時間制限解除、トリミング、対応ブラウザ</h2>
+<p>Pro は時間制限を完全に外し、トリミングを追加します。音声が解析可能なブロックで保存されているため、トリミングはファイル全体を再エンコードしません。ブロック境界で切り、同じ音声バイトを書き出します。長い録音も品質を落とさず編集できます。</p>
+<p>TabTape は現在 Edge で利用でき、Chrome と Firefox 版は近日公開予定です。どのブラウザでも約束は同じです。1 つのタブ、ローカルエンコード、そして自分の Downloads フォルダのファイル。1 秒もアップロードせずにタブ音声を MP3 に録音する方法です。</p>
+</div>
+<div class="lang-block" data-lang="de" lang="de" hidden>
+<h2 id="de-why-recording-uploads">Warum Tab-Aufnahmen meistens doch hochgeladen werden</h2>
+<p>Eine Vorlesung, ein Webinar, ein Podcast im Tab – Sie möchten das Audio als Datei. Der übliche Weg führt über einen Web-Recorder, der den Schall aufnimmt und zum Codieren an einen Server schickt, wo er liegt, bis ein Download-Link bereitsteht. Das funktioniert, bedeutet aber, dass ein privates Meeting oder ein bezahlter Kurs eine Weile auf fremder Platte lag.</p>
+<p>Wenn Sie Tab-Audio lokal in MP3 aufnehmen möchten, muss der Server verschwinden. TabTape zeichnet genau einen Tab auf – den Sie auswählen – und codiert auf Ihrem Rechner, während der Schall ankommt. Die Aufnahme braucht keine Netzwerkverbindung.</p>
+<h2 id="de-how-it-works">Wie TabTape Tab-Audio lokal in MP3 aufnimmt</h2>
+<p>Die Kernschleife ist bewusst unspektakulär. TabTape nimmt das Audio des Tabs auf, leitet es durch, damit der Tab weiter normal hörbar bleibt, und codiert den Strom Sekunde für Sekunde zu MP3 (oder WAV). Jede codierte Sekunde ist ein kleiner Block, der direkt auf die Platte geschrieben wird. Es gibt keinen großen Speicherpuffer, der auf das Ende der Sitzung wartet.</p>
+<p>Das ist die Antwort darauf, wie man Tab-Audio lokal in MP3 aufnimmt: einen Tab erfassen, in Ein-Sekunden-Scheiben codieren, anhängen. Sie erhalten eine ganz normale MP3, die überall abspielbar ist – kein proprietärer Container, kein Konto zum Öffnen.</p>
+<h2 id="de-one-file-flat-memory">Zwei Stunden Vorlesung, eine Datei, flacher Speicher</h2>
+<p>Der Ein-Sekunden-Block ist die ganze Speichergeschichte. Eine zweistündige Vorlesung sind rund 7.200 kleine Blöcke auf der Platte, kein zweistündiger PCM-Puffer im RAM. Der Speicher bleibt flach, ob Sie fünf Minuten oder zwei Stunden aufnehmen – wichtig auf einem Laptop, den Sie gleichzeitig für alles andere nutzen.</p>
+<p>Dieselbe Blockbildung, die den Speicher flach hält, macht die Datei auch robust. Weil jeder Block bereits codiert und bereits auf der Platte liegt, hinterlässt eine unterbrochene Sitzung eine nutzbare Menge von Blöcken statt einer beschädigten Halbdatei. Die Wiedergabelänge wird aus den tatsächlich angekommenen Blöcken berechnet.</p>
+<h2 id="de-your-disk">Die Datei landet in Downloads/TabTape</h2>
+<p>Die fertige Datei wird in Ihren eigenen Ordner Downloads/TabTape/ geschrieben. Das ist ein echter Ordner in Ihrem Dateisystem, keine virtuelle Bibliothek hinter einem Login. Sie können ihn verschieben, sichern oder mit gewöhnlichen Dateioperationen löschen.</p>
+<p>Der Bibliotheksindex – Titel, Länge, Zeitstempel – liegt im lokalen Speicher der Erweiterung. Er geht nie an einen Server, und es gibt kein Serverkonto, das Ihre Aufnahmen besitzt. TabTape indiziert Dateien; es sammelt sie nicht.</p>
+<h2 id="de-free-and-recovery">Kostenlose Sitzungen, vollständige Bibliothek und Absturz-Wiederherstellung</h2>
+<p>Die kostenlose Stufe begrenzt jede Aufnahme auf 20 Minuten und bietet – das ist wichtig – die vollständige Bibliothek. Kostenlose Nutzer werden nicht von ihren eigenen Dateien ausgesperrt und sehen keine verkürzte Historie. Die Absturz-Wiederherstellung gehört ebenfalls zur kostenlosen Stufe: Stirbt der Browser mitten in der Sitzung, bietet die Bibliothek an, aus den bereits geschriebenen Blöcken eine abspielbare Datei wiederherzustellen.</p>
+<p>Die 20 Minuten gelten pro Sitzung, nicht pro Tag, Sie müssen also keine kurzen Clips rationieren. Die meisten schnellen Aufnahmen – eine Nachricht, ein Ausschnitt, eine Erinnerung – passen bequem hinein, und die Grenze ist ehrlich markiert.</p>
+<h2 id="de-pro-and-availability">Pro: keine Zeitbegrenzung, Trimmen und Verfügbarkeit</h2>
+<p>Pro hebt die Zeitbegrenzung vollständig auf und fügt Trimmen hinzu. Weil das Audio in analysierbaren Blöcken gespeichert ist, muss Trimmen die Datei nicht neu codieren: Sie schneiden an Blockgrenzen und exportieren dieselben Audio-Bytes. Eine lange Aufnahme wird bearbeitbar ohne Qualitätsverlust.</p>
+<p>TabTape ist jetzt für Edge verfügbar; Chrome- und Firefox-Versionen folgen bald. Auf jedem Browser bleibt das Versprechen dasselbe: ein Tab, lokale Codierung und eine Datei in Ihrem eigenen Downloads-Ordner – eine Möglichkeit, Tab-Audio in MP3 aufzunehmen, ohne eine Sekunde hochzuladen.</p>
+</div>
+<div class="lang-block" data-lang="es" lang="es" hidden>
+<h2 id="es-why-recording-uploads">Por qué casi siempre acaba subiéndose la grabación de una pestaña</h2>
+<p>Una clase, un seminario web, un pódcast sonando en una pestaña: quieres el audio como archivo. El camino habitual es un grabador web que capta el sonido y lo envía a un servidor para codificarlo, donde permanece hasta que hay un enlace de descarga. Funciona, pero significa que una reunión privada o un curso de pago existió un tiempo en el disco de otra persona.</p>
+<p>Si quieres grabar el audio de una pestaña en MP3 localmente, el servidor tiene que desaparecer. TabTape graba exactamente una pestaña —la que señalas— y codifica en tu máquina a medida que llega el sonido. Nada de la grabación necesita conexión de red.</p>
+<h2 id="es-how-it-works">Cómo TabTape graba localmente el audio de una pestaña en MP3</h2>
+<p>El bucle principal es deliberadamente plano. TabTape capta el audio de la pestaña, lo deja pasar para que la pestaña siga sonando como siempre, y codifica el flujo a MP3 (o WAV) de segundo en segundo. Cada segundo codificado es un bloque pequeño que se escribe directamente en disco. No hay un gran búfer en memoria esperando a que termine la sesión.</p>
+<p>Esa es la respuesta a cómo grabar el audio de una pestaña en MP3 localmente: capturar una pestaña, codificar en porciones de un segundo y añadir. El archivo que obtienes es un MP3 normal que suena en cualquier sitio, sin contenedor propietario ni cuenta para abrirlo.</p>
+<h2 id="es-one-file-flat-memory">Dos horas de clase, un solo archivo y memoria estable</h2>
+<p>El bloque de un segundo es toda la historia de memoria. Dos horas de clase son unas 7.200 piezas pequeñas en disco, no un búfer PCM de dos horas en RAM. La memoria se mantiene estable grabes cinco minutos o dos horas, algo que importa en un portátil que además estás usando para todo lo demás.</p>
+<p>La misma fragmentación que mantiene estable la memoria hace el archivo resistente. Como cada bloque ya está codificado y ya está en disco, una sesión interrumpida deja un conjunto de bloques utilizables en lugar de un archivo a medias corrupto. La duración se calcula a partir de los bloques que realmente llegaron.</p>
+<h2 id="es-your-disk">El archivo va a tu propia carpeta Downloads/TabTape</h2>
+<p>El archivo terminado se escribe en tu propia carpeta Downloads/TabTape/. Es una carpeta real de tu sistema de archivos, no una biblioteca virtual tras un inicio de sesión. Puedes moverla, respaldarla o borrarla con operaciones normales de archivo.</p>
+<p>El índice de la biblioteca —títulos, duraciones, marcas de tiempo— vive en el almacenamiento local de la extensión. Nunca va a un servidor y no hay una cuenta en el servidor que sea dueña de tus grabaciones. TabTape indexa archivos; no los recoge.</p>
+<h2 id="es-free-and-recovery">Sesiones gratuitas, biblioteca completa y recuperación tras fallo</h2>
+<p>La versión gratuita limita cada grabación a 20 minutos y, algo importante, ofrece la biblioteca completa. Los usuarios gratuitos no quedan fuera de sus propios archivos ni ven un historial recortado. La recuperación tras fallo también es gratuita: si el navegador muere a mitad de la sesión, la biblioteca ofrece reconstruir un archivo reproducible a partir de los bloques ya escritos.</p>
+<p>Los 20 minutos son por sesión, no por día, así que no tienes que racionar los clips cortos. La mayoría de las capturas rápidas —un mensaje, un fragmento, un recordatorio— caben holgadamente y el límite está indicado con claridad.</p>
+<h2 id="es-pro-and-availability">Pro: sin límite de tiempo, recorte y disponibilidad</h2>
+<p>Pro elimina por completo el límite de duración y añade recorte. Como el audio se guarda en bloques analizables, recortar no vuelve a codificar todo el archivo: cortas en límites de bloque y exportas los mismos bytes de audio. Una grabación larga se vuelve editable sin perder calidad.</p>
+<p>TabTape ya está disponible en Edge; las versiones para Chrome y Firefox llegan pronto. En todos los navegadores la promesa es la misma: una pestaña, codificación local y un archivo en tu propia carpeta Downloads —una forma de grabar el audio de una pestaña en MP3 sin subir ni un segundo.</p>
+</div>
+<div class="lang-block" data-lang="fr" lang="fr" hidden>
+<h2 id="fr-why-recording-uploads">Pourquoi l&#x27;enregistrement d&#x27;un onglet finit presque toujours par être téléversé</h2>
+<p>Une conférence, un webinaire, un podcast qui tourne dans un onglet : vous voulez le son en fichier. Le chemin habituel passe par un enregistreur web qui capte le son et l'envoie à un serveur pour l'encoder, où il reste jusqu'à ce qu'un lien de téléchargement soit prêt. Cela marche, mais cela signifie qu'une réunion privée ou un cours payant a existé un moment sur le disque de quelqu'un d'autre.</p>
+<p>Si vous voulez enregistrer l'audio d'un onglet en MP3 localement, le serveur doit disparaître. TabTape n'enregistre qu'un seul onglet — celui que vous désignez — et encode sur votre machine à mesure que le son arrive. Rien dans l'enregistrement n'a besoin d'une connexion réseau.</p>
+<h2 id="fr-how-it-works">Comment TabTape enregistre localement l&#x27;audio d&#x27;un onglet en MP3</h2>
+<p>La boucle centrale est volontairement banale. TabTape capte l'audio de l'onglet, le laisse passer pour que l'onglet continue de sonner normalement, et encode le flux en MP3 (ou WAV) seconde par seconde. Chaque seconde encodée est un petit bloc écrit directement sur le disque. Il n'y a aucun grand tampon mémoire en attente de la fin de la session.</p>
+<p>C'est là la réponse à comment enregistrer l'audio d'un onglet en MP3 localement : capturer un onglet, encoder par tranches d'une seconde, ajouter. Le fichier obtenu est un MP3 ordinaire, lisible partout, sans conteneur propriétaire ni compte pour l'ouvrir.</p>
+<h2 id="fr-one-file-flat-memory">Deux heures de conférence, un seul fichier, mémoire stable</h2>
+<p>Le bloc d'une seconde est toute l'histoire de la mémoire. Deux heures de conférence, ce sont environ 7 200 petits blocs sur le disque, pas un tampon PCM de deux heures en RAM. La mémoire reste stable que vous enregistriez cinq minutes ou deux heures — important sur un ordinateur que vous utilisez aussi pour tout le reste.</p>
+<p>La même découpe qui garde la mémoire stable rend le fichier robuste. Comme chaque bloc est déjà encodé et déjà sur le disque, une session interrompue laisse un ensemble de blocs exploitables plutôt qu'un fichier à moitié corrompu. La durée est calculée à partir des blocs réellement arrivés.</p>
+<h2 id="fr-your-disk">Le fichier va dans votre propre dossier Downloads/TabTape</h2>
+<p>Le fichier terminé est écrit dans votre propre dossier Downloads/TabTape/. C'est un vrai dossier de votre système de fichiers, pas une bibliothèque virtuelle derrière un identifiant. Vous pouvez le déplacer, le sauvegarder ou le supprimer avec des opérations de fichier ordinaires.</p>
+<p>L'index de la bibliothèque — titres, durées, horodatages — vit dans le stockage local de l'extension. Il ne va jamais sur un serveur, et aucun compte serveur ne possède vos enregistrements. TabTape indexe les fichiers ; il ne les collecte pas.</p>
+<h2 id="fr-free-and-recovery">Sessions gratuites, bibliothèque complète et récupération après plantage</h2>
+<p>La version gratuite plafonne chaque enregistrement à 20 minutes et offre — point important — la bibliothèque complète. Les utilisateurs gratuits ne sont pas privés de leurs propres fichiers et ne voient pas d'historique tronqué. La récupération après plantage fait aussi partie de la version gratuite : si le navigateur meurt en cours de session, la bibliothèque propose de reconstruire un fichier lisible à partir des blocs déjà écrits.</p>
+<p>Les 20 minutes sont par session, pas par jour : vous n'avez donc pas à rationner les courts extraits. La plupart des captures rapides — un message, un fragment, un rappel — y tiennent largement, et la limite est indiquée honnêtement.</p>
+<h2 id="fr-pro-and-availability">Pro : aucune limite de durée, découpe et disponibilité</h2>
+<p>Pro supprime entièrement la limite de durée et ajoute la découpe. Comme l'audio est stocké en blocs analysables, découper ne réencode pas tout le fichier : vous coupez aux frontières de blocs et exportez les mêmes octets audio. Un long enregistrement devient modifiable sans perte de qualité.</p>
+<p>TabTape est disponible sur Edge dès maintenant ; les versions Chrome et Firefox arrivent bientôt. Sur tous les navigateurs, la promesse reste la même : un onglet, un encodage local et un fichier dans votre propre dossier Downloads — une façon d'enregistrer l'audio d'un onglet en MP3 sans téléverser une seule seconde.</p>
+</div>
+
+<h2 id="related"><span id="relatedTitle">Related Articles</span></h2>
+<ul class="related">
+  <li><a href="./firefox-tab-audio-capture-bridge.html">Recording Tab Audio in Firefox Without tabCapture</a></li>
+  <li><a href="./service-worker-resilience.html">Service Worker Resilience &amp; State Persistence for MV3</a></li>
+  <li><a href="./sqlite-opfs-local-first-database.html">SQLite in the Browser: Building a Local-First Database with OPFS</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+  "en": {
+    "title": "How to Record Tab Audio to MP3 Without Uploading It (2026)",
+    "back": "Back to Blog",
+    "toc": "Contents",
+    "related": "Related Articles"
+  },
+  "zh": {
+    "title": "如何在本地把标签页声音录成 MP3？TabTape 不上传方案（2026）",
+    "back": "返回博客",
+    "toc": "目录",
+    "related": "相关文章"
+  },
+  "ja": {
+    "title": "タブ音声をローカルで MP3 に録音する方法｜TabTape の非アップロード手法（2026）",
+    "back": "ブログに戻る",
+    "toc": "目次",
+    "related": "関連記事"
+  },
+  "de": {
+    "title": "Tab-Audio lokal in MP3 aufnehmen: So geht's ohne Upload mit TabTape (2026)",
+    "back": "Zum Blog",
+    "toc": "Inhalt",
+    "related": "Verwandte Artikel"
+  },
+  "es": {
+    "title": "Cómo grabar el audio de una pestaña en MP3 sin subirlo a ningún lado con TabTape (2026)",
+    "back": "Volver al Blog",
+    "toc": "Contenido",
+    "related": "Artículos relacionados"
+  },
+  "fr": {
+    "title": "Comment enregistrer l'audio d'un onglet en MP3 sans l'envoyer en ligne avec TabTape (2026)",
+    "back": "Retour au Blog",
+    "toc": "Sommaire",
+    "related": "Articles connexes"
+  }
+};
+
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      document.getElementById('relatedTitle').textContent = a.related;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.toc;
+      document.querySelectorAll('#articleContent .lang-block').forEach(function (b) {
+        b.hidden = (b.dataset.lang !== lang);
+      });
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent .lang-block[data-lang="' + currentLang + '"] h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.toc}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://annmax.ccwu.cc"></script>
+</body>
+</html>

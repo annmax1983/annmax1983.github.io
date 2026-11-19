@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Scoring Paragraphs to Find the Article on a Page (2026) — AnnMax</title>
+  <meta name="description" content="How PrintClean finds the article with Readability-style paragraph scoring, ancestor decay and a tightening pass, then rebuilds it as a whitelist clone in a detached document — typeset for paper, never uploaded.">
+  <meta property="og:title" content="Scoring Paragraphs to Find the Article on a Page (2026)">
+  <meta property="og:description" content="How PrintClean finds the article with Readability-style paragraph scoring, ancestor decay and a tightening pass, then rebuilds it as a whitelist clone in a detached document — typeset for paper, never uploaded.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/article-extraction-scoring.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/article-extraction-scoring.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Scoring Paragraphs to Find the Article on a Page (2026)",
+    "description": "How PrintClean finds the article with Readability-style paragraph scoring, ancestor decay and a tightening pass, then rebuilds it as a whitelist clone in a detached document — typeset for paper, never uploaded.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-11-19",
+    "dateModified": "2026-11-19",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/article-extraction-scoring.html"
+    },
+    "url": "https://annmax1983.github.io/blog/article-extraction-scoring.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../blog.html" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Scoring Paragraphs to Find the Article on a Page (2026)</h1>
+    <div class="meta" id="articleMeta"><span><a href="../#about" style="color:inherit;border-bottom:1px dotted currentColor;text-decoration:none;">AnnMax</a> · November 19, 2026</span><span class="reading-time">9 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="printing-the-website">Printing a Page Means Printing the Website</h2>
+<p>Press Ctrl+P on a news article and the preview tells the whole story: three pages of masthead, a navigation menu down the side of the paper, an ad parked in the middle of the second paragraph, a newsletter signup between the conclusion and the footnotes, and the article itself squeezed into a sixty-character column. The browser prints what it renders, and what it renders is a website, not a document.</p>
+<p><a href="https://annmax1983.com/extensions/printclean" target="_blank" rel="noopener">PrintClean</a> is my answer to that: one click turns the page you are reading into a clean sheet — the article, set in readable type, everything else left behind — and hands it to the print dialog you already know. The interesting engineering is in the first half of that sentence. "The article" is not a thing the DOM labels for you. You have to find it, and finding it is a scoring problem.</p>
+
+<h2 id="scoring-paragraphs">Score the Paragraphs, Not the Containers</h2>
+<p>The naive approach is to look for a container that "looks like" an article: an <code>&lt;article&gt;</code> tag, a <code>div.post-content</code>, something with a promising class name. That works on well-built sites and fails everywhere else, because class names are marketing, not semantics — <code>content</code> wraps the sidebar on one site and the whole page on another.</p>
+<p>The Readability-style approach inverts the question. Instead of guessing which container is the article, score the <em>text</em> and let the containers inherit their score from what they contain. Paragraphs are the unit of scoring because prose has a measurable shape:</p>
+<ul>
+<li><strong>Text length.</strong> A navigation item is three words; an article paragraph is forty. Short blocks are almost never the article.</li>
+<li><strong>Comma density.</strong> Prose breathes through commas. A list of links, a tag cloud, a menu — none of them have the comma rhythm of sentences. Counting commas per paragraph is a cheap, surprisingly strong prose detector.</li>
+<li><strong>Ancestor decay.</strong> A paragraph's score belongs mostly to its immediate container, less to the grandparent, less again to the great-grandparent. Without decay, <code>&lt;body&gt;</code> wins every election, because it contains everything.</li>
+</ul>
+<p>Simplified to its skeleton, the pass looks like this:</p>
+<pre><code>// Illustrative, simplified. The real pass also weighs link density
+// (a paragraph that is mostly links is navigation, not prose).
+function scoreParagraph(p) {
+  const text = p.textContent.trim();
+  if (text.length &lt; 25) return 0;
+  let score = 1;                                  // it exists and is prose-sized
+  score += (text.match(/,/g) || []).length;       // comma density
+  score += Math.min(Math.floor(text.length / 100), 3);
+  return score;
+}
+
+function propagate(p, score, scores) {
+  let node = p.parentElement, level = 0;
+  while (node &amp;&amp; level &lt; 3) {
+    const decay = level === 0 ? 1 : level === 1 ? 0.5 : 0.25;
+    scores.set(node, (scores.get(node) || 0) + score * decay);
+    node = node.parentElement;
+    level++;
+  }
+}
+
+// Walk every &lt;p&gt; (and paragraph-like block), score, propagate,
+// then rank containers by accumulated score.</code></pre>
+<p>The decay ladder — full score to the parent, half to the grandparent, a quarter above that — is the whole trick. A sidebar full of three-word link texts accumulates almost nothing. A comment thread accumulates some, but its paragraphs are shorter and its containers shallower. The article's container sits on a mountain of prose score that nothing else on the page can match.</p>
+
+<h2 id="semantics">Semantics and Class Names as Tie-Breakers, Not Deciders</h2>
+<p>Scoring alone gets you most of the way. The last few percent come from hints — used as tie-breakers, never as the primary signal. A container that is an <code>&lt;article&gt;</code> or <code>&lt;main&gt;</code> element, or carries a class like <code>post</code>, <code>entry-content</code> or <code>article-body</code>, gets a bonus when its score is close to a competitor's. Negative hints work the same way in reverse: <code>comment</code>, <code>sidebar</code>, <code>footer</code>, <code>nav</code> in a container's identity subtracts from its claim.</p>
+<p>The ordering matters. If semantics decide first, you are back to trusting the site's own labelling, which is exactly the thing that cannot be trusted. If semantics only break ties between text-scored candidates, a mislabelled page still extracts correctly, and a well-labelled page extracts a little more confidently. PrintClean's extraction is a scoring pass over paragraphs and their containers, with <code>article</code>/<code>main</code> semantics and common class names as the tie-breaker — in that order.</p>
+
+<h2 id="tightening">The Tightening Pass: A Wrapper Must Never Beat Its Own Text</h2>
+<p>There is a failure mode that pure ancestor scoring walks straight into. Suppose the winning container is <code>div.page-wrapper</code>, and inside it a single child <code>div.article-body</code> holds every scored paragraph. The wrapper's score is high because it contains the article — but printing the wrapper prints the wrapper's <em>other</em> children too: the share bar, the related rail, the "subscribe before you go" box.</p>
+<p>So after the winner is chosen, a final tightening pass descends: while the current candidate has a child that carries essentially all of its score, move down to that child. The wrapper can never win over its own text, because the text is what scored in the first place. The pass stops the moment the score splits across siblings — that split is the signal that you have reached the real article boundary, where the prose lives alongside its figures and subheadings rather than inside one nested tube.</p>
+<p>This pass is small, maybe twenty lines, and it fixes the single most common "why did my printout include the comments" bug in homegrown extractors. If you build one thing from this article, build the tightening pass.</p>
+
+<h2 id="whitelist-clone">Rebuild by Whitelist Clone, Not by Hiding Things</h2>
+<p>Reader modes hide things: they apply a stylesheet that makes the chrome invisible and restyles what remains. That is fine for reading on screen and wrong for paper, because hidden-but-present content still affects layout, and because "hide everything except" is an unbounded list — every site invents new chrome faster than you can hide it.</p>
+<p>PrintClean decides what to <em>keep</em>, and rebuilds the document from that decision. The extraction result is cloned into a <strong>detached document</strong> — a fresh document created with <code>document.implementation.createHTMLDocument()</code>, not attached to any window. Two properties fall out of that choice for free:</p>
+<ul>
+<li><strong>The original page is untouched.</strong> No innerHTML surgery on the live DOM, no classes toggled, no elements removed from the site you are reading. Close the reader and the page is exactly as it was, because nothing ever happened to it.</li>
+<li><strong>The clone inherits no site CSS.</strong> A detached document has no stylesheets, so the print typography is the only typography. You are not fighting the site's <code>!important</code> rules; they simply do not exist in the new document.</li>
+</ul>
+<p>Into that clone goes a whitelist: headings, paragraphs, lists, <strong>tables, blockquotes, code blocks, figures and captions</strong> — the things an article is made of. What does not go in: scripts, styles, forms, navigation, share bars, related-articles rails, newsletter boxes, and anything the live page hid with CSS. That last check has to happen <em>before</em> cloning, on the live page, where <code>getComputedStyle</code> can still see the site's stylesheets — an element with <code>display: none</code> or <code>visibility: hidden</code> is chrome the site itself admitted to hiding, and it does not get a second life on paper. It is not a screenshot either: the result is real text, selectable, searchable, reflowable at any font size, which is the entire difference between a document and a picture of one.</p>
+
+<h2 id="typography">Typesetting for Paper</h2>
+<p>Once the content is clean, the sheet is typeset like a book page rather than a browser window. PrintClean exposes font size from 13 to 26 px, three line heights, and a measure — the line length — set in pixels, because "65 characters per line" is the oldest readability rule in typography and a browser window ignores it by default. Paper is A4 or Letter, with three margin presets, an optional header and footer carrying the date and the source URL (so a printed article can be cited and found again), optional grayscale for a cheaper print, and images on or off.</p>
+<p>The detail I care about most: the printed sheet and the on-screen sheet are <em>the same document</em>. The reader view you check before printing is the print layout, not an approximation of it. One page or ten, the article starts at the top of the paper — no masthead, no "page 1 of 7 is a cookie banner".</p>
+
+<h2 id="batch">Batch Mode: Fetch From the Reader Page, Mark Failures in Place</h2>
+<p>Batch mode takes a list of addresses — up to three on the free tier, fifty with Pro — and produces one document with each article starting on a new page. The architectural decision here is <em>where the fetch happens</em>. Each address is fetched from the reader page itself, with your session cookies, which means pages behind a login work: the paywalled article you can read in your browser is fetched as you, from the extension's reader context, and goes to that site and nowhere else.</p>
+<p>The failure policy is the part worth copying. A batch of fifty URLs will contain a URL that 403s, a URL that times out, and a URL that turns out to be a PDF. A naive pipeline throws on the first failure and loses the other forty-nine results. PrintClean marks the failed address in place — a placeholder page saying what happened — and continues the batch. One bad URL costs you one page, not the run.</p>
+
+<h2 id="memory">Where the Text Lives: Memory Only, Deleted After Render</h2>
+<p>Extraction means an extension briefly holds the full text of what you are reading, so the storage story has to be explicit. The extracted article is handed from the extractor to the reader through the extension's <strong>session storage</strong> — memory only, never written to disk, cleared when the browser closes — and the payload is deleted the moment the reader has rendered it. Page text is never persisted by the add-on. No article text is uploaded anywhere; there is no analytics, no telemetry, no tracking pixel.</p>
+<p>The permissions follow the same discipline: <code>activeTab</code> and <code>scripting</code> so the toolbar icon can read the tab you clicked and only that tab, host access used for exactly two things — injecting the extractor into that tab, and fetching the addresses you paste in batch mode. No content script is registered, so nothing runs on any page until you ask for it. Without a Pro key the only network requests are the batch pages you explicitly asked for; with one, the licence check joins them, throttled to about every two hours, cached for offline use, and a failed check never locks you out.</p>
+
+<h2 id="free-pro">Free, Pro, and the Honest Limits</h2>
+<p>Free is permanently free: single-page clean print with every typography setting, A4 and Letter, all three margin presets, header and footer, grayscale, images on or off, and batch up to three addresses. Pro — an optional one-off licence, one key on two browsers — raises batch to fifty and adds the escape hatches a heuristic extractor eventually needs: per-site selectors (hide this, keep that, remembered per domain, most specific domain wins), global selectors for every site, and rules bundles exported and imported as one JSON file. Nothing is time-limited and nothing disables after a trial.</p>
+<p>The small print, because an extraction article owes it to you: scoring is a heuristic, and unusual layouts — a novel told in caption-less figures, an article that is one giant table, a page whose prose lives in shadow DOM — can defeat it. That is what the Pro selectors are for, and why they exist as a product feature rather than a promise that the algorithm is perfect. Wide tables can still overflow a paper measure; lazy-loaded images that never entered the viewport may not have a real <code>src</code> to clone. PrintClean is a Manifest V3 extension built for Firefox 140 and later, with Chrome, Edge and Firefox store listings all still coming soon — the <a href="https://annmax1983.com/extensions/printclean" target="_blank" rel="noopener">product page</a> has the current state. Extraction, typography and printing all work offline; the only thing the network is ever used for is fetching pages you asked for and validating a licence you chose to buy.</p>
+
+<h2 id="related"><span id="relatedTitle">Related Articles</span></h2>
+<ul class="related">
+  <li><a href="./html-table-merged-cells-parsing.html">Parsing HTML Tables with Merged Cells: A Grid Algorithm</a></li>
+  <li><a href="./extension-css-injection-csp.html">world: 'MAIN' Is the One Injection Path CSP Kills</a></li>
+  <li><a href="./remember-scroll-position-on-long-pages.html">How to Remember Your Scroll Position on Long Pages (2026)</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Scoring Paragraphs to Find the Article on a Page (2026)',
+        back: 'Back to Blog',
+        toc: 'Contents',
+        related: 'Related Articles'
+      }
+    };
+
+    function detectLang() {
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      document.getElementById('relatedTitle').textContent = a.related;
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.toc;
+    }
+
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.toc}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://annmax.ccwu.cc"></script>
+</body>
+</html>
