@@ -143,10 +143,45 @@ const session = {
         back: 'Back to Blog',
         toc: 'Contents',
         related: 'Related Articles'
+      },
+      zh: {
+        title: '不靠服务器保存标签页会话（2026）',
+        back: '返回博客',
+        toc: '目录',
+        related: '相关文章'
+      },
+      ja: {
+        title: 'サーバーなしでタブセッションを保存する（2026）',
+        back: 'ブログに戻る',
+        toc: '目次',
+        related: '関連記事'
+      },
+      de: {
+        title: 'Tab-Sitzungen speichern — ganz ohne Server (2026)',
+        back: 'Zum Blog',
+        toc: 'Inhalt',
+        related: 'Verwandte Artikel'
+      },
+      es: {
+        title: 'Guardar sesiones de pestañas sin un servidor (2026)',
+        back: 'Volver al Blog',
+        toc: 'Contenido',
+        related: 'Artículos relacionados'
+      },
+      fr: {
+        title: 'Enregistrer des sessions d’onglets sans serveur (2026)',
+        back: 'Retour au Blog',
+        toc: 'Sommaire',
+        related: 'Articles connexes'
       }
     };
 
+    // Language detection
     function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
       return 'en';
     }
     let currentLang = detectLang();

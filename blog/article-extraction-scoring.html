@@ -139,10 +139,45 @@ function propagate(p, score, scores) {
         back: 'Back to Blog',
         toc: 'Contents',
         related: 'Related Articles'
+      },
+      zh: {
+        title: '给段落打分，找出页面里的正文（2026）',
+        back: '返回博客',
+        toc: '目录',
+        related: '相关文章'
+      },
+      ja: {
+        title: '段落スコアリングでページ内の本文を見つける（2026）',
+        back: 'ブログに戻る',
+        toc: '目次',
+        related: '関連記事'
+      },
+      de: {
+        title: 'Absätze bewerten, um den Artikel einer Seite zu finden (2026)',
+        back: 'Zum Blog',
+        toc: 'Inhalt',
+        related: 'Verwandte Artikel'
+      },
+      es: {
+        title: 'Puntuar párrafos para encontrar el artículo de una página (2026)',
+        back: 'Volver al Blog',
+        toc: 'Contenido',
+        related: 'Artículos relacionados'
+      },
+      fr: {
+        title: 'Noter les paragraphes pour trouver l’article d’une page (2026)',
+        back: 'Retour au Blog',
+        toc: 'Sommaire',
+        related: 'Articles connexes'
       }
     };
 
+    // Language detection
     function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
       return 'en';
     }
     let currentLang = detectLang();
