@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">The Hard Part of a Reminder System Is Deciding Not to Send</title>
+  <meta name="description" content="CertTrack reminds employers before their workers' credentials expire. No cron, one outbox, and three decisions that matter more than the SMTP call: the dedupe key, the account time zone, quiet hours.">
+  <meta property="og:title" content="The Hard Part of a Reminder System Is Deciding Not to Send">
+  <meta property="og:description" content="A reminder bug that silences renewed certificates, a day boundary that shifts by one forever, and why a quota-exhausted email must stay pending instead of failing.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/reminder-dedupe-key-and-quiet-hours.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/reminder-dedupe-key-and-quiet-hours.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "The Hard Part of a Reminder System Is Deciding Not to Send",
+    "description": "CertTrack reminds employers before their workers' credentials expire. No cron, one outbox, and three decisions that matter more than the SMTP call: the dedupe key, the account time zone, quiet hours.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-11-25",
+    "dateModified": "2026-11-25",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/reminder-dedupe-key-and-quiet-hours.html"
+    },
+    "url": "https://annmax1983.github.io/blog/reminder-dedupe-key-and-quiet-hours.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">The Hard Part of a Reminder System Is Deciding Not to Send</h1>
+    <div class="meta" id="articleMeta"><span><a href="../#about" style="color:inherit;border-bottom:1px dotted currentColor;text-decoration:none;">AnnMax</a> · November 25, 2026</span><span class="reading-time">7 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="outbox">The Decision Is the Product</h2>
+<p>CertTrack is the .NET + Vue product line in my <code>cert-track</code> repo. The "cert" is a worker's qualification credential — a forklift licence, a confined-space card — not a TLS certificate. When one is about to expire, the employer gets an email. It is one of three mutually exclusive product lines, and the storefront in front of it is six languages of plain static HTML whose trial button is a <code>mailto:</code> link that deliberately refuses to collect an address. A reminder product that will not take your email — an easy constraint to respect.</p>
+<p>There is no cron. One <code>BackgroundService</code> runs three independent 30-minute loops — expiry scan, email dispatch, payment reconciliation — and the split between the first two is the design: the scan loop answers <em>should this be sent, and when</em> and writes a row into <code>ntf_email_outbox</code>; the dispatch loop answers <em>how</em> and knows no business rules. Outbox, here, exists to keep the "should I" code away from the "send it" code. The mail goes out through the Resend HTTP API from <code>remind@annmax1983.com</code>, built by templates that are plain constants — one method per letter, every user-supplied value HTML-escaped.</p>
+<p>One note before the code: this repo's comments are Chinese. Where I quote a comment below, I have translated it.</p>
+
+<h2 id="dedupe-key">The Dedupe Key Has to Contain the Expiry Date</h2>
+<p>The scan runs every 30 minutes and re-derives the same reminders each time, so something has to remember what already went out. That was a key of <code>daysBefore|toEmail</code> — tier and recipient, nothing else — checked against <code>ntf_reminder_log</code>, a table that is never purged. The key is now this:</p>
+<pre><code>// The key carries dueAt: once a renewal changes the expiry date, the new
+// date must not be permanently suppressed by the old tier record.
+var sentKeys = await _logRepo.GetSentKeys(accountId, bizType, bizId, new List&lt;int&gt; { days });
+if (sentKeys.Contains($"{dueAt:s}|{days}|{toEmail}")) return;
+
+await _outboxRepo.AddIgnoreDuplicate(new NtfEmailOutboxDbModel { ... });</code></pre>
+<p>That line is the fix. Before it, a certificate reminded at "30 days" wrote <code>30|supervisor@site.com</code> into the log forever. The worker renewed, the credential got a fresh expiry a year out, and that next cycle needed the same key — already marked sent. Every later reminder for that item was silenced permanently. For a compliance tool that is the worst possible failure: the record you go quiet on belongs to someone actively managing their certifications.</p>
+<p>A field in a string is exactly what a later refactor drops, so it is pinned by a regression test that runs against a real database, asserting three things. Re-scanning the same due date must produce the same key set, so dedupe still works. A renewed due date must <em>not</em> appear among the sent keys, so reminders resume. And the unique index must tolerate two log rows for one business item with different <code>DueAt</code> values — miss that and the code is correct while the insert silently fails, which is why the test's own failure message tells you to migrate <code>uk_ntf_reminder_log_dedup</code> to include <code>DueAt</code>. The outbox has its own unique key over the same columns, so the insert is <code>AddIgnoreDuplicate</code>: a collision means it is already queued, not that something broke.</p>
+
+<h2 id="calendar-day">"30 Days Before" Is a Calendar Day in the Account's Time Zone</h2>
+<pre><code>private static bool IsDue(DateTime expiryUtc, int days, DateTime nowUtc, TimeZoneInfo tz)
+{
+  var expiryLocalDate = TimeZoneInfo.ConvertTimeFromUtc(expiryUtc, tz).Date;
+  var todayLocal = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, tz).Date;
+  return (expiryLocalDate - todayLocal).Days == days;
+}</code></pre>
+<p>Both sides are projected into the account's time zone and truncated to a date before subtracting. Expiry dates are stored as UTC instants, but a credential that dies "on the 14th" is a wall-clock fact in the country where the worker works. A UTC day boundary would put "30 days before" a day early for a customer in California and a day late for one in Shanghai — and since the comparison is equality against a tier, off-by-one is not rounding, it is a missed tier.</p>
+<p>The time zone is the browser's IANA name, sniffed from <code>Intl.DateTimeFormat().resolvedOptions().timeZone</code> at registration; the settings page offers no manual dropdown. The resolver that turns that name into a <code>TimeZoneInfo</code> states the real risk in its header comment: on Linux the name hits directly, but on Windows a naive lookup degrades to UTC, and then both the day boundary and quiet hours are computed in the wrong zone — a silent error that is simply one day wrong, every day, forever. Nothing throws. So resolution goes direct hit, then the built-in IANA-to-Windows conversion, then a short hardcoded table, then UTC; and the tests assert real offsets for zones like <code>Asia/Kolkata</code> and <code>Europe/Madrid</code> that are deliberately absent from that legacy table.</p>
+
+<h2 id="quiet-hours">Quiet Hours and the Gap Where an Hour Is Missing</h2>
+<p>Because the scan owns timing, quiet hours cost one extra line there: during local 00:00–07:00 the row is still queued immediately, but its <code>SendAt</code> is set to 07:00 local. The reasoning in the quiet-hours helper is that a reminder already has a 30, 14 or 7 day lead, so a few hours' delay costs nothing, while a phone lighting up at three in the morning is harassment. Weekends are not quiet — customers read mail outside working days too.</p>
+<pre><code>// Convert with the offset of that local instant, not ConvertTimeToUtc:
+// the latter throws for instants that do not exist inside a DST gap.
+var offset = tz.GetUtcOffset(localSendAt);
+return DateTime.SpecifyKind(localSendAt - offset, DateTimeKind.Utc);</code></pre>
+<p>The comment goes further than the rule it justifies. A "07:00 local" that does not exist on a spring-forward Sunday would make <code>ConvertTimeToUtc</code> throw, and an exception inside the scan loop means no reminders for anyone in that account. So the offset is read from the local value instead. The comment then admits this could be an hour off in principle, and argues it cannot bite: DST jumps cluster around 00:00–03:00, never 07:00, and an hour of error on a 30-day lead is invisible. That is a tolerance stated out loud rather than luck. The tests check New York in September and in January, Sydney because the southern hemisphere jumps the other way, and the boundary itself: 06:59 defers, 07:00 sharp sends.</p>
+
+<h2 id="statuses">The Failed Rows and the Ones That Must Stay Pending</h2>
+<p>Outbox rows carry <code>pending</code> / <code>sent</code> / <code>failed</code>, retried up to 5 times, 100 per batch. Certificate rows carry <code>valid</code> / <code>expiring_soon</code> / <code>expired</code> / <code>renewing</code>, and a small helper in the scan derives the first three from the expiry date. The status worth arguing about is the one that is not there. When an account's monthly alert-email quota runs out, the dispatch loop deliberately does not mark the row failed — it leaves it <code>pending</code> and writes only a reason. Running out of quota is not a delivery failure; it is a delivery that happens next billing cycle.</p>
+<p>The outbox model's own header comment explains why failing it would be a trap:</p>
+<pre><code>/// The dedupe key does not include Status, so a 'failed' row blocks the same
+/// key from being re-queued — which is what stops a dead letter retrying forever.
+/// To resend one deliberately: set Status back to 'pending', RetryCount to 0.</code></pre>
+<p>So a <code>failed</code> row is a deliberate dead letter, and reviving it is a manual database edit. That trade-off lives in a model comment rather than a closed ticket, which is the only reason I will remember it in a year.</p>
+<p>The same instinct runs through the parts of the stack that only move bytes. The Cloudflare Worker proxying the browser to the backend gives up on the upstream at 14 seconds while the client waits 15, because answering a request nobody is waiting for invites a retry — and those POSTs are not idempotent. The 6MB attachment cap is pinned inside the SigV4 signature, so object storage enforces it rather than the upload form. And <code>wrangler.toml</code> declares no <code>[vars]</code> at all, everything a secret, because when a name exists in both places the precedence is unspecified — and the variable that used to sit there was <code>MOCK_MODE</code>, which mints a valid JWT for any password.</p>
+<p>Composing an email and calling an API is thirty lines. The part that deserves tests is the part that decides not to.</p>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./checkout-selector-drift.html">Selector Drift Across 24 Checkout Flows: Building an Adapter Layer That Checks Itself</a></li>
+  <li><a href="./license-validation-failure-modes.html">Six Ways License Validation Fails Silently in Browser Extensions</a></li>
+  <li><a href="./zero-dependency-static-generator-for-desktop-tools.html">Sixty-Six Static Pages Built With Nothing but Node</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'The Hard Part of a Reminder System Is Deciding Not to Send',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '提醒系统最难的不是发信，而是决定不发',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'リマインダーシステムで難しいのは「送らない」と決めること',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Das Schwierige an einem Erinnerungssystem ist das Nicht-Senden',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Lo difícil de un sistema de recordatorios es decidir no enviar',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Le plus dur dans un système de rappels est de décider de ne pas envoyer',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    // Language detection
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      // Update TOC title
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    // Build TOC
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      // Scroll spy
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    // Copy button for code blocks
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://api.annmax.ccwu.cc"></script>
+</body>
+</html>

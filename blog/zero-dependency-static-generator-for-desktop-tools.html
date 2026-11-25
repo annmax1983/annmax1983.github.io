@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Sixty-Six Static Pages Built With Nothing but Node</title>
+  <meta name="description" content="How the VKT Toolkit site gets built: a zero-dependency Node script that renders six languages as real HTML files, puts a content fingerprint on every download link, and refuses to write a version number twice.">
+  <meta property="og:title" content="Sixty-Six Static Pages Built With Nothing but Node">
+  <meta property="og:description" content="Template strings instead of a generator: per-language HTML so crawlers see every version, ?v= fingerprints so a CDN can't serve a stale installer, and one PRODUCTS table the pages, the schema and the desktop client all read.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/zero-dependency-static-generator-for-desktop-tools.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/zero-dependency-static-generator-for-desktop-tools.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Sixty-Six Static Pages Built With Nothing but Node",
+    "description": "How the VKT Toolkit site gets built: a zero-dependency Node script that renders six languages as real HTML files, puts a content fingerprint on every download link, and refuses to write a version number twice.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-11-25",
+    "dateModified": "2026-11-25",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/zero-dependency-static-generator-for-desktop-tools.html"
+    },
+    "url": "https://annmax1983.github.io/blog/zero-dependency-static-generator-for-desktop-tools.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Sixty-Six Static Pages Built With Nothing but Node</h1>
+    <div class="meta" id="articleMeta"><span><a href="../#about" style="color:inherit;border-bottom:1px dotted currentColor;text-decoration:none;">AnnMax</a> · November 25, 2026</span><span class="reading-time">10 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="no-framework">A Build Script, Not a Framework</h2>
+<p>The site my Windows tools download from is sixty-six HTML files from one command — sixty pages across the six languages, plus three legal pages that exist only in English and Chinese. Its <code>package.json</code> holds two scripts and zero dependencies: <code>npm run build</code> is literally <code>node src/build.mjs</code>, and <code>deploy</code> hands <code>dist/</code> to <code>wrangler pages deploy</code> on Cloudflare Pages. Delete <code>node_modules</code> and it still builds.</p>
+<p>I tried the usual generators first, and each cost more time than the site did — a config format to memorise and a template language layered over HTML. A static site only needs a function that takes a language and a page and returns a string, so that is what I wrote: <code>src/html.mjs</code> builds the shell, each file in <code>src/pages/*.mjs</code> returns a body as a template literal, and one nested loop writes everything.</p>
+<pre><code>for (const lang of LANGS) {
+  const t = texts[lang.code];
+
+  for (const page of pages) {
+    const html = layout({ ... });
+    writeFile(path.join(lang.prefix, page.file), html);
+    written++;</code></pre>
+<p>Ten page kinds across six languages is sixty files; the legal pages exist only in English and Simplified Chinese, adding six more. The build prints the per-language count so a missing language shows in the log, then warns if a product's stated size differs from the installer on disk by more than 0.6 MB — a page that lies about the file it serves is a support ticket.</p>
+
+<h2 id="per-language-files">Every Language Is a Real File</h2>
+<p>The comment at the top of the build script is the reason it exists: six language versions need to be crawlable, and swapping text at runtime means search engines only ever see the English one. There is no client-side i18n here — <code>/ja/keyguard</code> is a file that contains Japanese.</p>
+<p>The language table is one array: English hangs off the root path, <code>zh</code>, <code>ja</code>, <code>ko</code>, <code>de</code> and <code>fr</code> get a prefix. There is no Spanish here even though my extension pages ship it — Korean is there because that traffic exists. Adding or dropping a language is one line, and every page, redirect and hreflang set follows it.</p>
+<p>Copy lives in six JSON files of just over a thousand lines each, and a missing key must never render <code>undefined</code>, so English is deep-merged under every locale:</p>
+<pre><code>function withFallback(base, over) {
+  if (over === undefined) return base;
+  if (base === null || typeof base !== 'object' || Array.isArray(base)) return over;
+  const out = { ...base };
+  for (const k of Object.keys(over)) out[k] = withFallback(base[k], over[k]);
+  return out;
+}</code></pre>
+<p>The only runtime language logic is a one-time redirect, fenced to the root path: someone who lands on <code>/de/catalog</code> from a search result already picked German. <code>localStorage</code> only remembers a manual switch so the guess never overrides a decision.</p>
+<pre><code>if (location.pathname !== '/') return;
+if (localStorage.getItem('vkt-lang')) return;
+var nav = (navigator.languages &amp;&amp; navigator.languages[0]) || navigator.language || 'en';</code></pre>
+<p>hreflang alternates list only the languages that genuinely have that page, plus <code>x-default</code> at English; a declaration resolving to a 404 is worse than none. The sitemap has no <code>xhtml:link</code> at all, which took an afternoon to diagnose: once it carries the <code>xmlns:xhtml</code> namespace and <code>xhtml:link</code> children, Chrome drops its XML viewer and renders the file as flat text — tags discarded, bare URLs, looking exactly like a broken build. The per-page <code>alternate</code> links carry the language graph instead, and <code>_headers</code> forces <code>text/xml</code> on <code>/sitemap.xml</code>, since Pages would send <code>application/xml</code> and do the same.</p>
+
+<h2 id="download-fingerprint">The Download URL Follows the Bytes</h2>
+<p>No version number is typed anywhere in the site. At build time each product's version is regex'd out of its C# project file:</p>
+<pre><code>function readVersion(relPath) {
+  const file = path.resolve(siteRoot, relPath);
+  if (!fs.existsSync(file)) return '0.0.0';
+  const m = fs.readFileSync(file, 'utf8').match(/&lt;Version&gt;([^&lt;]+)&lt;\/Version&gt;/);
+  return m ? m[1].trim() : '0.0.0';
+}</code></pre>
+<p>The installer's SHA-256 isn't computed here either: the packaging script writes a <code>.exe.sha256</code> sidecar beside the artifact and the build reads the 64 hex digits out of it. That hash becomes a query parameter on the download URL, truncated to twelve characters:</p>
+<pre><code>function readAssetTag(sha256) {
+  return sha256 ? `?v=${sha256.slice(0, 12)}` : '';
+}</code></pre>
+<p>Here is the failure that produced it. I shortened a trial from fourteen days to seven and rebuilt without bumping the version, so the artifact overwrote the same filename — and <code>/downloads/*</code> is cached for a day at the edge, so the CDN went on serving the fourteen-day installer until that day aged out. Making the address follow the content ends that: a different build is a different cache key, and I never inflate a version number just to bust a cache. Pages, emails and store listings use a versionless short link, which the build rewrites to today's real file:</p>
+<pre><code>for (const p of products) {
+  const exe = `/downloads/VKT-${p.name}-${p.version}-x64-Setup.exe${p.assetTag}`;
+  redirectLines.push(`/downloads/${p.name}.exe  ${exe}  302`);</code></pre>
+<p>The one-day header applies only to <code>/downloads/VKT-*</code> — the real files. The short link is excluded: cache a 302 for a day and the redirect itself goes stale, which is the same bug with an extra hop.</p>
+<p>Stylesheets had the same failure mode: <code>/css/site.css</code> was a fixed URL cached for hours, so after a style change a visitor got new HTML with the old stylesheet and the page fell apart. It is now emitted as <code>site.&lt;ten hash chars&gt;.css</code> with an immutable year-long header; the unhashed name keeps a ten-minute cache for links already out there.</p>
+<p>The hash appears on the product page in uppercase, beside the <code>Get-FileHash</code> command that verifies it: both that and <code>certutil</code> print uppercase, and asking someone to case-convert 64 characters guarantees nobody checks. The stored value stays lowercase, since <code>updates.json</code> and the <code>?v=</code> parameter consume it.</p>
+
+<h2 id="single-source">One Table of Facts</h2>
+<p><code>src/site.mjs</code> holds one <code>PRODUCTS</code> array, the only place a product exists: slug, executable name, path to its <code>.csproj</code>, approximate size, trial days, price and strikethrough list price. The comment on the pricing block states the point — promo copy only says "launch price", never a number, so a price change is one field and every page, button and schema node moves with it. Trial and offline-grace days sit in two constants, and the Microsoft Store link hangs off the one product listed there, with no locale parameters so whoever opens it gets their own language.</p>
+<p>The same discipline governs JSON-LD, under three rules written above it. Never emit <code>aggregateRating</code>: there are no real ratings, and inventing one to earn star results is spammy structured markup that only has to be caught once to hurt the domain. Never hardcode a price, version or URL, because it drifts from the installer within a release — <code>operatingSystem</code>, <code>softwareVersion</code> and the offer's <code>url</code> are derived at build time. And never keep a second set of FAQ copy "for Google": the schema uses the array the page renders.</p>
+<p><code>updates.json</code> is the same data with another consumer: the client's check-for-updates, the download page and support all read that one file. Its <code>download</code> field is the unversioned short link on purpose, so a client that stored it still works releases later; its cache time is five minutes, because "still reports 0.4.0 the day after a release" is indistinguishable from "the release never happened".</p>
+
+<h2 id="honest-copy">What the Copy Costs</h2>
+<p>Three places where the build's job is to state something unfavourable in six languages rather than hide it.</p>
+<p>The installers aren't code-signed yet, so SmartScreen interrupts the first run; a fixed line under the buy card says what to click — <em>More info</em>, then <em>Run anyway</em>. Activation needs a network connection and no offline codes are issued, which the licence copy states, along with the machine identifier being a hardware-derived hash. When I renamed one product, the internal key stayed put because it prefixes backend plan keys while only the public URL moved; the old paths get 301s at the very top of <code>_redirects</code>, since Cloudflare honours only the first matching rule.</p>
+<p>None of it is clever code: sixty-six files whose facts arrive from one table, one version regex and one hash sidecar — plus a build log that complains when they stop agreeing.</p>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./checkout-selector-drift.html">Selector Drift Across 24 Checkout Flows: Building an Adapter Layer That Checks Itself</a></li>
+  <li><a href="./license-validation-failure-modes.html">Six Ways License Validation Fails Silently in Browser Extensions</a></li>
+  <li><a href="./git-beyond-commit-and-push.html">Git Beyond Commit and Push: Reflog, Bisect &amp; Worktree</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Sixty-Six Static Pages Built With Nothing but Node',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: '不装任何依赖，用纯 Node 生成六十六个静态页',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: '何もインストールせず Node だけで 66 の静的ページを作る',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Sechsundsechzig statische Seiten – gebaut nur mit Node',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Sesenta y seis páginas estáticas construidas solo con Node',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Soixante-six pages statiques construites avec Node seul',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    // Language detection
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      // Update TOC title
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    // Build TOC
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      // Scroll spy
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    // Copy button for code blocks
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://api.annmax.ccwu.cc"></script>
+</body>
+</html>

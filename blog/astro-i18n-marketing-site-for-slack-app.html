@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Why My Slack App's Website Contains No Slack Code</title>
+  <meta name="description" content="vkt-site is the marketing site for a Slack app, and the load-bearing decision was to keep every OAuth, webhook and Block Kit line in the backend repo. What one Astro catch-all route, four locales and zero shipped JavaScript can honestly own.">
+  <meta property="og:title" content="Why My Slack App's Website Contains No Slack Code">
+  <meta property="og:description" content="Eleven pages, four languages, no JS chunk, an install CTA that is just a hyperlink, and a language redirect that refuses to be a 302 — the marketing half of a Slack app.">
+  <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
+  <meta property="og:url" content="https://annmax1983.github.io/blog/astro-i18n-marketing-site-for-slack-app.html">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://annmax1983.github.io/blog/astro-i18n-marketing-site-for-slack-app.html">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/blog.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Why My Slack App's Website Contains No Slack Code",
+    "description": "vkt-site is the marketing site for a Slack app, and the load-bearing decision was to keep every OAuth, webhook and Block Kit line in the backend repo. What one Astro catch-all route, four locales and zero shipped JavaScript can honestly own.",
+    "image": "https://annmax1983.github.io/images/og-cover.jpg",
+    "datePublished": "2026-11-25",
+    "dateModified": "2026-11-25",
+    "author": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "AnnMax",
+      "url": "https://annmax1983.github.io/#about"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://annmax1983.github.io/blog/astro-i18n-marketing-site-for-slack-app.html"
+    },
+    "url": "https://annmax1983.github.io/blog/astro-i18n-marketing-site-for-slack-app.html"
+  }
+  </script>
+</head>
+<body>
+  <nav class="navbar"><div class="nav-inner"><a href="../" class="nav-logo">⚡ AnnMax</a><div class="article-nav"><a href="../">Home</a><a href="../blog.html">Blog</a><a href="../#extensions">Extensions</a><a href="../#pwa">PWA</a></div></div></nav>
+  <div class="article">
+    <a href="../#blog" class="back">← <span id="backText">Back to Blog</span></a>
+    <h1 id="articleTitle">Why My Slack App's Website Contains No Slack Code</h1>
+    <div class="meta" id="articleMeta"><span><a href="../#about" style="color:inherit;border-bottom:1px dotted currentColor;text-decoration:none;">AnnMax</a> · November 25, 2026</span><span class="reading-time">9 min read</span></div>
+    <nav class="toc" id="toc"></nav>
+    <div id="articleContent">
+
+<h2 id="boundary">The Line I Drew Between the App and Its Website</h2>
+<p>Every Slack app eventually needs a website, and the first thing I wrote for <code>vkt-site</code> was a boundary that is now a comment in the build config: this repository is not the Slack app. vktapp.com is a marketing site — Astro 5, pure static output, four devDependencies in total, and no server runtime of any kind. The install flow, the event webhooks, the Block Kit rendering, the request signing and the rate limiting all live in a separate repository behind <code>api.vktapp.com</code>.</p>
+<p>I flag it because "Slack app website" implies an <code>oauth.v2.authorize</code> call somewhere, and mine has none. The <code>astro.config.mjs</code> header comment is blunter than I can be: static output, no adapter, no Worker, no Functions.</p>
+<p>What the site does own is everything a crawler needs to decide the product is real and rankable: eleven pages, four shipping languages, structured data per page per language, and the legal set — privacy, terms, refund, DPA, subprocessors. Publishing is one line: <code>astro build</code> then <code>npx wrangler pages deploy dist --project-name vkt-site</code>, wired up as a single npm script.</p>
+
+<h2 id="one-file">One File, Forty-Four Pages, Zero Shipped JavaScript</h2>
+<p>The entire routing table is a single catch-all page that cross-products the page list — a plain array kept in the site config module — with the enabled locales:</p>
+<pre><code>return ENABLED_LOCALES.flatMap((locale) =&gt; routes.map((route) =&gt; {
+  const prefix = locale.prefix.replace(/^\//, "");
+  const path = [prefix, route.slug].filter(Boolean).join("/");
+  return { params: { path: path || undefined }, props: { locale, key: route.key } };
+}));</code></pre>
+<p>The reason is drift. With one file it is structurally impossible to ship a Chinese <code>/features/</code> and forget the Japanese one — the failure mode of per-page files where languages are added by copy-paste. A new language is one locale entry plus a dictionary; navigation, hreflang, canonicals and the sitemap follow without a second edit.</p>
+<p>The other property worth defending: the build ships no JavaScript. The output directory contains CSS and not a single JS chunk. Two inline scripts survive in the document: roughly twenty lines of scroll-reveal and roughly twenty lines of language bootstrap. Everything else is markup, so a crawler and a human on throttled 3G see the same page.</p>
+
+<h2 id="handoff">The Add to Slack Button Is Just a Hyperlink</h2>
+<p>Every call to action leaves the site, and the target is defined in four lines:</p>
+<pre><code>export const SLACK_INSTALL_URL =
+  env.PUBLIC_SLACK_INSTALL_URL ||
+  nodeEnv.PUBLIC_SLACK_INSTALL_URL ||
+  "https://api.vktapp.com/slack/install";</code></pre>
+<p>That is the whole integration: no scope string assembled here, no state nonce, no token exchange, no signing secret read. The only OAuth URL in the project is an illustrative value in a README environment table — a way to point the link elsewhere, not code that runs.</p>
+<p>The product has Slack surfaces, and the copy describes them without overselling: a Home tab of what needs you today, one-button approvals, and the slash commands <code>/vkt-leave</code> and <code>/vkt-reports</code>. The framing the site commits to is narrower still: Block Kit cannot draw an org chart and a modal cannot hold a forty-field form, so Slack is where you are told and where you tap once, and the browser is where the real work happens.</p>
+<p>The same honesty applies to the security claims. Tenant isolation with a workspace id on every table and as the first argument of every repository method, bot tokens sealed with AES-256-GCM before they reach the database, Slack OIDC for sign-in, and a browser that never holds a Slack token — all true, all in the other repo. A marketing page can assert it but cannot test it, and that asymmetry is the best argument for the split.</p>
+
+<h2 id="locale">Language Is Data, and the Redirect Is a Client Script</h2>
+<p>The interesting decision is what I did not do. Most multilingual sites sniff <code>Accept-Language</code> at the edge and answer with a 302. I went the other way: a page's canonical language is whatever its URL says, and auto-switching is a synchronous inline script in the head.</p>
+<pre><code>var p = location.pathname, s = p.split("/").filter(Boolean)[0] || "", cur = E.indexOf(s) &gt; -1 ? s : D;
+if (cur !== D) return;               // a prefixed URL is the user's own choice
+if (p !== "/" &amp;&amp; p !== "") {
+  var r = document.referrer || "";
+  if (r &amp;&amp; r.indexOf(location.origin) !== 0) return;   // keep the page from search
+}</code></pre>
+<p>Two reasons, both recorded in the repo. Googlebot sends <code>Accept-Language: en-US</code> and nothing else, so a 302 means the crawler never sees the German page. A URL whose body depends on a request header is also textbook doorway-page territory. The script avoids both: the crawler gets the HTML for the URL it requested, the human is moved before first paint, so there is no flash of English to design around.</p>
+<p>The rules are narrow on purpose. Only default-locale URLs are candidates; a prefixed URL never gets hijacked; a visitor who arrived from a search result keeps the version they clicked, because otherwise long-tail English queries bounce straight into Chinese; and a stored preference outranks the browser. Nine cases drive an installed Chrome through exactly those paths; the harness fakes <code>navigator.languages</code> and <code>document.referrer</code>, and a second check script gates key parity across the locale dictionaries. hreflang and <code>x-default</code> come from the same <code>ENABLED_LOCALES</code> list the catch-all route iterates, and the shared base layout emits them, so a half-translated language physically cannot publish an alternate pointing at a 404.</p>
+
+<h2 id="unglamorous">The Half Nobody Writes Up</h2>
+<p>The rest is compliance and bytes. The sitemap is hand-written as a Response rather than generated by the sitemap integration, because a known-good file from a sister site exists, and I matched its framing: UTF-8 BOM, CRLF, only <code>loc</code> / <code>lastmod</code> / <code>priority</code>, no <code>changefreq</code>, and deliberately no hreflang duplicates — the page head already carries the alternates, and two copies only drift apart.</p>
+<pre><code>const BOM = "\uFEFF";
+const NL = "\r\n";</code></pre>
+<p>Neither is required by the spec; both are in the file Google already reads, so the diff has nothing to explain. Hardening is two small files copied verbatim into the build: one that sets a CSP allowing self, inline styles and one analytics origin, and one that carries a single www-to-apex 301.</p>
+<p>Legal text goes the opposite way from instinct. Only English is authoritative. Japanese and German still generate <code>/ja/privacy/</code> and <code>/de/terms/</code> so navigation and hreflang do not point at holes, but the body is the English original under a "the English version governs" note — signing a translated policy takes on interpretation risk, and a machine-translated German notice is more exposed than the English original, not less.</p>
+<p>Pricing copy has to stay literally true in four languages. The seven modules the DPA names — org chart, directory, weekly reports, time off, approvals, people calendar, lifecycle — are free for up to 20 employees, $5 per extra person from the 21st; Service Desk is $8 per agent per month, sold through Creem as merchant of record, refundable within 14 days, with checkout at <code>app.vktapp.com/billing</code>. Numbers drift faster than words.</p>
+<p>Finally, a deploy rule that cost a real debugging round: wrangler reads the ambient git branch, so without <code>--branch main</code> the site publishes to a preview URL while production serves 404s.</p>
+<p>None of this is clever; it is what survives contact with a search engine. The project stays small because of the boundary I drew first: the website describes the product, the backend is the product.</p>
+
+<h2>Related Articles</h2>
+<ul class="related">
+  <li><a href="./checkout-selector-drift.html">Selector Drift Across 24 Checkout Flows: Building an Adapter Layer That Checks Itself</a></li>
+  <li><a href="./least-privilege-review.html">Least Privilege Implementation &amp; Chrome Web Store Review Checklist</a></li>
+  <li><a href="./debugging-like-a-senior-engineer.html">Debugging Like a Senior Engineer: A Method That Works</a></li>
+</ul>
+
+</div>
+  </div>
+  <script>
+    const ARTICLES = {
+      en: {
+        title: 'Why My Slack App\'s Website Contains No Slack Code',
+        back: 'Back to Blog',
+        tocTitle: 'Contents'
+      },
+      zh: {
+        title: 'Slack 应用的官网里，为什么一行 Slack 代码都没有',
+        back: '返回博客',
+        tocTitle: '目录'
+      },
+      ja: {
+        title: 'Slack アプリの公式サイトに、Slack のコードが一行もない理由',
+        back: 'ブログに戻る',
+        tocTitle: '目次'
+      },
+      de: {
+        title: 'Warum die Website meiner Slack-App ohne Slack-Code auskommt',
+        back: 'Zum Blog',
+        tocTitle: 'Inhalt'
+      },
+      es: {
+        title: 'Por qué la web de mi app de Slack no tiene código de Slack',
+        back: 'Volver al Blog',
+        tocTitle: 'Contenido'
+      },
+      fr: {
+        title: 'Pourquoi le site de mon app Slack ne contient aucun code Slack',
+        back: 'Retour au Blog',
+        tocTitle: 'Sommaire'
+      }
+    };
+
+    // Language detection
+    function detectLang() {
+      const nav = (navigator.language || 'en').toLowerCase();
+      if (nav.startsWith('zh')) return 'zh';
+      if (nav.startsWith('ja')) return 'ja';
+      for (const l of ['de','es','fr']) { if (nav.startsWith(l)) return l; }
+      return 'en';
+    }
+    let currentLang = detectLang();
+
+    function applyLang(lang) {
+      if (!ARTICLES[lang]) lang = 'en';
+      currentLang = lang;
+      const a = ARTICLES[lang];
+      document.getElementById('articleTitle').textContent = a.title;
+      document.getElementById('pageTitle').textContent = a.title + ' — AnnMax';
+      document.getElementById('backText').textContent = a.back;
+      // Update TOC title
+      const tocTitle = document.querySelector('.toc-title');
+      if (tocTitle) tocTitle.textContent = a.tocTitle;
+    }
+
+    // Build TOC
+    function buildTOC() {
+      const toc = document.getElementById('toc');
+      const headings = document.querySelectorAll('#articleContent h2[id]');
+      if (!headings.length) return;
+      const a = ARTICLES[currentLang] || ARTICLES.en;
+      toc.innerHTML = `<div class="toc-title">${a.tocTitle}</div>`;
+      headings.forEach(h => {
+        const link = document.createElement('a');
+        link.href = '#' + h.id;
+        link.textContent = h.textContent;
+        link.dataset.target = h.id;
+        toc.appendChild(link);
+      });
+      // Scroll spy
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            toc.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+            const link = toc.querySelector(`a[data-target="${e.target.id}"]`);
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+      headings.forEach(h => observer.observe(h));
+    }
+
+    // Copy button for code blocks
+    function addCopyButtons() {
+      document.querySelectorAll('#articleContent pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code');
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+        pre.appendChild(btn);
+      });
+    }
+
+    applyLang(currentLang);
+    buildTOC();
+    addCopyButtons();
+  </script>
+<script defer src="https://annmax.ccwu.cc/lai.js" data-site="415b7562" data-api="https://api.annmax.ccwu.cc"></script>
+</body>
+</html>
