@@ -6,7 +6,7 @@
   <title id="pageTitle">browsingData Ignores Your Origin List for Four of Nine Data Types — AnnMax</title>
   <meta name="description" content="chrome.browsingData.remove accepts an origins array and quietly applies it to only some data types. Downloads, form data, passwords and history ignore it entirely. How the trap works, how VKT CleanMate routes around it, and the honest destructive-operation UI built on top of it.">
   <meta property="og:title" content="browsingData Ignores Your Origin List for Four of Nine Data Types">
-  <meta property="og:description" content="Nine data types, four of which delete the whole profile regardless of the origins you pass. The trap, the execution plan, and the honest destructive-operation UI around it.">
+  <meta property="og:description" content="Eight switches, three of which the browser clears profile-wide no matter what origins you pass. The trap, the execution plan, and the honest destructive-operation UI around it.">
   <meta property="og:image" content="https://annmax1983.github.io/images/og-cover.jpg">
   <meta property="og:url" content="https://annmax1983.github.io/blog/browsingdata-origin-scoping.html">
   <meta property="og:type" content="article">
@@ -23,7 +23,7 @@
     "description": "chrome.browsingData.remove accepts an origins array and quietly applies it to only some data types. Downloads, form data, passwords and history ignore it entirely. How I found it, how VKT CleanMate routes around it, and how the UI tells the truth about it.",
     "image": "https://annmax1983.github.io/images/og-cover.jpg",
     "datePublished": "2026-11-01",
-    "dateModified": "2026-11-01",
+    "dateModified": "2026-11-27",
     "author": {
       "@type": "Person",
       "name": "AnnMax",
@@ -57,6 +57,7 @@
 <p>The concrete case, from early CleanMate testing: I was in targeted mode with exactly one domain on the clean list, all nine data type switches on, retention 7 days. I expected one site's footprint to vanish. What actually vanished: <strong>every download entry in the profile, every saved form autofill, every saved password</strong>. Cache and cookies behaved per-site, as advertised. The other three types looked at my carefully scoped origin list, shrugged, and cleared the whole profile. No exception, no warning, no partial-failure flag in the callback. Just a smaller profile than I left.</p>
 <p>Saved passwords. That is the kind of bug that ends your reputation as a "cleaner" tool. And the API surface makes it easy to hit, because nothing about the call signature distinguishes the two groups.</p>
 
+<p><strong>Update, November 25, 2026:</strong> VKT CleanMate 1.1.0 ships eight switches instead of nine — current Chrome no longer honours an extension's request to remove saved passwords, so that type is gone rather than hidden. Everything below still holds: the same four stores ignore an origin list, and <code>WHOLE_ONLY_TYPES</code> keeps <code>passwords</code> for the builds that do honour it.</p>
 <h2 id="where-the-docs-hide-it">Where the Docs Hide It</h2>
 <p>The behavior is not exactly secret, but it is distributed. The <a href="https://developer.chrome.google.cn/docs/extensions/reference/api/browsingData" target="_blank">browsingData reference</a> documents <code>origins</code> as a field on <code>RemovalOptions</code> — one field for all the boolean type flags — and the per-type notes are where you can piece together which stores are actually origin-keyed. There is no red box saying "these four types will ignore the list you are holding". You assemble the truth by reading type by type, or, like me, by watching downloads disappear on a one-site test.</p>
 <p>The honest summary, which is what ended up encoded in the extension:</p>

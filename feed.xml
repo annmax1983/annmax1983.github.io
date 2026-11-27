@@ -9,7 +9,7 @@
     <name>AnnMax</name>
     <email>support@annmax1983.com</email>
   </author>
-  <updated>2026-11-25T00:00:00Z</updated>
+  <updated>2026-11-27T00:00:00Z</updated>
 
   <entry>
     <title>The Hard Part of a Reminder System Is Deciding Not to Send</title>
@@ -110,7 +110,7 @@
     <title>browsingData Ignores Your Origin List for Four of Nine Data Types</title>
     <link href="https://annmax1983.github.io/blog/browsingdata-origin-scoping.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/browsingdata-origin-scoping.html</id>
-    <updated>2026-11-01T00:00:00Z</updated>
+    <updated>2026-11-27T00:00:00Z</updated>
     <summary>chrome.browsingData.remove quietly applies origins to only some data types. Downloads, form data, passwords and history ignore it entirely — how VKT CleanMate routes around it.</summary>
     <category term="Chrome Extensions"/>
     <category term="MV3"/>
@@ -432,9 +432,9 @@
     <title>Unwrapping Redirect URLs Without Fetching Them (2026)</title>
     <link href="https://annmax1983.github.io/blog/unwrap-redirects-without-fetching.html" rel="alternate" type="text/html"/>
     <id>https://annmax1983.github.io/blog/unwrap-redirects-without-fetching.html</id>
-    <updated>2026-11-19T00:00:00Z</updated>
-    <summary>Why a privacy-first link cleaner must never fetch a redirect to resolve it — and how LinkClean unwraps Google, Facebook, Outlook Safe Links and AMP URLs by local, hop-limited parsing with zero network requests.</summary>
-    <category term="LinkClean"/>
+    <updated>2026-11-27T00:00:00Z</updated>
+    <summary>Why a privacy-first link cleaner must never fetch a redirect to resolve it — and how VKT LinkClean unwraps Google, Facebook, Outlook Safe Links and AMP URLs by local, hop-limited parsing with zero network requests.</summary>
+    <category term="VKT LinkClean"/>
     <category term="Privacy"/>
     <category term="Browser Extensions"/>
   </entry>
